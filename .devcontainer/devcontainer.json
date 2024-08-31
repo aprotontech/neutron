@@ -1,0 +1,13 @@
+{
+    "name": "neutron",
+    "image" : "ubuntu:22.04",
+    "postCreateCommand": "bash .devcontainer/install.sh",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "ms-vscode.makefile-tools"
+            ]
+        }
+    }
+}
