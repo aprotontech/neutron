@@ -1,13 +1,20 @@
 {
     "name": "neutron",
-    "image" : "ubuntu:22.04",
-    "postCreateCommand": "bash .devcontainer/install.sh",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "."
+    },
+    "postCreateCommand": "echo xyz",
     "customizations": {
         "vscode": {
             "extensions": [
                 "golang.go",
-                "ms-vscode.makefile-tools"
+                "ms-vscode.makefile-tools",
+                "aleksandra.go-group-imports"
             ]
         }
-    }
+    },
+    "privileged": true,
+    "capAdd": ["SYS_ADMIN"],
+    "runArgs": [ "--security-opt", "apparmor:unconfined" ]
 }

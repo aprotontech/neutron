@@ -6,6 +6,6 @@ type Block struct {
 
 type FileContentSlice struct {
 	blockID string
-	offset int64
-	length int64
+	offset  int64
+	length  int64
 }

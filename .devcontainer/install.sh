@@ -2,7 +2,7 @@ set -ex
 
 apt update 
 
-apt install -y git vim wget make
+apt install -y git vim wget make fuse3
 
 ROOT=$(cd $(dirname $0);pwd)
 
@@ -18,3 +18,5 @@ GO_HOME=$(/usr/local/go/bin/go env GOPATH)
 echo 'export PATH=$PATH:/usr/local/go/bin:'$GO_HOME >>/root/.bashrc
 
 /usr/local/go/bin/go env -w GOPROXY=https://goproxy.cn,direct
+
+git config --global --add safe.directory /workspaces/neutron

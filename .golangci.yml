@@ -1,0 +1,28 @@
+linters-settings:
+  lll:
+    line-length: 120
+    tab-width: 4
+    ignore-generated: true
+  
+  errcheck:
+    exclude-functions:
+      - PrintToConsole
+
+linters:
+  enable:
+    - lll
+    - goimports
+    - govet
+    - staticcheck
+    - errcheck
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+    - testdata
+    - generated
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

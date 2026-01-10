@@ -1,0 +1,19 @@
+home: ./.var
+
+fuse:
+  mountPoint: /mnt/neutron
+
+storage:
+- name: baidu
+  backend: baidu_disk
+  config:
+    AppID: 30006645
+    AppKey: fGyP9aYekkkvtwmzXNIuQUEFqNGg9z7A
+    SecretKey: i6q0b6cRQW286sbvz3zh2l6bzLGz31ft
+    SignKey: 9WhKX2I-aSn4llU*Q-3+aQdFFkgh*SJ!
+    PrefixPath: neutron
+    RedirectUri: http://localhost:11808/baidu_pan
+
+web:
+  port: 11808
+  html: ./var
