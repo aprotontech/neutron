@@ -1,0 +1,70 @@
+<html>
+
+<body>
+  <div id="remoteVideos"></div>
+  <br />
+  <div><button type="button" class="btn" onclick="sendOffer()">browser offer</button></div>
+  <br />
+  <div><button type="button" class="btn" onclick="requestOffer()">pion offer</button></div>
+</body>
+
+<script>
+  function sendOffer() {
+    pc.createOffer().then(offer => {
+      pc.setLocalDescription(offer)
+      socket.send(JSON.stringify(offer))
+    })
+  }
+  function requestOffer() {
+    socket.send(JSON.stringify({ "request": "offer" }))
+  }
+
+  const socket = new WebSocket(`ws://${window.location.host}/websocket`)
+  let pc = new RTCPeerConnection({
+    iceServers: [
+      {
+        urls: 'stun:stun.l.google.com:19302'
+      }
+    ]
+  })
+
+  socket.onmessage = e => {
+    console.log(e.data)
+    let msg = JSON.parse(e.data)
+    if (!msg) {
+      return console.log('failed to parse msg')
+    }
+
+    if (msg.candidate) {
+      pc.addIceCandidate(msg)
+    } else if (msg.type) {
+      pc.setRemoteDescription(msg)
+      if (msg.type === "offer") {
+        pc.createAnswer().then(answer => {
+          pc.setLocalDescription(answer)
+          socket.send(JSON.stringify(answer))
+        })
+      }
+    }
+  }
+
+  pc.onicecandidate = e => {
+    if (e.candidate && e.candidate.candidate !== "") {
+      socket.send(JSON.stringify(e.candidate))
+    }
+  }
+
+  pc.ontrack = function (event) {
+    var el = document.createElement(event.track.kind)
+    el.srcObject = event.streams[0]
+    el.autoplay = true
+    el.controls = true
+
+    document.getElementById('remoteVideos').appendChild(el)
+  }
+
+  pc.addTransceiver('video', { 'direction': 'recvonly' })
+
+</script>
+
+</html>

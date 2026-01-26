@@ -15,5 +15,6 @@ storage:
     RedirectUri: http://localhost:11808/baidu_pan
 
 web:
-  port: 11808
-  html: ./var
+  port: 8080
+  html: ./static
+  prefix: /

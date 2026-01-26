@@ -9,6 +9,7 @@ import (
 
 type WebServerConfig struct {
 	Port         int    `yaml:"port"`
+	Prefix       string `yaml:"prefix"`
 	StaticFolder string `yaml:"html"`
 }
 
@@ -21,7 +22,7 @@ func StartWebServer(config *WebServerConfig, handles map[string]Handle) error {
 	}
 
 	fs := http.FileServer(http.Dir(config.StaticFolder))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.Handle(config.Prefix, http.StripPrefix("/static/", fs))
 
 	log.Infof("Server starting on :%d", config.Port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", config.Port), mux)

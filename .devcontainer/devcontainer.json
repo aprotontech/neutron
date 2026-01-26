@@ -14,6 +14,9 @@
             ]
         }
     },
+    "mounts": [
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
+    ],
     "privileged": true,
     "capAdd": ["SYS_ADMIN"],
     "runArgs": [ "--security-opt", "apparmor:unconfined" ]
