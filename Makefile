@@ -12,7 +12,7 @@ neutron:
 	@cp ./etc/config.yaml ./build/etc/
 
 local-test: neutron
-	@cd ./build && ./bin/neutron server test --config ../etc/config.yaml
+	@cd ./build && ./bin/neutron server test
 
 
 remote: neutron

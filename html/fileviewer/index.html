@@ -263,8 +263,13 @@
 
         .media-viewer-content img,
         .media-viewer-content video {
+            display: block;
+            width: auto;
+            height: auto;
             max-width: 100%;
             max-height: 100%;
+            object-fit: contain;
+            background: transparent;
             border-radius: 8px;
         }
 
@@ -340,6 +345,59 @@
             padding: 15px;
             border-radius: 4px;
             margin-bottom: 20px;
+        }
+        /* Responsive adjustments for tablet and mobile */
+        @media (max-width: 768px) {
+            .header { padding: 12px; }
+            .header h1 { font-size: 18px; }
+            .toolbar { padding: 10px; gap: 10px; }
+            .content { padding: 12px; }
+
+            .file-list-header {
+                grid-template-columns: 40px 1fr 100px;
+                font-size: 13px;
+            }
+
+            .file-list-item {
+                grid-template-columns: 40px 1fr 80px;
+                padding: 10px;
+            }
+
+            .file-size, .file-modified { font-size: 12px; }
+
+            .thumbnail-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+            .thumbnail-preview { height: 110px; }
+
+            .media-viewer-close { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 28px; }
+            .media-viewer-content { max-width: 100%; max-height: calc(100% - 80px); padding: 8px; }
+            .media-viewer-nav { bottom: 12px; font-size: 13px; }
+        }
+
+        /* Small screens: simplify list layout into stacked items for readability */
+        @media (max-width: 480px) {
+            .header { padding: 10px; }
+            .header h1 { font-size: 16px; }
+            .toolbar { padding: 8px; }
+            .content { padding: 8px; }
+
+            .file-list-header { display: none; }
+
+            .file-list-item {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+                padding: 10px;
+            }
+
+            .file-list-item .file-name { font-size: 14px; }
+            .file-list-item .file-size, .file-list-item .file-modified { font-size: 12px; color: #777; }
+            .file-list-item > .file-size, .file-list-item > .file-modified { text-align: left; }                                     
+            .thumbnail-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+            .thumbnail-preview { height: 100px; }
+
+            .media-viewer-close { top: 8px; right: 8px; width: 34px; height: 34px; font-size: 24px; }
+            .media-viewer-content { max-width: 100%; max-height: calc(100% - 64px); }
         }
     </style>
 </head>
@@ -455,31 +513,31 @@
                 <div class="empty-icon">📭</div>
                 <div>文件夹为空</div>
             </div>
-        </div>
-    </div>
+            </div>
 
-    <!-- Media Viewer -->
-    <div id="media-viewer" class="media-viewer">
-        <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
-        <div class="media-viewer-content">
-            <img 
-                v-if="isViewingImage" 
-                :src="currentMediaUrl"
-                :alt="currentMediaFile.name"
-            >
-            <video 
-                v-else-if="isViewingVideo" 
-                :src="currentMediaUrl"
-                controls
-                autoplay
-            ></video>
+            <!-- Media Viewer -->
+            <div id="media-viewer" class="media-viewer">
+                <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
+                <div class="media-viewer-content">
+                    <img 
+                        v-if="isViewingImage" 
+                        :src="currentMediaUrl"
+                        :alt="currentMediaFile.name"
+                    >
+                    <video 
+                        v-else-if="isViewingVideo" 
+                        :src="currentMediaUrl"
+                        controls
+                        autoplay
+                    ></video>
+                </div>
+                <div class="media-viewer-nav" v-if="currentMediaFile">
+                    {{ currentMediaFile.name }}
+                </div>
+            </div>
         </div>
-        <div class="media-viewer-nav" v-if="currentMediaFile">
-            {{ currentMediaFile.name }}
-        </div>
-    </div>
 
-    <script src="js/api/file-api.js"></script>
+        <script src="js/api/file-api.js"></script>
     <script src="js/api/webrtc-dc-rpc.js"></script>
     <script src="js/api/webrtc-dc-file.js"></script>
     <script src="js/api/webrtc-client.js"></script>

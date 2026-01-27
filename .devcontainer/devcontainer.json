@@ -19,5 +19,5 @@
     ],
     "privileged": true,
     "capAdd": ["SYS_ADMIN"],
-    "runArgs": [ "--security-opt", "apparmor:unconfined" ]
+    "runArgs": [ "--security-opt", "apparmor:unconfined", "--network=host" ]
 }

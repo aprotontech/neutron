@@ -160,6 +160,7 @@ const app = createApp({
          * Open/navigate to a file or directory
          */
         async openFile(file) {
+            console.log('openFile', file)
             if (file.isDir) {
                 // Navigate to directory
                 const newPath = file.path || (this.currentPath.endsWith('/')
@@ -178,31 +179,96 @@ const app = createApp({
          * Open media viewer for image or video
          */
         async openMediaViewer(file) {
+            console.log('openMediaViewer', file)
             this.currentMediaFile = file;
 
             if (this.isImage(file)) {
+                console.log('Viewing image:', file.name);
                 this.isViewingImage = true;
                 this.isViewingVideo = false;
                 // Use thumbnail as preview, in production would stream via WebRTC
-                this.currentMediaUrl = file.thumbnailData || this.fileAPI.getFileUrl(file.path);
+                this.currentMediaUrl = await this.fileAPI.getFileUrl(file.path);
             } else if (this.isVideo(file)) {
                 this.isViewingImage = false;
                 this.isViewingVideo = true;
                 // Stream video via WebRTC in production
-                this.currentMediaUrl = this.fileAPI.getFileUrl(file.path);
+                this.currentMediaUrl = await this.fileAPI.getFileUrl(file.path);
             }
+            console.log('Image URL:', this.currentMediaUrl);
 
             // Show viewer
             const viewer = document.getElementById('media-viewer');
             if (viewer) {
                 viewer.classList.add('active');
             }
+
+            // Debug: verify image/video actually loads (helps diagnose blob URL issues)
+            if (this.isViewingImage && this.currentMediaUrl) {
+                const img = new Image();
+                img.onload = () => console.log('Media loaded (img):', img.naturalWidth, img.naturalHeight);
+                img.onerror = (e) => console.error('Media failed to load (img):', e);
+                img.src = this.currentMediaUrl;
+            }
+
+            if (this.isViewingVideo && this.currentMediaUrl) {
+                // ensure video element reloads when URL changes
+                setTimeout(() => {
+                    const vid = document.querySelector('#media-viewer video');
+                    if (vid) {
+                        vid.load();
+                        vid.onloadeddata = () => console.log('Media loaded (video)');
+                        vid.onerror = (e) => console.error('Media failed to load (video):', e);
+                    }
+                }, 50);
+            }
+
+            // DOM diagnostics: check which element is present and mark it visibly
+            setTimeout(() => {
+                const imgEl = document.querySelector('#media-viewer img');
+                const vidEl = document.querySelector('#media-viewer video');
+                console.log('DOM elements in viewer:', { img: !!imgEl, video: !!vidEl });
+                if (imgEl) {
+                    imgEl.style.outline = '4px solid lime';
+                    imgEl.style.zIndex = 1002;
+                    console.log('img computed styles:', window.getComputedStyle(imgEl));
+                }
+                if (vidEl) {
+                    vidEl.style.outline = '4px solid orange';
+                    vidEl.style.zIndex = 1002;
+                    console.log('video computed styles:', window.getComputedStyle(vidEl));
+                }
+                // Ensure only the active media element is visible to avoid overlays
+                if (imgEl && this.isViewingImage) {
+                    imgEl.style.display = 'block';
+                    imgEl.style.objectFit = 'contain';
+                    if (vidEl) {
+                        try {
+                            vidEl.pause();
+                            vidEl.removeAttribute('src');
+                            vidEl.src = '';
+                            vidEl.load();
+                        } catch (e) {
+                            console.warn('Failed to clear video element:', e);
+                        }
+                        vidEl.style.display = 'none';
+                    }
+                }
+                if (vidEl && this.isViewingVideo) {
+                    vidEl.style.display = 'block';
+                    vidEl.style.objectFit = 'contain';
+                    if (imgEl) {
+                        imgEl.style.display = 'none';
+                        try { imgEl.removeAttribute('src'); } catch (e) { }
+                    }
+                }
+            }, 100);
         },
 
         /**
          * Close media viewer
          */
         closeMediaViewer() {
+            console.log('closeMediaViewer')
             this.isViewingImage = false;
             this.isViewingVideo = false;
             this.currentMediaFile = null;

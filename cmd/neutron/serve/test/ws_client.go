@@ -133,26 +133,38 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 	})
 
 	peerConnection.OnDataChannel(func(dataChannel *webrtc.DataChannel) {
-		log.Infof("New DataChannel %s %d\n", dataChannel.Label(), dataChannel.ID())
+		log.Infof("New DataChannel %s %d", dataChannel.Label(), dataChannel.ID())
 
 		dataChannel.OnOpen(func() {
-			log.Warnf("Data channel '%s' open\n", dataChannel.Label())
+			log.Infof("Data channel '%s' open", dataChannel.Label())
 			if fpath, ok := s.dcm.dcFileMap[dataChannel.Label()]; ok {
 				data, err := os.ReadFile(fpath)
 				if err != nil {
 					log.Warnf("Read file %s error: %v", fpath, err)
 					dataChannel.Close()
 				} else {
-					if err := dataChannel.Send(data); err != nil {
-						log.Warnf("Send file %s data error: %v", fpath, err)
-						dataChannel.Close()
+					chunkSize := 16 * 1000
+					for len(data) > 0 {
+						sendSize := chunkSize
+						if len(data) < chunkSize {
+							sendSize = len(data)
+						}
+
+						chunk := data[:sendSize]
+						data = data[sendSize:]
+
+						if err := dataChannel.Send(chunk); err != nil {
+							log.Warnf("Send file %s data error: %v", fpath, err)
+							dataChannel.Close()
+						}
 					}
 				}
+				log.Infof("Sent file %s data on data channel %s, size=%d", fpath, dataChannel.Label(), len(data))
 			}
 		})
 
 		dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-			log.Infof("Received: %s\n", string(msg.Data))
+			log.Infof("Received: %s", string(msg.Data))
 
 			if dataChannel.Label() == "rpc" {
 				m := SignalMessage{}
@@ -193,7 +205,7 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 				if err := dataChannel.SendText(string(res)); err != nil {
 					log.Warnf("Send file list message error: %v", err)
 				}
-				log.Infof("send msg done")
+				log.Debugf("send msg done %v", response)
 			}
 		})
 	})

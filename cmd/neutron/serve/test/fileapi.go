@@ -50,7 +50,7 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 		return nil, os.ErrInvalid
 	}
 
-	dcName, ok := req.(map[string]interface{})["dcName"].(string)
+	dcName, ok := req.(map[string]interface{})["label"].(string)
 	if !ok {
 		return nil, os.ErrInvalid
 	}
