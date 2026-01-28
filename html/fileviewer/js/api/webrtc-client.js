@@ -4,8 +4,10 @@
  */
 
 class WebRTCClient extends BaseClient {
-    constructor() {
+    constructor(token) {
         super();
+        // token should be provided by the caller (app); do not access storage here
+        this.token = token || '';
         this.pc = null;
         this.dc = null;
         this.dataChannelQueue = [];
@@ -21,8 +23,12 @@ class WebRTCClient extends BaseClient {
         } else {
             wsaddr = 'ws://' + host + '/ws';
         }
+        wsaddr += '?token=' + encodeURIComponent(this.token);
 
         this.signalingSocket = new WebSocket(wsaddr);
+
+        // Track whether socket ever opened successfully
+        this._socketOpened = false;
         // Initialize WebRTC peer connection
         const config = {
             iceServers: [
@@ -33,6 +39,28 @@ class WebRTCClient extends BaseClient {
         this.pc = new RTCPeerConnection(config);
         // Create RPC-capable data channel helper bound to this peer connection
         this.rpc = new WebRTCDataChannelRPC(this.pc);
+        // Thumbnail data channel helper (receives binary thumbnails)
+        this.thumbnail = new WebRTCDataChannelThumbnail(this.pc);
+
+        // Handle common auth failure cases on socket errors/close
+        this.signalingSocket.onerror = (ev) => {
+            console.error('Signaling socket error', ev);
+            // If socket never opened, likely auth rejection during handshake
+            if (!this._socketOpened) {
+                // Give the server a brief moment to send a close reason, then redirect
+                setTimeout(() => { window.location.href = '/login.html'; }, 200);
+            }
+        };
+
+        this.signalingSocket.onclose = (ev) => {
+            console.warn('Signaling socket closed', ev);
+            // Heuristics: if server indicated 401 in reason or closed before open, redirect
+            const reason = (ev && ev.reason) ? String(ev.reason) : '';
+            if (ev && (ev.code === 401 || reason.indexOf('401') !== -1 || /unauthor/i.test(reason) || !this._socketOpened)) {
+                window.location.href = '/login.html';
+                return;
+            }
+        };
 
         this.init();
     }
@@ -45,6 +73,7 @@ class WebRTCClient extends BaseClient {
 
             this.signalingSocket.onopen = async () => {
                 console.log("Signaling socket connected");
+                this._socketOpened = true;
                 this.signalingSocket.send(JSON.stringify({
                     type: 'regist',
                     source: this.sourceId,
@@ -142,7 +171,7 @@ class WebRTCClient extends BaseClient {
         // Use RPC over data channel to request listing from remote peer
         try {
             const resp = await this.rpc.sendRpc('listFiles', { path: path });
-            console.log(resp)
+            //console.log(resp)
             return resp;
         } catch (err) {
             console.error('listFiles RPC error:', err);
@@ -168,17 +197,25 @@ class WebRTCClient extends BaseClient {
     }
 
     async getFileThumbnail(filePath, maxSize = 200) {
-        // For images, generate a thumbnail data URL
-        if (filePath.endsWith('.jpg') || filePath.endsWith('.png') || filePath.endsWith('.jpeg')) {
-            // In production, request thumbnail from remote peer via WebRTC
-            // For demonstration, return a placeholder
-            return new Blob(['thumbnail'], { type: 'image/jpeg' });
-        }
+        try {
+            // Ask remote peer (via RPC) to prepare/produce a thumbnail.
+            // The server should respond with an id that will be sent over
+            // the thumbnail datachannel as a binary packet (first 16 bytes = id).
+            const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
+            const thumbId = (resp && resp.id) ? resp.id : resp;
+            if (!thumbId) return null;
 
-        return null;
+            // Wait for binary thumbnail data on the thumbnail datachannel
+            const blob = await this.thumbnail.receiveThumbnail(thumbId, 15000);
+            return blob;
+        } catch (err) {
+            console.error('getFileThumbnail error:', err);
+            throw err;
+        }
     }
 
     async getFileUrl(filePath) {
+        console.log('Generating file URL via WebRTC for:', filePath);
         const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
         const label = 'img-' + id;
 
@@ -189,13 +226,13 @@ class WebRTCClient extends BaseClient {
 
             // register a one-time receiver
             // Image transfer helper (handles incoming image channels)
-            filedc = new WebRTCDataChannelFileContent(this.pc);
+            const filedc = new WebRTCDataChannelFileContent(this.pc);
 
             try {
                 // Ask remote peer to prepare and send the image on the given label
-                data = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
-                console.log("Requested file receive via WebRTC:", filePath, data);
-                data = await filedc.receiveFileContent(label, data["size"], 15000, "image/jpeg");
+                const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
+                console.log("Requested file receive via WebRTC:", filePath, resp);
+                var data = await filedc.receiveFileContent(label, resp["size"], 15000, "image/jpeg");
                 console.log("get content", data)
                 resolve(URL.createObjectURL(data));
             } catch (err) {

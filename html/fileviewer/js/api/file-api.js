@@ -4,16 +4,17 @@
  */
 
 class FileAPI {
-    constructor(transport = 'webrtc') {
+    constructor(transport = 'webrtc', token = '') {
         this.transport = transport;
         this.baseURL = '';
+        this.token = token;
         this.initTransport();
     }
 
     initTransport() {
         switch (this.transport) {
             case 'webrtc':
-                this.client = new WebRTCClient();
+                this.client = new WebRTCClient(this.token);
                 break;
             case 'http':
                 this.client = new HttpClient();

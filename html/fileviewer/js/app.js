@@ -33,8 +33,16 @@ const app = createApp({
          */
         async init() {
             try {
-                // Initialize File API with WebRTC transport
-                this.fileAPI = new FileAPI('webrtc');
+                // Ensure auth token exists (stored by login page)
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    // No token -> redirect to login
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // Initialize File API with WebRTC transport and token
+                this.fileAPI = new FileAPI('webrtc', token);
 
                 // Load initial files
                 await this.loadFiles(this.currentPath);
@@ -94,6 +102,36 @@ const app = createApp({
                 } catch (error) {
                     console.error('Failed to load thumbnail:', file.name, error);
                 }
+            }
+
+            // Attempt to fetch real thumbnails concurrently from the backend via FileAPI.
+            // Replace placeholder thumbnails with real ones when available.
+            try {
+                const tasks = imageFiles.map(file => (async () => {
+                    try {
+                        const blob = await this.fileAPI.getFileThumbnail(file.path, 200);
+                        if (blob) {
+                            // Revoke previous object URL if any
+                            if (file._thumbUrl) {
+                                try { URL.revokeObjectURL(file._thumbUrl); } catch (e) { }
+                            }
+                            const url = URL.createObjectURL(blob);
+                            file._thumbUrl = url;
+                            file.thumbnailData = url;
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch remote thumbnail:', file.name, err);
+                    }
+                })());
+
+                // Kick off background fetches and do not block returning from loadThumbnails
+                Promise.allSettled(tasks).then((results) => {
+                    // background completion - no action required, errors already logged per-task
+                }).catch((e) => {
+                    console.error('Background thumbnail fetch error:', e);
+                });
+            } catch (err) {
+                console.error('Error fetching thumbnails concurrently:', err);
             }
         },
 

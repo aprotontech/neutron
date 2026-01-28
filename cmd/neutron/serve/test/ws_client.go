@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"sync"
 
@@ -30,7 +31,9 @@ type Sender struct {
 }
 
 func NewSender(wsURL string) (*Sender, error) {
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{
+		"Authorization": []string{"Bearer file-server-token"},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +48,7 @@ func NewSender(wsURL string) (*Sender, error) {
 		fileAPIS: map[string]FileAPI{
 			"listFiles":          getFileList,
 			"prepareFileReceive": prepareFileReceive,
+			"getThumbnail":       getThumbnail,
 		},
 		dcm: &FileSystemMock{
 			dcFileMap: map[string]string{},
@@ -135,6 +139,10 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 	peerConnection.OnDataChannel(func(dataChannel *webrtc.DataChannel) {
 		log.Infof("New DataChannel %s %d", dataChannel.Label(), dataChannel.ID())
 
+		if dataChannel.Label() == "thumbnail" {
+			s.dcm.thumbnailDC = dataChannel
+		}
+
 		dataChannel.OnOpen(func() {
 			log.Infof("Data channel '%s' open", dataChannel.Label())
 			if fpath, ok := s.dcm.dcFileMap[dataChannel.Label()]; ok {
@@ -207,6 +215,10 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 				}
 				log.Debugf("send msg done %v", response)
 			}
+		})
+
+		dataChannel.OnClose(func() {
+			log.Infof("DataChannel %s closed", dataChannel.Label())
 		})
 	})
 
