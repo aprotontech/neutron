@@ -28,5 +28,6 @@ go.work.sum
 /.devcontainer/*.tar.gz
 .var
 /ui/cache/
+/ui/.cache/
 /ui/node_modules/
 /ui/android/

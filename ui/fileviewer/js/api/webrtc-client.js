@@ -15,7 +15,8 @@ class WebRTCClient extends BaseClient {
         this.sourceId = "xyz"; // Unique identifier for this client
 
 
-        const host = window.location.host;
+        //const host = window.location.host;
+        const host = window.API_HOST
         const protocol = window.location.protocol;
         let wsaddr = '';
         if (protocol === 'https:') {
