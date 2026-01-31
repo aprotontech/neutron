@@ -83,8 +83,20 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 		return nil, os.ErrInvalid
 	}
 
+	size, ok := req.(map[string]interface{})["size"].(int)
+	if !ok {
+		size = 200
+	}
+
+	srcPath := path.Join("/mnt/data/storage/", filePath)
+
+	if _, err := os.Stat(srcPath); err != nil {
+		log.Warnf("File %s not found for thumbnail: %v", filePath, err)
+		return nil, err
+	}
+
 	// Use SHA1 of the original path as the cache filename
-	h := sha1.Sum([]byte(filePath))
+	h := sha1.Sum([]byte(filePath + string(size)))
 	hashStr := hex.EncodeToString(h[:])
 	cacheDir := "/tmp/thumbnails"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
@@ -92,43 +104,45 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}
 	cachePath := path.Join(cacheDir, hashStr+".jpg")
 
-	// If not cached, generate thumbnail using imaging
-	if _, err := os.Stat(cachePath); err != nil {
-		srcPath := path.Join("/mnt/data/storage/", filePath)
-		img, err := imaging.Open(srcPath)
-		if err != nil {
-			return nil, err
-		}
-
-		thumb := imaging.Thumbnail(img, 200, 200, imaging.Lanczos)
-		if err := imaging.Save(thumb, cachePath, imaging.JPEGQuality(85)); err != nil {
-			return nil, err
-		}
-	}
-
-	data, err := os.ReadFile(cachePath)
-	if err != nil {
-		return nil, err
-	}
-
 	// Generate 16-byte ID
 	id := make([]byte, 16)
 	if _, err := rand.Read(id); err != nil {
 		return nil, err
 	}
 
-	// Packet: first 16 bytes = raw id, remainder = thumbnail bytes
-	packet := append(id, data...)
+	go func() {
+		// If not cached, generate thumbnail using imaging
+		if _, err := os.Stat(cachePath); err != nil {
+			img, err := imaging.Open(srcPath)
+			if err != nil {
+				log.Warnf("Open image %s error: %v", srcPath, err)
+			}
 
-	if fsm.thumbnailDC == nil {
-		log.Warnf("thumbnail data channel not available, id=%s", hex.EncodeToString(id))
-	} else {
-		if err := fsm.thumbnailDC.Send(packet); err != nil {
-			log.Warnf("failed to send thumbnail on datachannel: %v", err)
-		} else {
-			log.Infof("sent thumbnail %s on data channel, size=%d", cachePath, len(packet))
+			thumb := imaging.Thumbnail(img, size, size, imaging.Lanczos)
+			if err := imaging.Save(thumb, cachePath, imaging.JPEGQuality(85)); err != nil {
+				log.Warnf("Failed to save thumbnail %s: %v", cachePath, err)
+				return
+			}
 		}
-	}
+
+		data, err := os.ReadFile(cachePath)
+		if err != nil {
+			return
+		}
+
+		// Packet: first 16 bytes = raw id, remainder = thumbnail bytes
+		packet := append(id, data...)
+
+		if fsm.thumbnailDC == nil {
+			log.Warnf("thumbnail data channel not available, id=%s", hex.EncodeToString(id))
+		} else {
+			if err := fsm.thumbnailDC.Send(packet); err != nil {
+				log.Warnf("failed to send thumbnail on datachannel: %v", err)
+			} else {
+				log.Infof("sent thumbnail %s on data channel, size=%d", cachePath, len(packet))
+			}
+		}
+	}()
 
 	return map[string]any{"id": hex.EncodeToString(id)}, nil
 }

@@ -185,8 +185,6 @@ export default class WebRTCClient extends BaseClient {
         }
     }
 
-
-
     async getFileContent(filePath) {
         // Send request via WebRTC data channel
         // This would establish a separate data transfer channel
@@ -212,7 +210,7 @@ export default class WebRTCClient extends BaseClient {
             if (!thumbId) return null;
 
             // Wait for binary thumbnail data on the thumbnail datachannel
-            const blob = await this.thumbnail.receiveThumbnail(thumbId, 15000);
+            const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
             return blob;
         } catch (err) {
             console.error('getFileThumbnail error:', err);

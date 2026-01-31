@@ -13,6 +13,21 @@
           </div>
         </div>
         
+        <!-- 桌面端用户按钮 -->
+        <div class="header-right desktop-only">
+          <div class="user-menu">
+            <button class="user-btn" @click="toggleUserMenu">
+              <span class="user-icon">👤</span>
+            </button>
+            <div class="user-dropdown" :class="{ active: showUserMenu }">
+              <button class="dropdown-item" @click="logout">
+                <span class="dropdown-icon">🚪</span>
+                <span>登出</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <!-- 移动设备专用header -->
         <div class="mobile-header mobile-only">
           <!-- 第一行：标题和用户按钮 -->
@@ -102,11 +117,11 @@
           </div>
 
           <div v-else class="thumbnail-grid">
-            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)">
-              <div class="thumbnail-preview">
-                <img v-if="isImage(file) && file.thumbnailData" :src="file.thumbnailData" :alt="file.name" />
+            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)" ref="thumbnailItems">
+              <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
+                <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
                 <video v-else-if="isVideo(file)" :src="getFileUrl(file)" controls></video>
-                <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div>
+                <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div> 
               </div>
               <div class="thumbnail-info">
                 <div class="thumbnail-name" :title="file.name">{{ file.name }}</div>
@@ -121,7 +136,12 @@
 
       <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo }">
         <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
-        <div class="media-viewer-content">
+        <div class="media-viewer-content" 
+             @touchstart="handleMediaTouchStart" 
+             @touchmove="handleMediaTouchMove" 
+             @touchend="handleMediaTouchEnd"
+             @mousemove="handleMediaMouseMove"
+             @mouseleave="handleMediaMouseLeave">
           <!-- 加载动画 -->
           <div v-if="isMediaLoading" class="media-loading">
             <div class="media-spinner"></div>
@@ -130,15 +150,28 @@
           
           <img v-if="isViewingImage && !isMediaLoading" :src="currentMediaUrl" :alt="currentMediaFile?.name" />
           <video v-else-if="isViewingVideo && !isMediaLoading" :src="currentMediaUrl" controls autoplay></video>
+          
+          <!-- 桌面端导航按钮 -->
+          <button class="nav-btn nav-prev desktop-only" :class="{ 'show-hover': showNavButtons }" @click="prevMedia" v-if="hasPrevMedia">
+            <span class="nav-icon">←</span>
+          </button>
+          <button class="nav-btn nav-next desktop-only" :class="{ 'show-hover': showNavButtons }" @click="nextMedia" v-if="hasNextMedia">
+            <span class="nav-icon">→</span>
+          </button>
         </div>
-        <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">{{ currentMediaFile.name }}</div>
+        <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">
+          <span class="nav-info">{{ currentMediaFile.name }}</span>
+          <span class="nav-counter" v-if="imageFiles.length > 1">
+            {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, defineEmits } from 'vue'
+import { ref, onMounted, defineEmits, watch, onUnmounted, computed } from 'vue'
 import UserAPI from './lib/user-api'
 import FileAPI from './lib/file-api'
 import { FileTypeDetector, FileSizeFormatter, DateFormatter } from './lib/helpers'
@@ -168,6 +201,20 @@ const touchedFile = ref(null)
 const lastTapTime = ref(0)
 const lastTappedFile = ref(null)
 
+// 图片导航相关
+const imageFiles = ref([])
+const currentMediaIndex = ref(-1)
+const showNavButtons = ref(false)
+const mediaTouchStartX = ref(0)
+const mediaTouchEndX = ref(0)
+const mediaTouchStartY = ref(0)
+const mediaTouchEndY = ref(0)
+const mediaMouseMoveTimer = ref(null)
+
+// 缩略图懒加载相关
+const thumbnailObserver = ref(null)
+const thumbnailElements = ref(new Map())
+
 
 function updateBreadcrumb() {
   if (currentPath.value === '/') currentPathArray.value = []
@@ -178,9 +225,18 @@ async function loadFiles(path = '/') {
   loading.value = true
   error.value = ''
   selectedFile.value = null
+  
+  // 清理旧的缩略图对象URL资源
+  cleanupThumbnailUrls()
+  
   try {
     const list = await fileAPI.listFiles(path)
-    files.value = list.sort((a,b) => {
+    // 为每个文件添加thumbUrl属性
+    const processedList = list.map(file => ({
+      ...file,
+      thumbUrl: null // 初始化为null，懒加载时再设置
+    }))
+    files.value = processedList.sort((a,b) => {
       if ((a.isDir?1:0) !== (b.isDir?1:0)) return (b.isDir?1:0) - (a.isDir?1:0)
       return a.name.localeCompare(b.name)
     })
@@ -212,6 +268,13 @@ async function openMediaViewer(file) {
   currentMediaFile.value = file
   isMediaLoading.value = true
   
+  // 更新图片文件列表
+  updateImageFilesList()
+  
+  // 查找当前文件在图片列表中的位置
+  const index = imageFiles.value.findIndex(f => f.path === file.path)
+  currentMediaIndex.value = index
+  
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
@@ -238,12 +301,154 @@ async function openMediaViewer(file) {
   }
 }
 
+// 更新图片文件列表
+function updateImageFilesList() {
+  imageFiles.value = files.value.filter(f => isImage(f))
+}
+
+// 计算是否有前一张/后一张图片
+const hasPrevMedia = computed(() => {
+  return currentMediaIndex.value > 0 && imageFiles.value.length > 1
+})
+
+const hasNextMedia = computed(() => {
+  return currentMediaIndex.value < imageFiles.value.length - 1 && imageFiles.value.length > 1
+})
+
+// 切换到前一张图片
+async function prevMedia() {
+  if (!hasPrevMedia.value) return
+  
+  const prevIndex = currentMediaIndex.value - 1
+  const prevFile = imageFiles.value[prevIndex]
+  
+  if (prevFile) {
+    currentMediaIndex.value = prevIndex
+    await loadMediaFile(prevFile)
+  }
+}
+
+// 切换到后一张图片
+async function nextMedia() {
+  if (!hasNextMedia.value) return
+  
+  const nextIndex = currentMediaIndex.value + 1
+  const nextFile = imageFiles.value[nextIndex]
+  
+  if (nextFile) {
+    currentMediaIndex.value = nextIndex
+    await loadMediaFile(nextFile)
+  }
+}
+
+// 加载媒体文件
+async function loadMediaFile(file) {
+  currentMediaFile.value = file
+  isMediaLoading.value = true
+  
+  if (isImage(file)) {
+    isViewingImage.value = true
+    isViewingVideo.value = false
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    
+    // 图片加载完成后隐藏加载动画
+    const img = new Image()
+    img.onload = () => {
+      isMediaLoading.value = false
+    }
+    img.onerror = () => {
+      isMediaLoading.value = false
+    }
+    img.src = currentMediaUrl.value
+  } else if (isVideo(file)) {
+    isViewingImage.value = false
+    isViewingVideo.value = true
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    isMediaLoading.value = false
+  }
+}
+
+// 触摸滑动导航
+function handleMediaTouchStart(event) {
+  if (!isViewingImage.value || imageFiles.value.length <= 1) return
+  
+  const touch = event.touches[0]
+  mediaTouchStartX.value = touch.clientX
+  mediaTouchStartY.value = touch.clientY
+  mediaTouchEndX.value = touch.clientX
+  mediaTouchEndY.value = touch.clientY
+}
+
+function handleMediaTouchMove(event) {
+  if (!isViewingImage.value || imageFiles.value.length <= 1) return
+  
+  const touch = event.touches[0]
+  mediaTouchEndX.value = touch.clientX
+  mediaTouchEndY.value = touch.clientY
+}
+
+function handleMediaTouchEnd() {
+  if (!isViewingImage.value || imageFiles.value.length <= 1) return
+  
+  const diffX = mediaTouchStartX.value - mediaTouchEndX.value
+  const diffY = mediaTouchStartY.value - mediaTouchEndY.value
+  
+  // 水平滑动距离大于垂直滑动距离，且滑动距离大于50px
+  if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+    if (diffX > 0) {
+      // 向左滑动，显示下一张
+      nextMedia()
+    } else {
+      // 向右滑动，显示上一张
+      prevMedia()
+    }
+  }
+  
+  // 重置触摸位置
+  mediaTouchStartX.value = 0
+  mediaTouchEndX.value = 0
+  mediaTouchStartY.value = 0
+  mediaTouchEndY.value = 0
+}
+
+// 鼠标移动显示/隐藏导航按钮
+function handleMediaMouseMove() {
+  showNavButtons.value = true
+  
+  // 清除之前的定时器
+  if (mediaMouseMoveTimer.value) {
+    clearTimeout(mediaMouseMoveTimer.value)
+  }
+  
+  // 设置定时器，2秒后隐藏按钮
+  mediaMouseMoveTimer.value = setTimeout(() => {
+    showNavButtons.value = false
+  }, 2000)
+}
+
+function handleMediaMouseLeave() {
+  showNavButtons.value = false
+  
+  if (mediaMouseMoveTimer.value) {
+    clearTimeout(mediaMouseMoveTimer.value)
+    mediaMouseMoveTimer.value = null
+  }
+}
+
 function closeMediaViewer() {
   isViewingImage.value = false
   isViewingVideo.value = false
   currentMediaFile.value = null
   currentMediaUrl.value = ''
   isMediaLoading.value = false
+  currentMediaIndex.value = -1
+  imageFiles.value = []
+  
+  // 清理鼠标移动定时器
+  if (mediaMouseMoveTimer.value) {
+    clearTimeout(mediaMouseMoveTimer.value)
+    mediaMouseMoveTimer.value = null
+  }
 }
 
 function goToRoot() { loadFiles('/') }
@@ -356,6 +561,86 @@ function formatSize(b) { return FileSizeFormatter.format(b) }
 function formatDate(d) { return DateFormatter.format(d) }
 function getFileUrl(file) { return fileAPI.getFileUrl(file.path) }
 
+// 缩略图懒加载函数
+async function loadThumbnail(file) {
+  if (!file.thumbUrl && isImage(file)) {
+    try {
+      const blob = await fileAPI.getFileThumbnail(file.path)
+      if (blob) {
+        // 使用URL.createObjectURL创建对象URL
+        const objectUrl = URL.createObjectURL(blob)
+        // 更新文件的thumbUrl属性
+        const fileIndex = files.value.findIndex(f => f.path === file.path)
+        if (fileIndex !== -1) {
+          files.value[fileIndex].thumbUrl = objectUrl
+        }
+      }
+    } catch (error) {
+      console.error('加载缩略图失败:', error)
+    }
+  }
+}
+
+// 初始化Intersection Observer
+function initThumbnailObserver() {
+  if (thumbnailObserver.value) {
+    thumbnailObserver.value.disconnect()
+  }
+  
+  thumbnailObserver.value = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && viewMode.value === 'thumbnail') {
+        const fileId = entry.target.dataset.fileId
+        if (fileId) {
+          const file = files.value.find(f => f.path === fileId)
+          if (file) {
+            loadThumbnail(file)
+          }
+        }
+      }
+    })
+  }, {
+    root: null,
+    rootMargin: '100px', // 提前100px开始加载
+    threshold: 0.1
+  })
+}
+
+// 注册缩略图元素到Observer
+function registerThumbnailElement(element, file) {
+  if (element && file) {
+    element.dataset.fileId = file.path
+    thumbnailElements.value.set(file.path, element)
+    if (thumbnailObserver.value) {
+      thumbnailObserver.value.observe(element)
+    }
+  }
+}
+
+// 清理缩略图对象URL资源
+function cleanupThumbnailUrls() {
+  // 清理所有对象URL
+  files.value.forEach(file => {
+    if (file.thumbUrl && file.thumbUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(file.thumbUrl)
+    }
+  })
+}
+
+// 清理所有缩略图资源（包括Observer）
+function cleanupThumbnails() {
+  cleanupThumbnailUrls()
+  
+  // 清理Observer
+  if (thumbnailObserver.value) {
+    thumbnailObserver.value.disconnect()
+    thumbnailObserver.value = null
+  }
+  
+  // 清理元素映射
+  thumbnailElements.value.clear()
+}
+
 
 function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value
@@ -392,7 +677,18 @@ onMounted(() => {
   }
  
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && (isViewingImage.value || isViewingVideo.value)) closeMediaViewer()
+    if (e.key === 'Escape' && (isViewingImage.value || isViewingVideo.value)) {
+      closeMediaViewer()
+    } else if (isViewingImage.value && imageFiles.value.length > 1) {
+      // 左右箭头键切换图片
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        prevMedia()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        nextMedia()
+      }
+    }
   })
   
   // 点击页面其他地方时关闭用户菜单
@@ -404,7 +700,68 @@ onMounted(() => {
   
   // 监听浏览器前进/后退事件
   window.addEventListener('popstate', handlePopState)
+  
+  // 初始化缩略图Observer
+  initThumbnailObserver()
 })
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  cleanupThumbnails()
+})
+
+// 监听视图模式变化，重新初始化Observer
+watch(viewMode, (newMode) => {
+  if (newMode === 'thumbnail') {
+    // 延迟一点时间确保DOM已更新
+    setTimeout(() => {
+      initThumbnailObserver()
+      // 重新注册所有可见的缩略图元素
+      thumbnailElements.value.forEach((element, filePath) => {
+        const file = files.value.find(f => f.path === filePath)
+        if (file && thumbnailObserver.value) {
+          thumbnailObserver.value.observe(element)
+        }
+      })
+    }, 100)
+  } else {
+    // 列表模式时清理Observer
+    if (thumbnailObserver.value) {
+      thumbnailObserver.value.disconnect()
+    }
+  }
+})
+
+// 监听文件列表变化，清理旧的缩略图资源
+watch(files, (newFiles, oldFiles) => {
+  // 清理旧文件中不再需要的对象URL
+  if (oldFiles && oldFiles.length > 0) {
+    oldFiles.forEach(oldFile => {
+      const stillExists = newFiles.some(newFile => newFile.path === oldFile.path)
+      if (!stillExists && oldFile.thumbUrl && oldFile.thumbUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldFile.thumbUrl)
+      }
+    })
+  }
+  
+  // 更新图片文件列表
+  updateImageFilesList()
+  
+  // 如果当前正在查看的图片不在新列表中，关闭查看器
+  if (currentMediaFile.value && isViewingImage.value) {
+    const stillExists = newFiles.some(file => file.path === currentMediaFile.value.path)
+    if (!stillExists) {
+      closeMediaViewer()
+    }
+  }
+  
+  // 文件列表变化后重新初始化Observer
+  if (viewMode.value === 'thumbnail') {
+    setTimeout(() => {
+      initThumbnailObserver()
+    }, 100)
+  }
+}, { deep: true })
 </script>
 
 <style>
@@ -460,7 +817,64 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .media-viewer-content img, .media-viewer-content video { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; background: transparent; border-radius: 8px; }
 .media-viewer-close { position: absolute; top: 20px; right: 20px; color: white; font-size: 32px; cursor: pointer; background: rgba(0,0,0,0.5); border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1001; }
 .media-viewer-close:hover { background: rgba(0,0,0,0.8); }
-.media-viewer-nav { position: absolute; bottom: 20px; color: white; font-size: 14px; }
+.media-viewer-nav { position: absolute; bottom: 20px; color: white; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; }
+
+.nav-info { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nav-counter { background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+
+/* 导航按钮样式 */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: white;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.3s ease;
+  opacity: 0;
+  z-index: 1002;
+}
+
+.nav-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.nav-btn.show-hover {
+  opacity: 1;
+}
+
+.nav-prev {
+  left: 20px;
+}
+
+.nav-next {
+  right: 20px;
+}
+
+/* 移动端触摸提示 */
+@media (max-width: 768px) {
+  .nav-btn {
+    display: none;
+  }
+  
+  .media-viewer-content {
+    cursor: grab;
+  }
+  
+  .media-viewer-content:active {
+    cursor: grabbing;
+  }
+}
 
 /* 媒体加载动画 */
 .media-loading {
