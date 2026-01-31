@@ -86,13 +86,33 @@ func testLoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func testTokenHandler(w http.ResponseWriter, r *http.Request) {
+	tokenStr := r.Header.Get("Authorization")
+	tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+	if tokenStr == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if _, ok := tokenCaches.Get(tokenStr); !ok {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(`{"token":"` + tokenStr + `"}`)); err != nil {
+		log.Warnf("Error writing response: %v", err)
+	}
+}
+
 func testWebRTCServer(ctx context.Context) {
 	server := test.NewSignalServer()
 
 	go server.StartStunServer(ctx)
 
 	http.HandleFunc("/ws", authMiddleware(server.HandleWebSocket))
-	http.HandleFunc("/login", testLoginHandler)
+	http.HandleFunc("/api/login", testLoginHandler)
+	http.HandleFunc("/api/token", testTokenHandler)
 	log.Infof("static %s", config.GlobalConfig.WebServer.StaticFolder)
 	http.Handle("/", http.FileServer(http.Dir(config.GlobalConfig.WebServer.StaticFolder)))
 

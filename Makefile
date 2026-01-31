@@ -7,8 +7,6 @@ neutron:
 	@mkdir -p ./build/bin ./build/static ./build/etc
 	@go fmt ./... && go vet ./...
 	@go build -o ./build/bin/neutron ./cmd/neutron/
-	@rm -rf ./build/static/*
-	@cp -r ./html/fileviewer/* ./build/static/
 	@cp ./etc/config.yaml ./build/etc/
 
 local-test: neutron

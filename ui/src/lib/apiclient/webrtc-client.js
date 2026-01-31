@@ -3,7 +3,12 @@
  * Handles file listing and P2P transmission of files
  */
 
-class WebRTCClient extends BaseClient {
+import BaseClient from './base-client.js';
+import WebRTCDataChannelRPC from './webrtc-dc-rpc.js';
+import WebRTCDataChannelThumbnail from './webrtc-dc-thumbnail.js';
+import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
+
+export default class WebRTCClient extends BaseClient {
     constructor(token) {
         super();
         // token should be provided by the caller (app); do not access storage here

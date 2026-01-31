@@ -1,6 +1,8 @@
 
+import BaseClient from './base-client.js';
+
 // For future HTTP implementation
-class HttpClient extends BaseClient {
+export default class HttpClient extends BaseClient {
     constructor(baseURL = '/api') {
         super();
         this.baseURL = baseURL;

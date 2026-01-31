@@ -8,7 +8,7 @@
  * binary content. The helper provides `receiveThumbnail(id)` which
  * resolves with a Blob/ArrayBuffer for the requested id.
  */
-class WebRTCDataChannelThumbnail {
+export default class WebRTCDataChannelThumbnail {
     constructor(pc, label = 'thumbnail', options = { ordered: false, maxRetransmits: 3 }, defaultTimeout = 10000) {
         this.pc = pc;
         this.label = label;

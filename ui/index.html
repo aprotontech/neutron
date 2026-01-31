@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文件浏览器</title>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search)
+      const apiHostFromUrl = urlParams.get('api_host')
+      window.API_HOST = apiHostFromUrl || window.location.host
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

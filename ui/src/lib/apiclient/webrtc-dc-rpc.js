@@ -3,7 +3,7 @@
  * Creates a data channel on a given RTCPeerConnection and provides
  * JSON-RPC-like request/response semantics over that datachannel.
  */
-class WebRTCDataChannelRPC {
+export default class WebRTCDataChannelRPC {
     constructor(pc, label = 'rpc', options = { ordered: true, maxRetransmits: 3 }, defaultTimeout = 10000) {
         this.pc = pc;
         this.label = label;

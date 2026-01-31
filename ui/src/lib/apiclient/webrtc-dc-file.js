@@ -7,7 +7,7 @@
  * detected via `pc.ondatachannel` and reassembled into a Blob URL which
  * is delivered to registered callbacks.
  */
-class WebRTCDataChannelFileContent {
+export default class WebRTCDataChannelFileContent {
     constructor(pc) {
         this.pc = pc;
         this._channels = new Map(); // label -> RTCDataChannel
