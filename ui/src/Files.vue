@@ -2,7 +2,7 @@
   <div id="app">
     <div>
       <div class="header">
-        <div class="header-left">
+        <div class="header-left desktop-only">
           <h1>📁 文件浏览器</h1>
           <div class="breadcrumb-container">
             <button class="breadcrumb-btn" @click="goToRoot">根目录</button>
@@ -12,17 +12,47 @@
             </template>
           </div>
         </div>
-        <div class="header-right">
-          <div class="user-menu">
-            <button class="user-btn" @click="toggleUserMenu">
-              <span class="user-icon">👤</span>
-              <span class="user-text">用户</span>
-            </button>
-            <div class="user-dropdown" :class="{ active: showUserMenu }">
-              <button class="dropdown-item" @click="logout">
-                <span class="dropdown-icon">🚪</span>
-                <span>登出</span>
+        
+        <!-- 移动设备专用header -->
+        <div class="mobile-header mobile-only">
+          <div class="mobile-header-left">
+            <h1 class="mobile-title">📁 文件浏览器</h1>
+            <div class="mobile-nav" v-if="currentPath !== '/'">
+              <button class="back-btn" @click="goBack" @touchstart="startTouch" @touchend="endTouch" @touchcancel="cancelTouch">
+                <span class="back-icon">←</span>
+                <span class="back-text">{{ getCurrentPathDisplay() }}</span>
               </button>
+              
+              <!-- 路径下拉菜单 -->
+              <div class="path-dropdown-overlay" :class="{ active: showPathList }" @click="hidePathDropdown"></div>
+              <div class="path-dropdown" :class="{ active: showPathList }">
+                <div class="path-dropdown-list">
+                  <button class="path-item" @click="goToRoot">
+                    <span class="path-icon">🏠</span>
+                    <span>根目录</span>
+                  </button>
+                  <template v-for="(path, index) in currentPathArray" :key="index">
+                    <button class="path-item" @click="goToPath(index)">
+                      <span class="path-icon">📁</span>
+                      <span>{{ path }}</span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mobile-header-right">
+            <div class="user-menu">
+              <button class="user-btn" @click="toggleUserMenu">
+                <span class="user-icon">👤</span>
+                <span class="user-text">用户</span>
+              </button>
+              <div class="user-dropdown" :class="{ active: showUserMenu }">
+                <button class="dropdown-item" @click="logout">
+                  <span class="dropdown-icon">🚪</span>
+                  <span>登出</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -30,8 +60,14 @@
 
       <div class="toolbar">
         <div class="view-toggle">
-          <button :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">📋 列表视图</button>
-          <button :class="{ active: viewMode === 'thumbnail' }" @click="viewMode = 'thumbnail'">🖼️ 缩微图视图</button>
+          <button class="view-toggle-btn" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'" title="列表视图">
+            <span class="view-toggle-icon">≡</span>
+            <span class="view-toggle-text desktop-only">列表视图</span>
+          </button>
+          <button class="view-toggle-btn" :class="{ active: viewMode === 'thumbnail' }" @click="viewMode = 'thumbnail'" title="缩微图视图">
+            <span class="view-toggle-icon">□</span>
+            <span class="view-toggle-text desktop-only">缩微图视图</span>
+          </button>
         </div>
       </div>
 
@@ -49,7 +85,7 @@
               <div>修改时间</div>
             </div>
 
-            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)">
+            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)">
               <div class="file-icon">{{ getFileIcon(file) }}</div>
               <div class="file-name">{{ file.name }}</div>
               <div class="file-size">{{ formatSize(file.size) }}</div>
@@ -58,7 +94,7 @@
           </div>
 
           <div v-else class="thumbnail-grid">
-            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)">
+            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)">
               <div class="thumbnail-preview">
                 <img v-if="isImage(file) && file.thumbnailData" :src="file.thumbnailData" :alt="file.name" />
                 <video v-else-if="isVideo(file)" :src="getFileUrl(file)" controls></video>
@@ -110,6 +146,14 @@ const isViewingVideo = ref(false)
 const currentMediaFile = ref(null)
 const currentMediaUrl = ref('')
 const showUserMenu = ref(false)
+const showPathList = ref(false)
+const touchStartTime = ref(0)
+const touchTimer = ref(null)
+const fileTouchStartTime = ref(0)
+const fileTouchTimer = ref(null)
+const touchedFile = ref(null)
+const lastTapTime = ref(0)
+const lastTappedFile = ref(null)
 
 
 function updateBreadcrumb() {
@@ -173,6 +217,94 @@ async function goToPath(index) {
   const parts = currentPathArray.value.slice(0, index + 1)
   const path = '/' + parts.join('/')
   await loadFiles(path)
+  hidePathDropdown()
+}
+
+// 移动设备导航方法
+function goBack() {
+  if (currentPathArray.value.length > 0) {
+    const parts = currentPathArray.value.slice(0, -1)
+    const path = parts.length === 0 ? '/' : '/' + parts.join('/')
+    loadFiles(path)
+  }
+}
+
+function getCurrentPathDisplay() {
+  if (currentPath.value === '/') return '返回'
+  const parts = currentPathArray.value
+  return parts.length > 0 ? parts[parts.length - 1] : '返回'
+}
+
+function showPathDropdown() {
+  showPathList.value = true
+}
+
+function hidePathDropdown() {
+  showPathList.value = false
+}
+
+// 触摸事件处理
+function startTouch() {
+  touchStartTime.value = Date.now()
+  touchTimer.value = setTimeout(() => {
+    // 长按超过500ms显示目录列表
+    showPathDropdown()
+  }, 500)
+}
+
+function endTouch() {
+  clearTimeout(touchTimer.value)
+  const touchDuration = Date.now() - touchStartTime.value
+  // 短按（小于500ms）执行返回操作
+  if (touchDuration < 500) {
+    goBack()
+  }
+}
+
+function cancelTouch() {
+  clearTimeout(touchTimer.value)
+}
+
+// 文件触摸事件处理
+function handleFileTouchStart(file) {
+  fileTouchStartTime.value = Date.now()
+  touchedFile.value = file
+  fileTouchTimer.value = setTimeout(() => {
+    // 长按文件（超过500ms）可以显示文件操作菜单
+    // 这里暂时只处理短按
+  }, 500)
+}
+
+function handleFileTouchEnd(file) {
+  clearTimeout(fileTouchTimer.value)
+  const touchDuration = Date.now() - fileTouchStartTime.value
+  const currentTime = Date.now()
+  
+  // 检测双击
+  if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 300) {
+    // 双击：如果是图片或视频，直接查看
+    if (isImage(file) || isVideo(file)) {
+      openMediaViewer(file)
+      lastTapTime.value = 0
+      lastTappedFile.value = null
+      touchedFile.value = null
+      return
+    }
+  }
+  
+  // 短按（小于500ms）打开文件或目录
+  if (touchDuration < 500 && touchedFile.value === file) {
+    if (file.isDir) {
+      openFile(file)
+    } else {
+      selectFile(file)
+    }
+  }
+  
+  // 记录点击时间和文件
+  lastTapTime.value = currentTime
+  lastTappedFile.value = file
+  touchedFile.value = null
 }
 
 function isImage(file) { return !file.isDir && FileTypeDetector.isImage(file.name) }
@@ -254,10 +386,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .breadcrumb-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
 .breadcrumb-btn:hover { background: rgba(255,255,255,0.3); }
 .breadcrumb-separator { color: rgba(255,255,255,0.7); }
-.toolbar { background: white; padding: 15px 20px; display: flex; gap: 15px; align-items: center; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
-.view-toggle { display: flex; gap: 10px; }
-.view-toggle button { padding: 8px 16px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; transition: all 0.3s; }
-.view-toggle button.active { background: #667eea; color: white; border-color: #667eea; }
+.toolbar { background: white; padding: 15px 20px; display: flex; justify-content: flex-end; border-bottom: 1px solid #e0e0e0; }
+.view-toggle { display: flex; gap: 8px; }
+.view-toggle-btn { padding: 6px 12px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; transition: all 0.3s; display: flex; align-items: center; gap: 6px; }
+.view-toggle-btn.active { background: #667eea; color: white; border-color: #667eea; }
+.view-toggle-icon { font-size: 16px; }
+.view-toggle-text { font-size: 14px; }
 .content { flex: 1; overflow: auto; padding: 20px; }
 .file-list { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; }
@@ -291,32 +425,171 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: #999; }
 .empty-icon { font-size: 60px; margin-bottom: 20px; opacity: 0.5; }
 .error-message { background: #fee; border: 1px solid #fcc; color: #c33; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+
+/* 移动设备导航样式 */
+.desktop-only { display: block; }
+.mobile-only { display: none; }
+
+.mobile-header { display: none; }
+.mobile-header-left { flex: 1; }
+.mobile-header-right { flex-shrink: 0; }
+.mobile-title { font-size: 18px; margin-bottom: 8px; }
+
+.mobile-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.back-btn {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.back-icon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.back-text {
+  font-weight: 500;
+}
+
+.current-path {
+  flex: 1;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.current-path:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* 路径下拉菜单 */
+.path-dropdown-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+.path-dropdown-overlay.active {
+  display: block;
+}
+
+.path-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  width: 200px;
+  max-height: 300px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.path-dropdown.active {
+  display: block;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.path-dropdown-header {
+  display: none;
+}
+
+.path-dropdown-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.path-item {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: white;
+  color: #333;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.path-item:hover {
+  background: #f5f7fa;
+}
+
+.path-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: flex !important; }
+  
   .header { padding: 12px; flex-direction: column; gap: 12px; }
-  .header-left { width: 100%; }
-  .header-right { width: 100%; display: flex; justify-content: flex-end; }
-  .header h1 { font-size: 18px; }
+  .mobile-header { display: flex; width: 100%; justify-content: space-between; align-items: center; }
+  .mobile-nav { display: flex; align-items: center; }
+  .back-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; transition: all 0.3s; }
+  .back-btn:hover { background: rgba(255,255,255,0.3); }
+  .back-icon { font-size: 16px; }
   .user-btn { padding: 6px 12px; font-size: 13px; }
-  .user-text { display: none; }
   .user-btn .user-icon { margin-right: 0; }
-  .toolbar { padding: 10px; gap: 10px; }
-  .content { padding: 12px; }
-  .file-list-header { grid-template-columns: 40px 1fr 100px; font-size: 13px; }
-  .file-list-item { grid-template-columns: 40px 1fr 80px; padding: 10px; }
-  .file-size, .file-modified { font-size: 12px; }
-  .thumbnail-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
-  .thumbnail-preview { height: 110px; }
-  .media-viewer-close { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 28px; }
-  .media-viewer-content { max-width: 100%; max-height: calc(100% - 80px); padding: 8px; }
-  .media-viewer-nav { bottom: 12px; font-size: 13px; }
 }
 @media (max-width: 480px) {
   .header { padding: 10px; flex-direction: column; gap: 10px; }
-  .header h1 { font-size: 16px; }
+  .header h1 { font-size: 16px; margin-bottom: 6px; }
   .user-btn { padding: 5px 10px; font-size: 12px; }
   .user-dropdown { min-width: 140px; }
   .dropdown-item { padding: 10px 14px; font-size: 13px; }
-  .toolbar { padding: 8px; }
+  .mobile-nav { gap: 8px; margin-top: 2px; }
+  .back-btn { padding: 4px 8px; font-size: 12px; min-width: 55px; }
+  .back-icon { font-size: 14px; }
+  .current-path { padding: 5px 8px; font-size: 12px; }
+  .toolbar { padding: 8px; justify-content: flex-end; }
+  .view-toggle-btn { padding: 4px 8px; font-size: 12px; }
+  .view-toggle-icon { font-size: 14px; }
   .content { padding: 8px; }
   .file-list-header { display: none; }
   .file-list-item { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; }
@@ -327,5 +600,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .thumbnail-preview { height: 100px; }
   .media-viewer-close { top: 8px; right: 8px; width: 34px; height: 34px; font-size: 24px; }
   .media-viewer-content { max-width: 100%; max-height: calc(100% - 64px); }
+  .path-dropdown-header { padding: 14px 16px; }
+  .path-dropdown-header h3 { font-size: 16px; }
+  .path-item { padding: 12px 16px; font-size: 15px; }
 }
 </style>
