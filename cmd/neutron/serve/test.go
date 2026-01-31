@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/spf13/cobra"
 
@@ -65,7 +66,7 @@ func testLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString := "test-token-" + loginInfo.Username
+	tokenString := uuid.New().String()
 	tokenCaches.Set(tokenString, &loginInfo, 0)
 
 	// claims := jwt.MapClaims{

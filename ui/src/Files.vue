@@ -15,12 +15,34 @@
         
         <!-- 移动设备专用header -->
         <div class="mobile-header mobile-only">
-          <div class="mobile-header-left">
+          <!-- 第一行：标题和用户按钮 -->
+          <div class="mobile-header-top">
             <h1 class="mobile-title">📁 文件浏览器</h1>
-            <div class="mobile-nav" v-if="currentPath !== '/'">
-              <button class="back-btn" @click="goBack" @touchstart="startTouch" @touchend="endTouch" @touchcancel="cancelTouch">
-                <span class="back-icon">←</span>
-                <span class="back-text">{{ getCurrentPathDisplay() }}</span>
+            <div class="user-menu">
+              <button class="user-btn" @click="toggleUserMenu">
+                <span class="user-icon">👤</span>
+              </button>
+              <div class="user-dropdown" :class="{ active: showUserMenu }">
+                <button class="dropdown-item" @click="logout">
+                  <span class="dropdown-icon">🚪</span>
+                  <span>登出</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 第二行：导航按钮 -->
+          <div class="mobile-nav" v-if="currentPath !== '/'">
+            <!-- 返回按钮 -->
+            <button class="back-btn" @click="goBack">
+              <span class="back-icon">←</span>
+              <span class="back-text">返回</span>
+            </button>
+            
+            <!-- 当前目录名按钮和下拉菜单 -->
+            <div class="current-path-container">
+              <button class="current-path-btn" @click="showPathDropdown">
+                <span class="current-path-text">{{ getCurrentPathDisplay() }}</span>
               </button>
               
               <!-- 路径下拉菜单 -->
@@ -38,20 +60,6 @@
                     </button>
                   </template>
                 </div>
-              </div>
-            </div>
-          </div>
-          <div class="mobile-header-right">
-            <div class="user-menu">
-              <button class="user-btn" @click="toggleUserMenu">
-                <span class="user-icon">👤</span>
-                <span class="user-text">用户</span>
-              </button>
-              <div class="user-dropdown" :class="{ active: showUserMenu }">
-                <button class="dropdown-item" @click="logout">
-                  <span class="dropdown-icon">🚪</span>
-                  <span>登出</span>
-                </button>
               </div>
             </div>
           </div>
@@ -114,10 +122,16 @@
       <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo }">
         <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
         <div class="media-viewer-content">
-          <img v-if="isViewingImage" :src="currentMediaUrl" :alt="currentMediaFile?.name" />
-          <video v-else-if="isViewingVideo" :src="currentMediaUrl" controls autoplay></video>
+          <!-- 加载动画 -->
+          <div v-if="isMediaLoading" class="media-loading">
+            <div class="media-spinner"></div>
+            <div class="media-loading-text">加载中...</div>
+          </div>
+          
+          <img v-if="isViewingImage && !isMediaLoading" :src="currentMediaUrl" :alt="currentMediaFile?.name" />
+          <video v-else-if="isViewingVideo && !isMediaLoading" :src="currentMediaUrl" controls autoplay></video>
         </div>
-        <div class="media-viewer-nav" v-if="currentMediaFile">{{ currentMediaFile.name }}</div>
+        <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">{{ currentMediaFile.name }}</div>
       </div>
     </div>
   </div>
@@ -145,10 +159,9 @@ const isViewingImage = ref(false)
 const isViewingVideo = ref(false)
 const currentMediaFile = ref(null)
 const currentMediaUrl = ref('')
+const isMediaLoading = ref(false)
 const showUserMenu = ref(false)
 const showPathList = ref(false)
-const touchStartTime = ref(0)
-const touchTimer = ref(null)
 const fileTouchStartTime = ref(0)
 const fileTouchTimer = ref(null)
 const touchedFile = ref(null)
@@ -173,6 +186,9 @@ async function loadFiles(path = '/') {
     })
     currentPath.value = path
     updateBreadcrumb()
+    
+    // 更新URL参数，支持浏览器返回
+    updateUrlPath(path)
   } catch (e) {
     error.value = '加载文件列表失败: ' + (e.message || e)
     files.value = []
@@ -194,6 +210,8 @@ async function openFile(f) {
 
 async function openMediaViewer(file) {
   currentMediaFile.value = file
+  isMediaLoading.value = true
+  
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
@@ -203,6 +221,21 @@ async function openMediaViewer(file) {
     isViewingVideo.value = true
     currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
   }
+  
+  // 图片加载完成后隐藏加载动画
+  if (isImage(file)) {
+    const img = new Image()
+    img.onload = () => {
+      isMediaLoading.value = false
+    }
+    img.onerror = () => {
+      isMediaLoading.value = false
+    }
+    img.src = currentMediaUrl.value
+  } else {
+    // 视频加载完成后隐藏加载动画
+    isMediaLoading.value = false
+  }
 }
 
 function closeMediaViewer() {
@@ -210,6 +243,7 @@ function closeMediaViewer() {
   isViewingVideo.value = false
   currentMediaFile.value = null
   currentMediaUrl.value = ''
+  isMediaLoading.value = false
 }
 
 function goToRoot() { loadFiles('/') }
@@ -230,9 +264,9 @@ function goBack() {
 }
 
 function getCurrentPathDisplay() {
-  if (currentPath.value === '/') return '返回'
+  if (currentPath.value === '/') return '根目录'
   const parts = currentPathArray.value
-  return parts.length > 0 ? parts[parts.length - 1] : '返回'
+  return parts.length > 0 ? parts[parts.length - 1] : '根目录'
 }
 
 function showPathDropdown() {
@@ -243,27 +277,32 @@ function hidePathDropdown() {
   showPathList.value = false
 }
 
-// 触摸事件处理
-function startTouch() {
-  touchStartTime.value = Date.now()
-  touchTimer.value = setTimeout(() => {
-    // 长按超过500ms显示目录列表
-    showPathDropdown()
-  }, 500)
+// URL参数处理
+function updateUrlPath(path) {
+  const url = new URL(window.location.href)
+  if (path === '/') {
+    url.searchParams.delete('path')
+  } else {
+    url.searchParams.set('path', encodeURIComponent(path))
+  }
+  window.history.pushState({ path }, '', url.toString())
 }
 
-function endTouch() {
-  clearTimeout(touchTimer.value)
-  const touchDuration = Date.now() - touchStartTime.value
-  // 短按（小于500ms）执行返回操作
-  if (touchDuration < 500) {
-    goBack()
+function getUrlPath() {
+  const urlParams = new URLSearchParams(window.location.search)
+  const pathParam = urlParams.get('path')
+  return pathParam ? decodeURIComponent(pathParam) : '/'
+}
+
+// 处理浏览器前进/后退
+function handlePopState(event) {
+  const path = event.state?.path || '/'
+  if (path !== currentPath.value) {
+    loadFiles(path)
   }
 }
 
-function cancelTouch() {
-  clearTimeout(touchTimer.value)
-}
+
 
 // 文件触摸事件处理
 function handleFileTouchStart(file) {
@@ -282,23 +321,21 @@ function handleFileTouchEnd(file) {
   
   // 检测双击
   if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 300) {
-    // 双击：如果是图片或视频，直接查看
-    if (isImage(file) || isVideo(file)) {
-      openMediaViewer(file)
-      lastTapTime.value = 0
-      lastTappedFile.value = null
-      touchedFile.value = null
-      return
-    }
-  }
-  
-  // 短按（小于500ms）打开文件或目录
-  if (touchDuration < 500 && touchedFile.value === file) {
+    // 双击：如果是目录，进入目录；如果是图片或视频，直接查看
     if (file.isDir) {
       openFile(file)
-    } else {
-      selectFile(file)
+    } else if (isImage(file) || isVideo(file)) {
+      openMediaViewer(file)
     }
+    lastTapTime.value = 0
+    lastTappedFile.value = null
+    touchedFile.value = null
+    return
+  }
+  
+  // 短按（小于500ms）只选中文件/目录，不打开
+  if (touchDuration < 500 && touchedFile.value === file) {
+    selectFile(file)
   }
   
   // 记录点击时间和文件
@@ -339,7 +376,10 @@ onMounted(() => {
       console.log("refreshToken", error_msg)
       if (error_msg === true){
         TransferClient.init('webrtc', UserAPI.getToken())
-        loadFiles('/')
+        
+        // 从URL参数读取路径
+        const initialPath = getUrlPath()
+        loadFiles(initialPath)
       } else {
         console.log("Token 刷新失败，跳转到登录页面")
         emit('login-state-changed')
@@ -361,6 +401,9 @@ onMounted(() => {
       showUserMenu.value = false
     }
   })
+  
+  // 监听浏览器前进/后退事件
+  window.addEventListener('popstate', handlePopState)
 })
 </script>
 
@@ -374,10 +417,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .breadcrumb-container { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .header-right { position: relative; }
 .user-menu { position: relative; }
-.user-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
-.user-btn:hover { background: rgba(255,255,255,0.3); }
-.user-icon { font-size: 16px; }
-.user-text { font-weight: 500; }
+.user-btn { background: transparent; border: none; color: white; padding: 8px; cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; width: 44px; height: 44px; border-radius: 50%; }
+.user-btn:hover { background: rgba(255,255,255,0.2); }
+.user-icon { font-size: 24px; }
 .user-dropdown { position: absolute; top: 100%; right: 0; margin-top: 8px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); min-width: 160px; overflow: hidden; display: none; z-index: 1000; }
 .user-dropdown.active { display: block; }
 .dropdown-item { width: 100%; padding: 12px 16px; border: none; background: white; color: #333; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 14px; transition: all 0.2s; }
@@ -419,6 +461,31 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .media-viewer-close { position: absolute; top: 20px; right: 20px; color: white; font-size: 32px; cursor: pointer; background: rgba(0,0,0,0.5); border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1001; }
 .media-viewer-close:hover { background: rgba(0,0,0,0.8); }
 .media-viewer-nav { position: absolute; bottom: 20px; color: white; font-size: 14px; }
+
+/* 媒体加载动画 */
+.media-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.media-spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+.media-loading-text {
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+}
+
 .loading { display: flex; justify-content: center; align-items: center; height: 200px; }
 .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -430,10 +497,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .desktop-only { display: block; }
 .mobile-only { display: none; }
 
-.mobile-header { display: none; }
-.mobile-header-left { flex: 1; }
-.mobile-header-right { flex-shrink: 0; }
-.mobile-title { font-size: 18px; margin-bottom: 8px; }
+.mobile-header { display: none; flex-direction: column; }
+.mobile-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; }
+.mobile-title { font-size: 18px; margin: 0; }
 
 .mobile-nav {
   display: flex;
@@ -446,14 +512,17 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   background: rgba(255,255,255,0.2);
   border: 1px solid rgba(255,255,255,0.3);
   color: white;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   transition: all 0.3s;
+  height: 36px;
+  min-width: 70px;
 }
 
 .back-btn:hover {
@@ -469,7 +538,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   font-weight: 500;
 }
 
-.current-path {
+.current-path-btn {
   flex: 1;
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
@@ -482,10 +551,26 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+  transition: all 0.3s;
+  border: none;
+  font-family: inherit;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.current-path:hover {
+.current-path-btn:hover {
   background: rgba(255,255,255,0.15);
+}
+
+.current-path-text {
+  font-weight: 500;
+}
+
+.current-path-container {
+  flex: 1;
+  position: relative;
 }
 
 /* 路径下拉菜单 */
@@ -507,10 +592,9 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .path-dropdown {
   display: none;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
-  margin-top: 8px;
-  width: 200px;
+  width: 100%;
   max-height: 300px;
   background: white;
   border-radius: 8px;
@@ -569,24 +653,27 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .mobile-only { display: flex !important; }
   
   .header { padding: 12px; flex-direction: column; gap: 12px; }
-  .mobile-header { display: flex; width: 100%; justify-content: space-between; align-items: center; }
+  .mobile-header { display: flex; width: 100%; flex-direction: column; }
+  .mobile-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 8px; }
   .mobile-nav { display: flex; align-items: center; }
-  .back-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; transition: all 0.3s; }
+  .back-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s; height: 36px; min-width: 70px; }
   .back-btn:hover { background: rgba(255,255,255,0.3); }
   .back-icon { font-size: 16px; }
-  .user-btn { padding: 6px 12px; font-size: 13px; }
+  .current-path-btn { height: 36px; }
+  .user-btn { padding: 6px; font-size: 22px; width: 40px; height: 40px; }
   .user-btn .user-icon { margin-right: 0; }
 }
 @media (max-width: 480px) {
   .header { padding: 10px; flex-direction: column; gap: 10px; }
   .header h1 { font-size: 16px; margin-bottom: 6px; }
-  .user-btn { padding: 5px 10px; font-size: 12px; }
+  .mobile-title { font-size: 16px; }
+  .user-btn { padding: 4px; font-size: 20px; width: 36px; height: 36px; }
   .user-dropdown { min-width: 140px; }
   .dropdown-item { padding: 10px 14px; font-size: 13px; }
   .mobile-nav { gap: 8px; margin-top: 2px; }
-  .back-btn { padding: 4px 8px; font-size: 12px; min-width: 55px; }
+  .back-btn { padding: 6px 10px; font-size: 12px; min-width: 55px; height: 32px; }
   .back-icon { font-size: 14px; }
-  .current-path { padding: 5px 8px; font-size: 12px; }
+  .current-path-btn { padding: 6px 10px; font-size: 12px; height: 32px; }
   .toolbar { padding: 8px; justify-content: flex-end; }
   .view-toggle-btn { padding: 4px 8px; font-size: 12px; }
   .view-toggle-icon { font-size: 14px; }

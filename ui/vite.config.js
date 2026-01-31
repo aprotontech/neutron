@@ -16,6 +16,15 @@ export default defineConfig({
                 ws: true,
                 changeOrigin: true
             }
+        },
+        watch: {
+            ignored: [
+                '**/.cache/**',
+                '**/android/**',
+                '**/ios/**',
+                '**/www/**',
+                '**/node_modules/**'
+            ]
         }
     },
     base: './',

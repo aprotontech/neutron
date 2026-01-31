@@ -7,6 +7,7 @@ type Config struct {
 	Fuse      *FuseMountConfig     `yaml:"fuse"`
 	Storage   []StorageConfig      `yaml:"storage"`
 	WebServer *web.WebServerConfig `yaml:"web"`
+	Users     *UserConfig          `yaml:"users"`
 }
 
 type FuseMountConfig struct {
@@ -17,6 +18,10 @@ type StorageConfig struct {
 	Name    string            `yaml:"name"`
 	Backend string            `yaml:"backend"`
 	Config  map[string]string `yaml:"config"`
+}
+
+type UserConfig struct {
+	PasswordsFile string `yaml:"passwordsFile"`
 }
 
 var GlobalConfig *Config
