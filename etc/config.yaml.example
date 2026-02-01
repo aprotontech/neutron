@@ -7,10 +7,10 @@ storage:
 - name: baidu
   backend: baidu_disk
   config:
-    AppID: 30006645
-    AppKey: fGyP9aYekkkvtwmzXNIuQUEFqNGg9z7A
-    SecretKey: i6q0b6cRQW286sbvz3zh2l6bzLGz31ft
-    SignKey: 9WhKX2I-aSn4llU*Q-3+aQdFFkgh*SJ!
+    AppID: xxxxx
+    AppKey: xxxxx
+    SecretKey: xxxxx
+    SignKey: xxxxx
     PrefixPath: neutron
     RedirectUri: http://localhost:11808/baidu_pan
 
