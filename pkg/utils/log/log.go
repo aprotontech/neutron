@@ -2,6 +2,8 @@ package log
 
 import (
 	"fmt"
+	"path/filepath"
+	"runtime"
 
 	"github.com/sirupsen/logrus"
 )
@@ -18,8 +20,14 @@ var Fatalf = logrus.Fatalf
 var PrintToConsole = fmt.Println
 
 func init() {
-	logrus.SetReportCaller(false)
+	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
 		TimestampFormat: "20240831-230900.000",
+		ForceColors:     true,
+		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+			filename := filepath.Base(f.File)
+			return "", fmt.Sprintf("[%s:%d]", filename, f.Line)
+		},
 	})
 }

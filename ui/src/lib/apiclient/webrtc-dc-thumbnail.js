@@ -9,7 +9,7 @@
  * resolves with a Blob/ArrayBuffer for the requested id.
  */
 export default class WebRTCDataChannelThumbnail {
-    constructor(pc, label = 'thumbnail', options = { ordered: false, maxRetransmits: 3 }, defaultTimeout = 10000) {
+    constructor(pc, label = 'thumbnail', options = { ordered: false, maxRetransmits: 1 }, defaultTimeout = 10000) {
         this.pc = pc;
         this.label = label;
         this.options = options;

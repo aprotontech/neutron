@@ -1,4 +1,4 @@
-home: ./.var
+home: /mnt/data/storage
 
 fuse:
   mountPoint: /mnt/neutron
@@ -14,7 +14,15 @@ storage:
     PrefixPath: neutron
     RedirectUri: http://localhost:11808/baidu_pan
 
+cache:
+  enabled: true
+  cacheDir: /tmp/.caches/neutron
+  maxSizeMB: 512
+  evictionPolicy: LRU
 web:
   port: 8080
   html: ./static
   prefix: /
+
+users:
+  passwordsFile: ./etc/passwords.txt

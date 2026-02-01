@@ -25,7 +25,7 @@ export default class UserAPI {
             const resp = await fetch(login_api_path, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username.value, password: password.value })
+                body: JSON.stringify({ username: username, password: password })
             })
 
             if (resp.status === 200) {

@@ -120,7 +120,7 @@
             <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)" ref="thumbnailItems">
               <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
                 <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
-                <video v-else-if="isVideo(file)" :src="getFileUrl(file)" controls></video>
+                <video id="video" v-else-if="isVideo(file)" :src="getFileUrl(file)" controls></video>
                 <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div> 
               </div>
               <div class="thumbnail-info">
@@ -132,6 +132,20 @@
         </template>
 
         <div v-else class="empty-state"><div class="empty-icon">📭</div><div>文件夹为空</div></div>
+      </div>
+
+      <!-- 提示组件 -->
+      <div class="toast-container" :class="{ active: showToast }">
+        <div class="toast" :class="toastType">
+          <div class="toast-icon">
+            <span v-if="toastType === 'info'">ℹ️</span>
+            <span v-else-if="toastType === 'success'">✅</span>
+            <span v-else-if="toastType === 'warning'">⚠️</span>
+            <span v-else-if="toastType === 'error'">❌</span>
+          </div>
+          <div class="toast-content" v-html="formatToastMessage(toastMessage)"></div>
+          <button class="toast-close" @click="hideToast">✕</button>
+        </div>
       </div>
 
       <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo }">
@@ -211,6 +225,12 @@ const mediaTouchStartY = ref(0)
 const mediaTouchEndY = ref(0)
 const mediaMouseMoveTimer = ref(null)
 
+// 提示系统相关
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastType = ref('info') // info, success, warning, error
+const toastTimer = ref(null)
+
 // 缩略图懒加载相关
 const thumbnailObserver = ref(null)
 const thumbnailElements = ref(new Map())
@@ -278,11 +298,18 @@ async function openMediaViewer(file) {
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image')
   } else if (isVideo(file)) {
-    isViewingImage.value = false
-    isViewingVideo.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToastMessage('视频文件内容太大，不支持预览，请下载后再播放。', 'warning')
+      return
+    } else {
+      isViewingImage.value = false
+      isViewingVideo.value = true
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video')
+    }
+    
   }
   
   // 图片加载完成后隐藏加载动画
@@ -349,7 +376,7 @@ async function loadMediaFile(file) {
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image')
     
     // 图片加载完成后隐藏加载动画
     const img = new Image()
@@ -363,7 +390,7 @@ async function loadMediaFile(file) {
   } else if (isVideo(file)) {
     isViewingImage.value = false
     isViewingVideo.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video')
     isMediaLoading.value = false
   }
 }
@@ -642,6 +669,73 @@ function cleanupThumbnails() {
 }
 
 
+// 显示提示消息
+function showToastMessage(message, type = 'info', duration = 3000) {
+  // 清除之前的定时器
+  if (toastTimer.value) {
+    clearTimeout(toastTimer.value)
+    toastTimer.value = null
+  }
+  
+  // 设置新的提示
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  
+  // 如果是警告类型且包含下载提示，延长显示时间
+  if (type === 'warning' && message.includes('下载')) {
+    duration = 5000
+  }
+  
+  // 自动隐藏
+  toastTimer.value = setTimeout(() => {
+    hideToast()
+  }, duration)
+}
+
+// 隐藏提示
+function hideToast() {
+  showToast.value = false
+  if (toastTimer.value) {
+    clearTimeout(toastTimer.value)
+    toastTimer.value = null
+  }
+}
+
+// 格式化提示消息，添加下载链接
+function formatToastMessage(message) {
+  // 如果消息包含"下载"字样，添加下载按钮
+  if (message.includes('下载') && selectedFile.value) {
+    return `${message}<br><button class="download-btn" data-action="download">立即下载</button>`
+  }
+  return message
+}
+
+// 下载当前选中的文件
+async function downloadCurrentFile() {
+  if (!selectedFile.value) return
+  
+  try {
+    const file = selectedFile.value
+    const url = await fileAPI.getFileUrl(file.path)
+    
+    // 创建下载链接
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    
+    // 显示下载成功提示
+    showToastMessage(`文件"${file.name}"开始下载`, 'success')
+    
+  } catch (error) {
+    console.error('下载文件失败:', error)
+    showToastMessage('下载文件失败，请重试', 'error')
+  }
+}
+
 function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value
 }
@@ -703,6 +797,14 @@ onMounted(() => {
   
   // 初始化缩略图Observer
   initThumbnailObserver()
+  
+  // 添加提示组件点击事件委托
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('download-btn') || e.target.closest('.download-btn')) {
+      e.preventDefault()
+      downloadCurrentFile()
+    }
+  })
 })
 
 // 组件卸载时清理资源
@@ -1104,5 +1206,150 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .path-dropdown-header { padding: 14px 16px; }
   .path-dropdown-header h3 { font-size: 16px; }
   .path-item { padding: 12px 16px; font-size: 15px; }
+}
+
+/* 提示组件样式 */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s ease;
+}
+
+.toast-container.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 400px;
+  animation: toastSlideIn 0.3s ease;
+  border-left: 4px solid #2196F3;
+}
+
+.toast.info {
+  border-left-color: #2196F3;
+}
+
+.toast.success {
+  border-left-color: #4CAF50;
+}
+
+.toast.warning {
+  border-left-color: #FF9800;
+}
+
+.toast.error {
+  border-left-color: #F44336;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.toast-close:hover {
+  color: #666;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    align-items: center;
+  }
+  
+  .toast {
+    min-width: auto;
+    width: 100%;
+    max-width: 100%;
+    padding: 14px 16px;
+  }
+  
+  .toast-content {
+    font-size: 13px;
+  }
+}
+
+/* 下载按钮样式 */
+.download-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+/* 在警告提示中的下载按钮 */
+.toast.warning .download-btn {
+  background: linear-gradient(135deg, #FF9800 0%, #FF5722 100%);
+}
+
+.toast.warning .download-btn:hover {
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
 }
 </style>

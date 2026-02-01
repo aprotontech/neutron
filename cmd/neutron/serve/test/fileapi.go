@@ -1,15 +1,18 @@
 package test
 
 import (
+	"crypto/md5"
 	"crypto/rand"
-	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/disintegration/imaging"
 	webrtc "github.com/pion/webrtc/v4"
 
+	"github.com/aproton/neutron/cmd/neutron/config"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
@@ -18,7 +21,8 @@ type FileFolderInfo map[string]interface{}
 type FileSystemMock struct {
 	dcFileMap map[string]string
 
-	thumbnailDC *webrtc.DataChannel
+	thumbnailDC    *webrtc.DataChannel
+	peerConnection *webrtc.PeerConnection
 }
 
 func getFileList(fsm *FileSystemMock, req any) (any, error) {
@@ -27,7 +31,7 @@ func getFileList(fsm *FileSystemMock, req any) (any, error) {
 		return nil, os.ErrInvalid
 	}
 
-	fs, err := os.ReadDir(path.Join("/mnt/data/storage/", folder))
+	fs, err := os.ReadDir(path.Join(config.GlobalConfig.Home, folder))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +67,7 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 		return nil, os.ErrInvalid
 	}
 
-	fsm.dcFileMap[dcName] = path.Join("/mnt/data/storage/", filePath)
+	fsm.dcFileMap[dcName] = path.Join(config.GlobalConfig.Home, filePath)
 	log.Infof("Prepared file receive: %s on data channel %s", filePath, dcName)
 
 	fi, err := os.Stat(fsm.dcFileMap[dcName])
@@ -88,7 +92,7 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 		size = 200
 	}
 
-	srcPath := path.Join("/mnt/data/storage/", filePath)
+	srcPath := path.Join(config.GlobalConfig.Home, filePath)
 
 	if _, err := os.Stat(srcPath); err != nil {
 		log.Warnf("File %s not found for thumbnail: %v", filePath, err)
@@ -96,9 +100,14 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}
 
 	// Use SHA1 of the original path as the cache filename
-	h := sha1.Sum([]byte(filePath + string(size)))
+	h := md5.Sum([]byte(filePath + ":" + strconv.Itoa(size)))
 	hashStr := hex.EncodeToString(h[:])
-	cacheDir := "/tmp/thumbnails"
+	cacheDir := config.GlobalConfig.Cache.CacheDir
+	if cacheDir == "" {
+		log.Warnf("Cache directory not configured")
+		return nil, os.ErrInvalid
+	}
+
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return nil, err
 	}
@@ -145,4 +154,26 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}()
 
 	return map[string]any{"id": hex.EncodeToString(id)}, nil
+}
+
+func playVideo(fsm *FileSystemMock, req any) (any, error) {
+	vs, err := NewVideoStreamer("./test.mp4")
+	if err != nil {
+		return nil, err
+	}
+
+	if fsm.peerConnection == nil {
+		return nil, errors.New("peerConnection is null")
+	}
+
+	vs.SetupVideoDataChannel(fsm.peerConnection)
+
+	videoInfo := map[string]interface{}{
+		"type":     "videoInfo",
+		"duration": 600.0, // 示例时长，实际应该解析视频文件
+		"fileSize": vs.fileInfo.Size(),
+		"fileName": vs.fileInfo.Name(),
+		"ready":    true,
+	}
+	return videoInfo, nil
 }

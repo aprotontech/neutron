@@ -3,7 +3,9 @@ package serve
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -59,10 +61,41 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func CheckPassword(username, password string) (bool, error) {
+	if config.GlobalConfig.Users == nil || config.GlobalConfig.Users.PasswordsFile == "" {
+		return false, errors.New("no password file configured")
+	}
+
+	cnt, err := os.ReadFile(config.GlobalConfig.Users.PasswordsFile)
+	if err != nil {
+		return false, err
+	}
+
+	lines := strings.Split(string(cnt), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if parts[0] == username && parts[1] == password {
+			return true, nil
+		}
+	}
+
+	return false, errors.New("invalid username or password")
+}
+
 func testLoginHandler(w http.ResponseWriter, r *http.Request) {
 	var loginInfo LoginInfo
 	if err := json.NewDecoder(r.Body).Decode(&loginInfo); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	ok, err := CheckPassword(loginInfo.Username, loginInfo.Password)
+	if err != nil || !ok {
+		log.Warnf("Login failed for user %s: %v", loginInfo.Username, err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 

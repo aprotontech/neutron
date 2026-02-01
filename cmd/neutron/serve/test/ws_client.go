@@ -49,6 +49,7 @@ func NewSender(wsURL string) (*Sender, error) {
 			"listFiles":          getFileList,
 			"prepareFileReceive": prepareFileReceive,
 			"getThumbnail":       getThumbnail,
+			"playVideo":          playVideo,
 		},
 		dcm: &FileSystemMock{
 			dcFileMap: map[string]string{},
@@ -131,6 +132,9 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 
 	peerConnection.OnConnectionStateChange(func(pcs webrtc.PeerConnectionState) {
 		log.Infof("Connect status changed to %v", pcs)
+		if pcs == webrtc.PeerConnectionStateConnected {
+			s.dcm.peerConnection = peerConnection
+		}
 	})
 	peerConnection.OnICEConnectionStateChange(func(is webrtc.ICEConnectionState) {
 		log.Infof("ICE Connect status changed to %v", is)

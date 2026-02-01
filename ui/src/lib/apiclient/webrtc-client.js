@@ -7,6 +7,7 @@ import BaseClient from './base-client.js';
 import WebRTCDataChannelRPC from './webrtc-dc-rpc.js';
 import WebRTCDataChannelThumbnail from './webrtc-dc-thumbnail.js';
 import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
+import WebRTCDataChannelVideo from './webrtc-dc-video.js'
 
 export default class WebRTCClient extends BaseClient {
     constructor(token) {
@@ -47,6 +48,9 @@ export default class WebRTCClient extends BaseClient {
         this.rpc = new WebRTCDataChannelRPC(this.pc);
         // Thumbnail data channel helper (receives binary thumbnails)
         this.thumbnail = new WebRTCDataChannelThumbnail(this.pc);
+
+        // Concurrent request cache for deduplication
+        this._pendingRequests = new Map(); // key -> Promise
 
         // Handle common auth failure cases on socket errors/close
         this.signalingSocket.onerror = (ev) => {
@@ -170,6 +174,45 @@ export default class WebRTCClient extends BaseClient {
     }
 
     /**
+     * Generate a unique key for a request
+     * @private
+     */
+    _getRequestKey(method, filePath, size = null) {
+        if (size !== null) {
+            return `${method}:${filePath}:${size}`;
+        }
+        return `${method}:${filePath}`;
+    }
+
+    /**
+     * Execute a request with deduplication
+     * @private
+     */
+    async _executeWithDeduplication(key, requestFn) {
+        // Check if there's already a pending request for this key
+        if (this._pendingRequests.has(key)) {
+            console.log(`Request ${key} already in progress, waiting...`);
+            return await this._pendingRequests.get(key);
+        }
+
+        // Create a new promise for this request
+        const promise = (async () => {
+            try {
+                const result = await requestFn();
+                return result;
+            } finally {
+                // Clean up the pending request
+                this._pendingRequests.delete(key);
+            }
+        })();
+
+        // Store the promise in the cache
+        this._pendingRequests.set(key, promise);
+
+        return await promise;
+    }
+
+    /**
      * List files in directory
      * For now, returns mock data simulating P2P response
      */
@@ -201,52 +244,65 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileThumbnail(filePath, maxSize = 200) {
-        try {
-            // Ask remote peer (via RPC) to prepare/produce a thumbnail.
-            // The server should respond with an id that will be sent over
-            // the thumbnail datachannel as a binary packet (first 16 bytes = id).
-            const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
-            const thumbId = (resp && resp.id) ? resp.id : resp;
-            if (!thumbId) return null;
+        const key = this._getRequestKey('getFileThumbnail', filePath, maxSize);
 
-            // Wait for binary thumbnail data on the thumbnail datachannel
-            const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
-            return blob;
-        } catch (err) {
-            console.error('getFileThumbnail error:', err);
-            throw err;
-        }
-    }
-
-    async getFileUrl(filePath) {
-        console.log('Generating file URL via WebRTC for:', filePath);
-        const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-        const label = 'img-' + id;
-
-        return new Promise(async (resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('image transfer timeout'));
-            }, 15000);
-
-            // register a one-time receiver
-            // Image transfer helper (handles incoming image channels)
-            const filedc = new WebRTCDataChannelFileContent(this.pc);
-
+        return await this._executeWithDeduplication(key, async () => {
             try {
-                // Ask remote peer to prepare and send the image on the given label
-                const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
-                console.log("Requested file receive via WebRTC:", filePath, resp);
-                var data = await filedc.receiveFileContent(label, resp["size"], 15000, "image/jpeg");
-                console.log("get content", data)
-                resolve(URL.createObjectURL(data));
+                // Ask remote peer (via RPC) to prepare/produce a thumbnail.
+                // The server should respond with an id that will be sent over
+                // the thumbnail datachannel as a binary packet (first 16 bytes = id).
+                const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
+                const thumbId = (resp && resp.id) ? resp.id : resp;
+                if (!thumbId) return null;
+
+                // Wait for binary thumbnail data on the thumbnail datachannel
+                const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
+                return blob;
             } catch (err) {
-                clearTimeout(timeout);
-                reject(err);
+                console.error('getFileThumbnail error:', err);
+                throw err;
             }
         });
+    }
 
-        // Non-image fallback
-        return 'webrtc://' + filePath;
+    async playVideo(filepath) {
+
+    }
+
+    async getFileUrl(filePath, fileType) {
+        const key = this._getRequestKey('getFileUrl', filePath);
+
+        return await this._executeWithDeduplication(key, async () => {
+            console.log('Generating file URL via WebRTC for:', filePath);
+            const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+            const label = fileType + '-' + id;
+
+
+            return new Promise(async (resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('image transfer timeout'));
+                }, 15000);
+
+                // register a one-time receiver
+                // Image transfer helper (handles incoming image channels)
+                const filedc = new WebRTCDataChannelFileContent(this.pc);
+                const mimeType = fileType == 'image' ? "image/jpeg" : "video/mp4";
+
+                try {
+                    // Ask remote peer to prepare and send the image on the given label
+                    const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
+                    console.log("Requested file receive via WebRTC:", filePath, resp);
+                    var data = await filedc.receiveFileContent(label, resp["size"], 15000, mimeType);
+                    console.log("get content", data)
+                    resolve(URL.createObjectURL(data));
+                } catch (err) {
+                    clearTimeout(timeout);
+                    // Fallback to a placeholder URL if WebRTC transfer fails
+                    console.warn('WebRTC file transfer failed, using fallback URL:', err);
+                    resolve('webrtc://' + filePath);
+                }
+            });
+        });
     }
 
     async getFileInfo(filePath) {

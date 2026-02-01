@@ -37,8 +37,8 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {string} - File URL
      */
-    getFileUrl(filePath) {
-        return TransferClient.get().getFileUrl(filePath);
+    getFileUrl(filePath, fileType) {
+        return TransferClient.get().getFileUrl(filePath, fileType);
     }
 
     /**
