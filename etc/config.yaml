@@ -21,7 +21,7 @@ cache:
   evictionPolicy: LRU
 web:
   port: 8080
-  html: ./static
+  html: ./www
   prefix: /
 
 users:

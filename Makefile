@@ -4,11 +4,13 @@ all: neutron
 
 neutron:
 	@echo "building ./cmd/neutron/ --> ./build/bin/neutron"
-	@mkdir -p ./build/bin ./build/static ./build/etc
+	@rm -rf ./build/www ./build/etc
+	@mkdir -p ./build/bin ./build/www ./build/etc
 	@go fmt ./... && go vet ./...
 	@go build -o ./build/bin/neutron ./cmd/neutron/
 	@cp ./etc/config.yaml ./build/etc/
 	@cp ./etc/passwords.txt ./build/etc/
+	@cp -r ui/www ./build
 
 local-test: neutron
 	@cd ./build && ./bin/neutron server test
@@ -16,3 +18,8 @@ local-test: neutron
 
 remote: neutron
 	@bash ./test/remote/update.sh
+
+
+android:
+	@cd ui && npm run build
+	@cd ui && npx cap sync android && cd android && ./gradlew assembleDebug

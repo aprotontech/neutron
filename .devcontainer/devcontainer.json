@@ -15,9 +15,9 @@
         }
     },
     "mounts": [
-        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/kog/.ssh,type=bind,consistency=cached",
-        "source=${localWorkspaceFolder}/ui/.cache/android,target=/home/kog/.android,type=bind,consistency=cached",
-        "source=${localWorkspaceFolder}/ui/.cache/gradle,target=/home/kog/.gradle,type=bind,consistency=cached"
+        "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/aproton/.ssh,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/ui/.cache/android,target=/home/aproton/.android,type=bind,consistency=cached",
+        "source=${localWorkspaceFolder}/ui/.cache/gradle,target=/home/aproton/.gradle,type=bind,consistency=cached"
     ],
     "privileged": true,
     "capAdd": ["SYS_ADMIN"],
