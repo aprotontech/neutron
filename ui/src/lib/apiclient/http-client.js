@@ -56,7 +56,7 @@ export default class HttpClient extends BaseClient {
         return response.blob();
     }
 
-    getFileUrl(filePath) {
+    async getFileUrl(filePath) {
         return `${this.baseURL}/files/content?path=${encodeURIComponent(filePath)}`;
     }
 

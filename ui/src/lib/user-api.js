@@ -1,37 +1,33 @@
 
 import TransferClient from './transfer.js';
+import { RuntimeVariables } from './helpers.js'
 
 export default class UserAPI {
     constructor() {
     }
 
-    static getToken() {
-        const token = localStorage.getItem('token')
-        return token
-    }
-
     static isLogined() {
-        return !!UserAPI.getToken()
+        return !!RuntimeVariables.getToken()
     }
 
-    static getAPIHost() {
-        // 'http://' + window.API_HOST
-        return ''
-    }
-
-    static async login(username, password) {
+    static async login(username, password, storageServerID) {
         try {
-            const login_api_path = this.getAPIHost() + '/api/login'
+            const login_api_path = RuntimeVariables.getHttpAPIPrefix() + '/api/login'
             const resp = await fetch(login_api_path, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, password: password })
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    clientID: RuntimeVariables.getClientID(),
+                    storageServerID: storageServerID
+                })
             })
 
             if (resp.status === 200) {
                 const data = await resp.json()
                 if (data && data.token) {
-                    localStorage.setItem('token', data.token)
+                    RuntimeVariables.updateAfterLogin(username, storageServerID, data.token)
                     return true
                 }
                 return '登录成功，但未返回 token'
@@ -52,30 +48,34 @@ export default class UserAPI {
 
     static async refreshToken() {
         try {
-            const token_api_path = this.getAPIHost() + '/api/token'
+            const token_api_path = RuntimeVariables.getHttpAPIPrefix() + '/api/token'
             const resp = await fetch(token_api_path, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${UserAPI.getToken()}`
+                    'Authorization': `Bearer ${RuntimeVariables.getToken()}`
                 }
             })
 
             if (resp.status === 200) {
                 const data = await resp.json()
                 if (data && data.token) {
-                    localStorage.setItem('token', data.token)
+                    RuntimeVariables.updateAfterLogin(
+                        RuntimeVariables.getUserName(),
+                        RuntimeVariables.getStorageServerID(),
+                        data.token
+                    )
                     return true
                 }
-                localStorage.removeItem('token')
+                RuntimeVariables.updateAfterLogin("", "", "")
                 return '刷新成功，但未返回 token'
             } else {
-                localStorage.removeItem('token')
+                RuntimeVariables.updateAfterLogin("", "", "")
                 const text = await resp.text()
                 return '刷新失败: ' + (text || resp.status)
             }
         } catch (e) {
-            localStorage.removeItem('token')
+            RuntimeVariables.updateAfterLogin("", "", "")
             return '网络错误: ' + e.message
         }
     }

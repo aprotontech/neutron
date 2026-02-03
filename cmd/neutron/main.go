@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
+	"github.com/aproton/neutron/cmd/neutron/discoversvr"
 	"github.com/aproton/neutron/cmd/neutron/serve"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
@@ -21,7 +22,7 @@ func main() {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			content, err := os.ReadFile(configPath)
 			if err != nil {
-				log.PrintToConsole(err)
+				_, _ = log.PrintToConsole(err)
 				return
 			}
 
@@ -38,6 +39,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "etc/config.yaml", "Config file path")
 
 	rootCmd.AddCommand(serve.ServeCommand())
+	rootCmd.AddCommand(discoversvr.ServeCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

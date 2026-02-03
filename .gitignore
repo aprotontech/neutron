@@ -23,7 +23,9 @@ go.work.sum
 
 # env file
 .env
-./etc/config.yaml
+/etc/config.yaml
+/etc/*.config.yaml
+/etc/*.passwords.txt
 node_modules
 
 /build/

@@ -1,23 +1,31 @@
-package test
+package discover
 
 import (
+	"context"
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"os"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	webrtc "github.com/pion/webrtc/v4"
 
+	"github.com/aproton/neutron/cmd/neutron/config"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
 type FileAPI func(dcm *FileSystemMock, req any) (any, error)
 
-type Sender struct {
+type RemoteStorageServer struct {
 	conn *websocket.Conn
 
 	mutex sync.RWMutex
+
+	config *config.Config
 
 	remoteClients map[string]*webrtc.PeerConnection
 
@@ -30,20 +38,16 @@ type Sender struct {
 	combineAnswerCandidates bool
 }
 
-func NewSender(wsURL string) (*Sender, error) {
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{
-		"Authorization": []string{"Bearer file-server-token"},
-	})
-	if err != nil {
-		return nil, err
+func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
+	if config == nil || config.DiscoverClient == nil || config.Users == nil {
+		panic("invalidate config")
 	}
 
-	settingEngine := webrtc.SettingEngine{}
-
-	return &Sender{
-		conn:                    conn,
+	return &RemoteStorageServer{
+		config:                  config,
+		conn:                    nil,
 		remoteClients:           map[string]*webrtc.PeerConnection{},
-		api:                     webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine)),
+		api:                     nil,
 		combineAnswerCandidates: true,
 		fileAPIS: map[string]FileAPI{
 			"listFiles":          getFileList,
@@ -54,66 +58,115 @@ func NewSender(wsURL string) (*Sender, error) {
 		dcm: &FileSystemMock{
 			dcFileMap: map[string]string{},
 		},
-	}, nil
+	}
 }
 
-func (s *Sender) Start() {
-	regist_msg := SignalMessage{
-		Type:         "regist",
-		Source:       "file-server",
-		Destionation: "discover",
-		Data:         "",
-	}
+func (s *RemoteStorageServer) Start(ctx context.Context) error {
 
-	data, err := json.Marshal(regist_msg)
+	settingEngine := webrtc.SettingEngine{}
+	s.api = webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
+
+	cnt, _ := json.Marshal(&LoginRequest{
+		ClientID:        s.config.DiscoverClient.StorageServerID,
+		Username:        s.config.DiscoverClient.StorageServerID,
+		Password:        s.config.DiscoverClient.Password,
+		StorageServerID: s.config.DiscoverClient.StorageServerID,
+	})
+
+	conn, _, err := websocket.DefaultDialer.Dial(s.config.DiscoverClient.WebSocketURL, http.Header{
+		"Authorization": []string{"Bearer " + base64.StdEncoding.EncodeToString(cnt)},
+	})
 	if err != nil {
-		log.Warnf("Marshal regist message error:", err)
-		return
+		return err
 	}
 
-	if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		log.Warnf("Write regist message error:", err)
-		return
-	}
+	log.Infof("connected to remote host: %s", s.config.DiscoverClient.WebSocketURL)
+
+	s.conn = conn
+
+	go func() {
+		<-ctx.Done()
+		s.conn.Close()
+	}()
 
 	for {
+
 		_, msg, err := s.conn.ReadMessage()
 		if err != nil {
 			log.Warnf("Read error:", err)
-			return
+			return err
 		}
 
 		log.Infof("Received message: %s", string(msg))
 
-		var signal SignalMessage
+		var signal RemoteMessage
 		if err := json.Unmarshal(msg, &signal); err != nil {
 			log.Warnf("Unmarshal error:", err)
 			continue
 		}
 
 		switch signal.Type {
+		case "authorizen":
+			loginInfo, err := signal.GetLoginRequest()
+			if err == nil {
+				ok, err := CheckPassword(loginInfo.Username, loginInfo.Password)
+				if ok || err != nil {
+					token := md5.Sum([]byte(uuid.NewString()))
+					data, err := json.Marshal(&RemoteMessage{
+						Type:         "callAck",
+						Source:       s.config.DiscoverClient.StorageServerID,
+						Destionation: signal.Source,
+						ID:           signal.ID,
+						Data: &LoginResponse{
+							Success: true,
+							Message: "success",
+							Token:   hex.EncodeToString(token[:]),
+						},
+					})
+					if err == nil {
+						if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+							log.Warnf("Write regist message error: %v", err)
+							return err
+						}
+					} else {
+						log.Warnf("Marshal regist message error: %v", err)
+					}
+				} else {
+					log.Warnf("check login data error: %v", err)
+				}
+
+			} else {
+				log.Warnf("GetLoginRequest failed:  %v", err)
+			}
+
 		case "offer":
-			sdp := signal.GetContent("sdp")
-			if err := s.setupRemoteConnection(signal.Source, sdp.(string)); err != nil {
+			offer, err := signal.GetWebRTCOfferContent()
+			if err != nil {
+				log.Warnf("Get remote offer error:", err)
+			} else if err := s.setupRemoteConnection(signal.Source, offer.SDP); err != nil {
 				log.Warnf("Setup remote connection error:", err)
 			}
 
 		case "candidate":
-			cand := signal.GetContent("candidate")
-			candidate := webrtc.ICECandidateInit{
-				Candidate: cand.(string),
-			}
+			cand, err := signal.GetWebRTCCandidateContent()
+			if err != nil {
+				log.Warnf("Get remote offer error:", err)
+			} else {
+				candidate := webrtc.ICECandidateInit{
+					Candidate: cand.Candidate,
+				}
 
-			if pc, exists := s.remoteClients[signal.Source]; exists {
-				if err := pc.AddICECandidate(candidate); err != nil {
-					log.Warnf("AddICECandidate error: %v", err)
+				if pc, exists := s.remoteClients[signal.Source]; exists {
+					if err := pc.AddICECandidate(candidate); err != nil {
+						log.Warnf("AddICECandidate error: %v", err)
+					}
 				}
 			}
 		}
 	}
 }
 
-func (s *Sender) setupRemoteConnection(source string, sdp string) error {
+func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) error {
 	log.Infof("Setting up remote connection for source: %s", source)
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -179,7 +232,7 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 			log.Infof("Received: %s", string(msg.Data))
 
 			if dataChannel.Label() == "rpc" {
-				m := SignalMessage{}
+				m := RemoteMessage{}
 				if err := json.Unmarshal(msg.Data, &m); err != nil {
 					log.Warnf("Unmarshal data channel message error: %v", err)
 					return
@@ -202,9 +255,9 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 					}
 				}
 
-				res, err := json.Marshal(&SignalMessage{
+				res, err := json.Marshal(&RemoteMessage{
 					Type:         "@response",
-					Source:       "file-server",
+					Source:       s.config.DiscoverClient.StorageServerID,
 					ID:           m.ID,
 					Destionation: source,
 					Data:         response,
@@ -239,9 +292,9 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate != nil && !s.combineAnswerCandidates {
 			log.Infof("OnICECandidate %v", candidate)
-			if err := s.conn.WriteJSON(&SignalMessage{
+			if err := s.conn.WriteJSON(&RemoteMessage{
 				Type:         "candidate",
-				Source:       "file-server",
+				Source:       s.config.DiscoverClient.StorageServerID,
 				Destionation: source,
 				Data:         candidate,
 			}); err != nil {
@@ -265,18 +318,18 @@ func (s *Sender) setupRemoteConnection(source string, sdp string) error {
 	if s.combineAnswerCandidates {
 		<-gatherComplete
 
-		if err := s.conn.WriteJSON(&SignalMessage{
+		if err := s.conn.WriteJSON(&RemoteMessage{
 			Type:         "answer+candidates",
-			Source:       "file-server",
+			Source:       s.config.DiscoverClient.StorageServerID,
 			Destionation: source,
 			Data:         peerConnection.LocalDescription(),
 		}); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	} else {
-		if err := s.conn.WriteJSON(&SignalMessage{
+		if err := s.conn.WriteJSON(&RemoteMessage{
 			Type:         "answer",
-			Source:       "file-server",
+			Source:       s.config.DiscoverClient.StorageServerID,
 			Destionation: source,
 			Data: map[string]string{
 				"sdp": peerConnection.LocalDescription().SDP,

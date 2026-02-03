@@ -15,11 +15,13 @@ neutron:
 local-test: neutron
 	@cd ./build && ./bin/neutron server test
 
+html:
+	@cd ui && npm run build
 
 remote: neutron
 	@bash ./test/remote/update.sh
 
 
-android:
-	@cd ui && npm run build
+
+android: html
 	@cd ui && npx cap sync android && cd android && ./gradlew assembleDebug

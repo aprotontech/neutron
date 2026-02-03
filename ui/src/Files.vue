@@ -754,7 +754,7 @@ onMounted(() => {
     UserAPI.refreshToken().then(error_msg => {
       console.log("refreshToken", error_msg)
       if (error_msg === true){
-        TransferClient.init('webrtc', UserAPI.getToken())
+        TransferClient.init('webrtc')
         
         // 从URL参数读取路径
         const initialPath = getUrlPath()

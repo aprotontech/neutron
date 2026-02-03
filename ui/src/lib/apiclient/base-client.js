@@ -13,7 +13,7 @@ export default class BaseClient {
         throw new Error('Not implemented');
     }
 
-    getFileUrl(filePath, fileType) {
+    async getFileUrl(filePath, fileType) {
         throw new Error('Not implemented');
     }
 

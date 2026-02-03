@@ -1,4 +1,4 @@
-package test
+package discover
 
 import (
 	"crypto/md5"

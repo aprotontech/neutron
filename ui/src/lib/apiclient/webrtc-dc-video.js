@@ -308,10 +308,6 @@ export default class WebRTCDataChannelVideo {
 
                     // 使用第一个支持的MIME类型
                     const supportedType = supportedTypes[0];
-                    supportedType = mimeType;
-
-
-
 
                     if (!supportedType) {
                         throw new Error('浏览器不支持任何视频格式');

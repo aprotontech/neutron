@@ -10,7 +10,7 @@ import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
 import WebRTCDataChannelVideo from './webrtc-dc-video.js'
 
 export default class WebRTCClient extends BaseClient {
-    constructor(token) {
+    constructor(wsaddr, clientId, storageServerId, token) {
         super();
         // token should be provided by the caller (app); do not access storage here
         this.token = token || '';
@@ -18,18 +18,9 @@ export default class WebRTCClient extends BaseClient {
         this.dc = null;
         this.dataChannelQueue = [];
         this.connected = false;
-        this.sourceId = "xyz"; // Unique identifier for this client
+        this.clientId = clientId; // Unique identifier for this client
+        this.storageServerId = storageServerId
 
-
-        //const host = window.location.host;
-        const host = window.API_HOST
-        const protocol = window.location.protocol;
-        let wsaddr = '';
-        if (protocol === 'https:') {
-            wsaddr = 'wss://' + host + '/ws';
-        } else {
-            wsaddr = 'ws://' + host + '/ws';
-        }
         wsaddr += '?token=' + encodeURIComponent(this.token);
 
         this.signalingSocket = new WebSocket(wsaddr);
@@ -84,12 +75,6 @@ export default class WebRTCClient extends BaseClient {
             this.signalingSocket.onopen = async () => {
                 console.log("Signaling socket connected");
                 this._socketOpened = true;
-                this.signalingSocket.send(JSON.stringify({
-                    type: 'regist',
-                    source: this.sourceId,
-                    destination: "",
-                    data: null
-                }));
 
                 // Handle ICE candidates
                 this.pc.onicecandidate = (event) => {
@@ -97,8 +82,8 @@ export default class WebRTCClient extends BaseClient {
                         console.log('ICE candidate:', event.candidate);
                         this.signalingSocket.send(JSON.stringify({
                             type: 'candidate',
-                            source: this.sourceId,
-                            destination: "file-server",
+                            source: this.clientId,
+                            destination: this.storageServerId,
                             data: event.candidate.toJSON(),
                         }));
                     }
@@ -115,8 +100,8 @@ export default class WebRTCClient extends BaseClient {
 
                 this.signalingSocket.send(JSON.stringify({
                     type: 'offer',
-                    source: this.sourceId,
-                    destination: "file-server",
+                    source: this.clientId,
+                    destination: this.storageServerId,
                     data: offer
                 }));
 

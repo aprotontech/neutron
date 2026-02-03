@@ -35,7 +35,7 @@ async function login() {
   }
 
   loading.value = true
-  const error_msg = await UserAPI.login(username.value, password.value)
+  const error_msg = await UserAPI.login(username.value, password.value, "home")
   loading.value = false
   if (error_msg === true) {
     emit('login-state-changed')
