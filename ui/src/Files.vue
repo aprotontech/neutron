@@ -298,7 +298,7 @@ async function openMediaViewer(file) {
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image')
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
   } else if (isVideo(file)) {
     
     if (file.size > 5 * 1024 * 1024) {
@@ -307,7 +307,7 @@ async function openMediaViewer(file) {
     } else {
       isViewingImage.value = false
       isViewingVideo.value = true
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video')
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
     }
     
   }

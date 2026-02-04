@@ -5,7 +5,7 @@ export default class BaseClient {
         throw new Error('Not implemented');
     }
 
-    async getFileContent(filePath) {
+    async getFileContent(filePath, stream) {
         throw new Error('Not implemented');
     }
 

@@ -24,6 +24,14 @@ export class FileTypeDetector {
         return name.toLowerCase().substring(name.lastIndexOf('.'));
     }
 
+    static getMIMEType(filename) {
+        const ext = this._ext(filename);
+        for (const [mime, exts] of Object.entries(this.MIME_TYPES)) {
+            if (exts.includes(ext)) return mime
+        }
+        return 'application/octet-stream'
+    }
+
     static isImage(filename) {
         const ext = this._ext(filename);
         for (const [mime, exts] of Object.entries(this.MIME_TYPES)) {
@@ -120,6 +128,10 @@ export class RuntimeVariables {
         myself.token = token
 
         myself._saveData()
+    }
+
+    static cleanup() {
+        RuntimeVariables.updateAfterLogin("", "", "")
     }
 
     _initBySelf() {

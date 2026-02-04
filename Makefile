@@ -21,7 +21,8 @@ html:
 remote: neutron
 	@bash ./test/remote/update.sh
 
-
+web:
+	@cd ui && npm run dev
 
 android: html
 	@cd ui && npx cap sync android && cd android && ./gradlew assembleDebug

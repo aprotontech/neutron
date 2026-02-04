@@ -24,7 +24,7 @@ export default class HttpClient extends BaseClient {
         return response.json();
     }
 
-    async getFileContent(filePath) {
+    async getFileContent(filePath, stream) {
         const response = await fetch(`${this.baseURL}/files/content`, {
             method: 'POST',
             headers: {

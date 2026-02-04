@@ -15,7 +15,12 @@ export default class TransferClient {
                     RuntimeVariables.getWebsocketAddress(),
                     RuntimeVariables.getClientID(),
                     RuntimeVariables.getStorageServerID(),
-                    RuntimeVariables.getToken());
+                    RuntimeVariables.getToken(),
+                    function () {
+                        RuntimeVariables.cleanup()
+                        window.location.href = '/login.html';
+                    }
+                );
                 break;
             case 'http':
                 this.client = new HttpClient();

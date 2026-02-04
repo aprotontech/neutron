@@ -43,7 +43,7 @@ export default class UserAPI {
     }
 
     static async logout() {
-        localStorage.removeItem('token')
+        RuntimeVariables.cleanup()
     }
 
     static async refreshToken() {
@@ -67,15 +67,15 @@ export default class UserAPI {
                     )
                     return true
                 }
-                RuntimeVariables.updateAfterLogin("", "", "")
+                RuntimeVariables.cleanup()
                 return '刷新成功，但未返回 token'
             } else {
-                RuntimeVariables.updateAfterLogin("", "", "")
+                RuntimeVariables.cleanup()
                 const text = await resp.text()
                 return '刷新失败: ' + (text || resp.status)
             }
         } catch (e) {
-            RuntimeVariables.updateAfterLogin("", "", "")
+            RuntimeVariables.cleanup()
             return '网络错误: ' + e.message
         }
     }

@@ -3,6 +3,7 @@
  * Handles file listing and P2P transmission of files
  */
 
+import { v4 as uuidv4 } from 'uuid';
 import BaseClient from './base-client.js';
 import WebRTCDataChannelRPC from './webrtc-dc-rpc.js';
 import WebRTCDataChannelThumbnail from './webrtc-dc-thumbnail.js';
@@ -10,7 +11,7 @@ import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
 import WebRTCDataChannelVideo from './webrtc-dc-video.js'
 
 export default class WebRTCClient extends BaseClient {
-    constructor(wsaddr, clientId, storageServerId, token) {
+    constructor(wsaddr, clientId, storageServerId, token, auth_failed_callback) {
         super();
         // token should be provided by the caller (app); do not access storage here
         this.token = token || '';
@@ -20,6 +21,7 @@ export default class WebRTCClient extends BaseClient {
         this.connected = false;
         this.clientId = clientId; // Unique identifier for this client
         this.storageServerId = storageServerId
+        this.auth_failed_callback = auth_failed_callback
 
         wsaddr += '?token=' + encodeURIComponent(this.token);
 
@@ -49,7 +51,7 @@ export default class WebRTCClient extends BaseClient {
             // If socket never opened, likely auth rejection during handshake
             if (!this._socketOpened) {
                 // Give the server a brief moment to send a close reason, then redirect
-                setTimeout(() => { window.location.href = '/login.html'; }, 200);
+                setTimeout(() => { this.auth_failed_callback() }, 200);
             }
         };
 
@@ -58,7 +60,7 @@ export default class WebRTCClient extends BaseClient {
             // Heuristics: if server indicated 401 in reason or closed before open, redirect
             const reason = (ev && ev.reason) ? String(ev.reason) : '';
             if (ev && (ev.code === 401 || reason.indexOf('401') !== -1 || /unauthor/i.test(reason) || !this._socketOpened)) {
-                window.location.href = '/login.html';
+                this.auth_failed_callback()
                 return;
             }
         };
@@ -213,19 +215,38 @@ export default class WebRTCClient extends BaseClient {
         }
     }
 
-    async getFileContent(filePath) {
-        // Send request via WebRTC data channel
-        // This would establish a separate data transfer channel
-        // For demonstration, return a blob
+    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, timeoutMs = 15000) {
+        const key = this._getRequestKey('getFileContent', filePath, mimeType + (stream ? ':stream' : ':blob'));
 
-        console.log('Requesting file content via WebRTC:', filePath);
+        return await this._executeWithDeduplication(key, async () => {
+            console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream);
+            const id = uuidv4();
+            const label = mimeType.replaceAll('/', '-') + '-' + id;
 
-        // In production, this would:
-        // 1. Send a request message via data channel
-        // 2. Establish a new data channel for file transfer
-        // 3. Receive file chunks and reassemble them
+            // Create file content helper
+            const filedc = new WebRTCDataChannelFileContent(this.pc);
 
-        throw new Error('Not implemented in demo mode');
+            try {
+                // Ask remote peer to prepare and send the file on the given label
+                const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
+                console.log("Requested file receive via WebRTC:", filePath, resp);
+
+                const fileSize = resp["size"] || null;
+
+                if (stream) {
+                    // Return ReadableStream for streaming
+                    return await filedc.receiveFileContentStream(label, fileSize, timeoutMs);
+                } else {
+                    // Return Blob for direct download
+                    const blob = await filedc.receiveFileContent(label, fileSize, timeoutMs, mimeType);
+                    console.log("Received file content as blob, size:", blob.size);
+                    return blob;
+                }
+            } catch (err) {
+                console.error('WebRTC file transfer failed:', err);
+                throw err;
+            }
+        });
     }
 
     async getFileThumbnail(filePath, maxSize = 200) {
@@ -254,39 +275,25 @@ export default class WebRTCClient extends BaseClient {
 
     }
 
-    async getFileUrl(filePath, fileType) {
+    async getFileUrl(filePath, mimeType) {
         const key = this._getRequestKey('getFileUrl', filePath);
 
         return await this._executeWithDeduplication(key, async () => {
-            console.log('Generating file URL via WebRTC for:', filePath);
-            const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-            const label = fileType + '-' + id;
+            console.log('Generating file URL via WebRTC for:', filePath, 'type:', mimeType);
 
+            try {
+                // Get file content as blob (stream = false)
+                const blob = await this.getFileContent(filePath, mimeType, false, 15000);
 
-            return new Promise(async (resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('image transfer timeout'));
-                }, 15000);
-
-                // register a one-time receiver
-                // Image transfer helper (handles incoming image channels)
-                const filedc = new WebRTCDataChannelFileContent(this.pc);
-                const mimeType = fileType == 'image' ? "image/jpeg" : "video/mp4";
-
-                try {
-                    // Ask remote peer to prepare and send the image on the given label
-                    const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
-                    console.log("Requested file receive via WebRTC:", filePath, resp);
-                    var data = await filedc.receiveFileContent(label, resp["size"], 15000, mimeType);
-                    console.log("get content", data)
-                    resolve(URL.createObjectURL(data));
-                } catch (err) {
-                    clearTimeout(timeout);
-                    // Fallback to a placeholder URL if WebRTC transfer fails
-                    console.warn('WebRTC file transfer failed, using fallback URL:', err);
-                    resolve('webrtc://' + filePath);
-                }
-            });
+                // Create object URL from blob
+                const objectUrl = URL.createObjectURL(blob);
+                console.log("Created object URL for file:", filePath, "size:", blob.size);
+                return objectUrl;
+            } catch (err) {
+                // Fallback to a placeholder URL if WebRTC transfer fails
+                console.warn('WebRTC file transfer failed, using fallback URL:', err);
+                return 'webrtc://' + filePath;
+            }
         });
     }
 

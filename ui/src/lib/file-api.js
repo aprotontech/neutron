@@ -1,8 +1,10 @@
 
 import TransferClient from './transfer.js';
+import { FileTypeDetector } from './helpers.js';
 
 // Minimal FileAPI that tries HTTP endpoint then falls back to mock data
 export default class FileAPI {
+
 
     /**
      * List files in a directory
@@ -18,8 +20,8 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {Promise<Blob>} - File content
      */
-    async getFileContent(filePath) {
-        return TransferClient.get().getFileContent(filePath);
+    async getFileContent(filePath, stream) {
+        return TransferClient.get().getFileContent(filePath, stream);
     }
 
     /**
@@ -37,8 +39,9 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {string} - File URL
      */
-    getFileUrl(filePath, fileType) {
-        return TransferClient.get().getFileUrl(filePath, fileType);
+    getFileUrl(filePath) {
+        const mimeType = FileTypeDetector.getMIMEType(filePath)
+        return TransferClient.get().getFileUrl(filePath, mimeType);
     }
 
     /**
@@ -48,5 +51,9 @@ export default class FileAPI {
      */
     async getFileInfo(filePath) {
         return TransferClient.get().getFileInfo(filePath);
+    }
+
+    async downloadFile(filePath) {
+
     }
 }

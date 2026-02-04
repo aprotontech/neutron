@@ -13,39 +13,138 @@ export default class WebRTCDataChannelFileContent {
         this._channels = new Map(); // label -> RTCDataChannel
         this._pendingReceivers = new Map(); // label -> { resolve, reject, expectedSize, timer }
         this._channelTransfers = new Map(); // label -> transfer object
+        this._streamReceivers = new Map(); // label -> { controller, expectedSize, timer }
     }
 
     // Actively create (or attach to) a datachannel by `label` and wait until
     // `expectedSize` bytes have been received (or the channel closes). Returns a
     // Promise that resolves to a blob URL when the full image is received.
     receiveFileContent(label, expectedSize = null, timeoutMs = 15000, mimeType = 'application/octet-stream') {
+        // 使用流式读取功能，然后转换为 Blob
+        return this.receiveFileContentStream(label, expectedSize, timeoutMs)
+            .then(stream => {
+                return new Promise((resolve, reject) => {
+                    const reader = stream.getReader();
+                    const chunks = [];
+                    let totalSize = 0;
+                    let isFinished = false;
+
+                    function pump() {
+                        reader.read().then(({ done, value }) => {
+                            if (done) {
+                                // 所有数据读取完成
+                                console.log("receiveFileContent: stream finished, total size:", totalSize);
+                                isFinished = true;
+                                const blob = new Blob(chunks, { type: mimeType });
+                                resolve(blob);
+                                return;
+                            }
+
+                            console.log("receiveFileContent: received chunk size:", value.byteLength || value.length || 0);
+                            chunks.push(value);
+                            totalSize += value.byteLength || value.length || 0;
+
+                            // 如果指定了预期大小，检查是否已达到
+                            if (expectedSize !== null && totalSize >= expectedSize) {
+                                console.log("receiveFileContent: reached expected size", expectedSize);
+                                // 取消读取器，因为我们已经有足够的数据
+                                reader.cancel("reached expected size").then(() => {
+                                    console.log("receiveFileContent: reader cancelled");
+                                }).catch(err => {
+                                    console.error("receiveFileContent: error cancelling reader", err);
+                                });
+
+                                // 立即创建 Blob，不等待流结束
+                                const blob = new Blob(chunks, { type: mimeType });
+                                resolve(blob);
+                                return;
+                            }
+
+                            pump();
+                        }).catch(err => {
+                            console.error("receiveFileContent: error reading stream", err);
+                            if (!isFinished) {
+                                reject(err);
+                            }
+                        });
+                    }
+
+                    pump();
+
+                    // 添加超时处理
+                    const timeoutTimer = setTimeout(() => {
+                        if (!isFinished) {
+                            console.error("receiveFileContent: timeout after", timeoutMs, "ms");
+                            reader.cancel("timeout").finally(() => {
+                                reject(new Error(`receiveFileContent timeout after ${timeoutMs}ms`));
+                            });
+                        }
+                    }, timeoutMs);
+
+                    // 清理超时定时器
+                    Promise.resolve().then(() => {
+                        // 在 Promise 解析或拒绝时清理定时器
+                        const cleanup = () => {
+                            clearTimeout(timeoutTimer);
+                        };
+                        // 使用 finally 确保清理
+                        return new Promise((res, rej) => {
+                            // 这个 Promise 永远不会解析，只是用来附加清理逻辑
+                        }).finally(cleanup);
+                    }).catch(() => { }); // 忽略错误
+                });
+            });
+    }
+
+    // 流式接收文件内容，返回 ReadableStream 对象
+    receiveFileContentStream(label, expectedSize = null, timeoutMs = 15000) {
         if (!label) return Promise.reject(new Error('label required'));
 
-        if (this._pendingReceivers.has(label)) {
+        if (this._streamReceivers.has(label)) {
             return Promise.reject(new Error('already waiting for this label'));
         }
 
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
-                this._pendingReceivers.delete(label);
-                reject(new Error('receiveImage timeout'));
+                this._streamReceivers.delete(label);
+                reject(new Error('receiveFileContentStream timeout'));
             }, timeoutMs);
 
-            this._pendingReceivers.set(label, { resolve, reject, expectedSize, timer });
+            // 创建 ReadableStream
+            const stream = new ReadableStream({
+                start: (controller) => {
+                    this._streamReceivers.set(label, { controller, expectedSize, timer });
 
-            // If channel already exists, rely on its handlers to resolve when enough data arrives.
-            const existing = this._channels.get(label);
-            if (existing) return;
+                    // 如果通道已经存在，直接返回
+                    const existing = this._channels.get(label);
+                    if (existing) return;
 
-            // Otherwise, proactively create the datachannel to allow the remote to send on it.
-            try {
-                const dc = this.pc.createDataChannel(label, { ordered: false, maxRetransmits: 3 });
-                this._setupChannel(dc, mimeType);
-            } catch (e) {
-                clearTimeout(timer);
-                this._pendingReceivers.delete(label);
-                reject(e);
-            }
+                    // 否则主动创建数据通道
+                    try {
+                        const dc = this.pc.createDataChannel(label, { ordered: false, maxRetransmits: 3 });
+                        this._setupChannel(dc, 'application/octet-stream');
+                    } catch (e) {
+                        clearTimeout(timer);
+                        this._streamReceivers.delete(label);
+                        reject(e);
+                        // 不需要调用 controller.error，因为流还没有被返回给调用者
+                    }
+                },
+                cancel: (reason) => {
+                    // 清理资源
+                    const receiver = this._streamReceivers.get(label);
+                    if (receiver) {
+                        clearTimeout(receiver.timer);
+                        this._streamReceivers.delete(label);
+                    }
+                    const channel = this._channels.get(label);
+                    if (channel) {
+                        channel.close();
+                    }
+                }
+            });
+
+            resolve(stream);
         });
     }
 
@@ -72,6 +171,14 @@ export default class WebRTCDataChannelFileContent {
                 pending.resolve(blob);
             }
 
+            // 完成流式读取
+            const streamReceiver = this._streamReceivers.get(label);
+            if (streamReceiver) {
+                clearTimeout(streamReceiver.timer);
+                this._streamReceivers.delete(label);
+                streamReceiver.controller.close();
+            }
+
             channel.close();
         };
 
@@ -79,8 +186,18 @@ export default class WebRTCDataChannelFileContent {
             if (ev.data instanceof ArrayBuffer) {
                 transfer.chunks.push(ev.data);
                 transfer.receivedBytes += ev.data.byteLength || ev.data.length || 0;
+
+                // 处理流式读取
+                const streamReceiver = this._streamReceivers.get(label);
+                if (streamReceiver) {
+                    streamReceiver.controller.enqueue(new Uint8Array(ev.data));
+                }
+
                 const pending = this._pendingReceivers.get(label);
-                const expected = pending ? pending.expectedSize : (transfer.meta ? transfer.meta.size : null);
+
+                // 使用流式读取的预期大小（如果有），否则使用传统接收器的预期大小
+                const expected = streamReceiver ? streamReceiver.expectedSize :
+                    (pending ? pending.expectedSize : (transfer.meta ? transfer.meta.size : null));
                 if (expected != null && transfer.receivedBytes >= expected) {
                     finishTransfer();
                 }
@@ -99,16 +216,32 @@ export default class WebRTCDataChannelFileContent {
                     this._pendingReceivers.delete(label);
                     pending.reject(new Error('channel closed before data received'));
                 }
+
+                // 处理流式读取的错误
+                const streamReceiver = this._streamReceivers.get(label);
+                if (streamReceiver) {
+                    clearTimeout(streamReceiver.timer);
+                    this._streamReceivers.delete(label);
+                    streamReceiver.controller.error(new Error('channel closed before data received'));
+                }
             }
         };
 
         channel.onerror = (e) => {
-            console.error('File Contnt channel error', e);
+            console.error('File Content channel error', e);
             const pending = this._pendingReceivers.get(label);
             if (pending) {
                 clearTimeout(pending.timer);
                 this._pendingReceivers.delete(label);
                 pending.reject(e || new Error('datachannel error'));
+            }
+
+            // 处理流式读取的错误
+            const streamReceiver = this._streamReceivers.get(label);
+            if (streamReceiver) {
+                clearTimeout(streamReceiver.timer);
+                this._streamReceivers.delete(label);
+                streamReceiver.controller.error(e || new Error('datachannel error'));
             }
         };
     }
