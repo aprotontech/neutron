@@ -120,7 +120,7 @@
             <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)" ref="thumbnailItems">
               <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
                 <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
-                <video id="video" v-else-if="isVideo(file)" :src="getFileUrl(file)" controls></video>
+                <div v-else-if="isVideo(file)" class="thumbnail-icon">🎬</div>
                 <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div> 
               </div>
               <div class="thumbnail-info">
@@ -148,7 +148,7 @@
         </div>
       </div>
 
-      <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo }">
+      <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo || isViewingAudio || isViewingText }">
         <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
         <div class="media-viewer-content" 
              @touchstart="handleMediaTouchStart" 
@@ -164,6 +164,11 @@
           
           <img v-if="isViewingImage && !isMediaLoading" :src="currentMediaUrl" :alt="currentMediaFile?.name" />
           <video v-else-if="isViewingVideo && !isMediaLoading" :src="currentMediaUrl" controls autoplay></video>
+          <audio v-else-if="isViewingAudio && !isMediaLoading" :src="currentMediaUrl" controls autoplay></audio>
+          <div v-else-if="isViewingText && !isMediaLoading" class="text-viewer">
+            <pre v-if="FileTypeDetector.isCode(currentMediaFile?.name)" class="code-content" v-html="highlightedCode"></pre>
+            <pre v-else class="plain-text-content">{{ currentTextContent }}</pre>
+          </div>
           
           <!-- 桌面端导航按钮 -->
           <button class="nav-btn nav-prev desktop-only" :class="{ 'show-hover': showNavButtons }" @click="prevMedia" v-if="hasPrevMedia">
@@ -189,7 +194,50 @@ import { ref, onMounted, defineEmits, watch, onUnmounted, computed } from 'vue'
 import UserAPI from './lib/user-api'
 import FileAPI from './lib/file-api'
 import { FileTypeDetector, FileSizeFormatter, DateFormatter } from './lib/helpers'
+import hljs from 'highlight.js/lib/core'
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import python from 'highlight.js/lib/languages/python'
+import java from 'highlight.js/lib/languages/java'
+import cpp from 'highlight.js/lib/languages/cpp'
+import csharp from 'highlight.js/lib/languages/csharp'
+import php from 'highlight.js/lib/languages/php'
+import ruby from 'highlight.js/lib/languages/ruby'
+import go from 'highlight.js/lib/languages/go'
+import rust from 'highlight.js/lib/languages/rust'
+import swift from 'highlight.js/lib/languages/swift'
+import kotlin from 'highlight.js/lib/languages/kotlin'
+import sql from 'highlight.js/lib/languages/sql'
+import bash from 'highlight.js/lib/languages/bash'
+import powershell from 'highlight.js/lib/languages/powershell'
+import yaml from 'highlight.js/lib/languages/yaml'
+import json from 'highlight.js/lib/languages/json'
+import xml from 'highlight.js/lib/languages/xml'
+import css from 'highlight.js/lib/languages/css'
+import html from 'highlight.js/lib/languages/xml'
 import TransferClient from './lib/transfer'
+
+// 注册 highlight.js 语言支持
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('java', java)
+hljs.registerLanguage('cpp', cpp)
+hljs.registerLanguage('csharp', csharp)
+hljs.registerLanguage('php', php)
+hljs.registerLanguage('ruby', ruby)
+hljs.registerLanguage('go', go)
+hljs.registerLanguage('rust', rust)
+hljs.registerLanguage('swift', swift)
+hljs.registerLanguage('kotlin', kotlin)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('powershell', powershell)
+hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('html', html)
 
 const emit = defineEmits(['login-state-changed'])
 
@@ -204,8 +252,11 @@ const error = ref('')
 const fileAPI = new FileAPI()
 const isViewingImage = ref(false)
 const isViewingVideo = ref(false)
+const isViewingAudio = ref(false)
+const isViewingText = ref(false)
 const currentMediaFile = ref(null)
 const currentMediaUrl = ref('')
+const currentTextContent = ref('')
 const isMediaLoading = ref(false)
 const showUserMenu = ref(false)
 const showPathList = ref(false)
@@ -234,6 +285,74 @@ const toastTimer = ref(null)
 // 缩略图懒加载相关
 const thumbnailObserver = ref(null)
 const thumbnailElements = ref(new Map())
+
+// 将文件名映射到 highlight.js 语言标识符
+function getLanguageFromFilename(filename) {
+  const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+  const languageMap = {
+    '.js': 'javascript',
+    '.jsx': 'javascript',
+    '.mjs': 'javascript',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.py': 'python',
+    '.java': 'java',
+    '.c': 'c',
+    '.h': 'c',
+    '.cpp': 'cpp',
+    '.cc': 'cpp',
+    '.cxx': 'cpp',
+    '.hpp': 'cpp',
+    '.hh': 'cpp',
+    '.hxx': 'cpp',
+    '.cs': 'csharp',
+    '.php': 'php',
+    '.rb': 'ruby',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.swift': 'swift',
+    '.kt': 'kotlin',
+    '.kts': 'kotlin',
+    '.lua': 'lua',
+    '.pl': 'perl',
+    '.pm': 'perl',
+    '.sql': 'sql',
+    '.sh': 'bash',
+    '.bash': 'bash',
+    '.zsh': 'bash',
+    '.ps1': 'powershell',
+    '.bat': 'batch',
+    '.cmd': 'batch',
+    '.html': 'html',
+    '.htm': 'html',
+    '.css': 'css',
+    '.json': 'json',
+    '.xml': 'xml',
+    '.yaml': 'yaml',
+    '.yml': 'yaml',
+    '.toml': 'toml',
+    '.ini': 'ini',
+    '.md': 'markdown',
+    '.markdown': 'markdown',
+  };
+  return languageMap[ext] || 'plaintext';
+}
+
+// 计算高亮后的代码内容
+const highlightedCode = computed(() => {
+  if (!currentTextContent.value || !currentMediaFile.value) return ''
+  if (FileTypeDetector.isCode(currentMediaFile.value.name)) {
+    const language = getLanguageFromFilename(currentMediaFile.value.name)
+    try {
+      const result = hljs.highlight(currentTextContent.value, { language })
+      return result.value
+    } catch (error) {
+      console.error('代码高亮失败:', error)
+      return currentTextContent.value
+    }
+  }
+  return currentTextContent.value
+})
 
 
 function updateBreadcrumb() {
@@ -280,13 +399,33 @@ async function openFile(f) {
     const newPath = f.path || (currentPath.value.endsWith('/') ? currentPath.value + f.name : currentPath.value + '/' + f.name)
     await loadFiles(newPath)
   } else {
-    if (isImage(f) || isVideo(f)) await openMediaViewer(f)
+    if (isPreviewable(f)) {
+      await openMediaViewer(f)
+    } else {
+      // 文件不支持预览，显示提示
+      showToastMessage(`"${f.name}" 不支持预览，请下载后再查看。`, 'warning', 5000)
+    }
   }
 }
 
 async function openMediaViewer(file) {
   currentMediaFile.value = file
   isMediaLoading.value = true
+  
+  // 重置所有查看状态
+  isViewingImage.value = false
+  isViewingVideo.value = false
+  isViewingAudio.value = false
+  isViewingText.value = false
+  currentMediaUrl.value = ''
+  currentTextContent.value = ''
+  
+  // 检查文件大小限制（5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    showToastMessage('文件内容过大，暂时不支持预览，请下载后再预览。', 'warning')
+    isMediaLoading.value = false
+    return
+  }
   
   // 更新图片文件列表
   updateImageFilesList()
@@ -297,23 +436,9 @@ async function openMediaViewer(file) {
   
   if (isImage(file)) {
     isViewingImage.value = true
-    isViewingVideo.value = false
     currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-  } else if (isVideo(file)) {
     
-    if (file.size > 5 * 1024 * 1024) {
-      showToastMessage('视频文件内容太大，不支持预览，请下载后再播放。', 'warning')
-      return
-    } else {
-      isViewingImage.value = false
-      isViewingVideo.value = true
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-    }
-    
-  }
-  
-  // 图片加载完成后隐藏加载动画
-  if (isImage(file)) {
+    // 图片加载完成后隐藏加载动画
     const img = new Image()
     img.onload = () => {
       isMediaLoading.value = false
@@ -322,8 +447,34 @@ async function openMediaViewer(file) {
       isMediaLoading.value = false
     }
     img.src = currentMediaUrl.value
-  } else {
-    // 视频加载完成后隐藏加载动画
+  } else if (isVideo(file)) {
+    isViewingVideo.value = true
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    isMediaLoading.value = false
+  } else if (isAudio(file)) {
+    isViewingAudio.value = true
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    isMediaLoading.value = false
+  } else if (isText(file)) {
+    isViewingText.value = true
+    try {
+      // 获取文本文件内容
+      const response = await fetch(await fileAPI.getFileUrl(file.path))
+      if (response.ok) {
+        const text = await response.text()
+        // 限制文本大小，避免过大文件导致性能问题
+        if (text.length > 100000) { // 100KB限制
+          currentTextContent.value = text.substring(0, 100000) + '\n\n... (文件过大，已截断显示前100KB内容)'
+        } else {
+          currentTextContent.value = text
+        }
+      } else {
+        currentTextContent.value = '无法加载文件内容'
+      }
+    } catch (error) {
+      console.error('加载文本文件失败:', error)
+      currentTextContent.value = '加载文件内容失败'
+    }
     isMediaLoading.value = false
   }
 }
@@ -465,8 +616,11 @@ function handleMediaMouseLeave() {
 function closeMediaViewer() {
   isViewingImage.value = false
   isViewingVideo.value = false
+  isViewingAudio.value = false
+  isViewingText.value = false
   currentMediaFile.value = null
   currentMediaUrl.value = ''
+  currentTextContent.value = ''
   isMediaLoading.value = false
   currentMediaIndex.value = -1
   imageFiles.value = []
@@ -578,10 +732,17 @@ function handleFileTouchEnd(file) {
 
 function isImage(file) { return !file.isDir && FileTypeDetector.isImage(file.name) }
 function isVideo(file) { return !file.isDir && FileTypeDetector.isVideo(file.name) }
+function isAudio(file) { return !file.isDir && FileTypeDetector.isAudio(file.name) }
+function isText(file) { return !file.isDir && FileTypeDetector.isText(file.name) }
+function isPreviewable(file) { return !file.isDir && (isImage(file) || isVideo(file) || isAudio(file) || isText(file)) }
 function getFileIcon(file) {
   if (file.isDir) return '📁'
   const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-  const iconMap = { '.jpg':'🖼️','.jpeg':'🖼️','.png':'🖼️','.gif':'🖼️','.mp4':'🎬' }
+  const iconMap = { 
+    '.jpg':'🖼️','.jpeg':'🖼️','.png':'🖼️','.gif':'🖼️','.bmp':'🖼️','.webp':'🖼️','.svg':'🖼️',
+    '.mp4':'🎬','.webm':'🎬','.mov':'🎬','.avi':'🎬','.mkv':'🎬','.flv':'🎬',
+    '.mp3':'🎵','.mpeg':'🎵','.wav':'🎵','.ogg':'🎵','.aac':'🎵','.flac':'🎵','.m4a':'🎵'
+  }
   return iconMap[ext] || '📄'
 }
 function formatSize(b) { return FileSizeFormatter.format(b) }
@@ -867,9 +1028,12 @@ watch(files, (newFiles, oldFiles) => {
 </script>
 
 <style>
+/* 导入 highlight.js 样式 */
+@import 'highlight.js/styles/github-dark.css';
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; }
-#app { height: 100vh; display: flex; flex-direction: column; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
+#app { width: 100%; height: 100%; display: flex; flex-direction: column; }
 .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: flex-start; }
 .header-left { flex: 1; }
 .header h1 { font-size: 24px; margin-bottom: 10px; }
@@ -1351,5 +1515,79 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 
 .toast.warning .download-btn:hover {
   box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
+/* 文本查看器样式 */
+.text-viewer {
+  background: #0d1117; /* GitHub Dark 主题背景色 */
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.plain-text-content {
+  margin: 0;
+  padding: 0;
+  color: #c9d1d9; /* GitHub Dark 文本颜色 */
+}
+
+.code-content {
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+}
+
+/* highlight.js 会提供自己的样式，这里只需要确保背景透明 */
+
+/* 音频播放器样式 */
+audio {
+  background: #2d2d2d;
+  border-radius: 8px;
+  padding: 10px;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+/* 媒体查看器中音频和文本的特定样式 */
+.media-viewer-content audio,
+.media-viewer-content .text-viewer {
+  background: rgba(30, 30, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .text-viewer {
+    max-width: 95%;
+    max-height: 80%;
+    font-size: 12px;
+    padding: 15px;
+  }
+  
+  audio {
+    min-width: 250px;
+    max-width: 350px;
+  }
+}
+
+@media (max-width: 480px) {
+  .text-viewer {
+    max-width: 98%;
+    max-height: 70%;
+    font-size: 11px;
+    padding: 10px;
+  }
+  
+  audio {
+    min-width: 200px;
+    max-width: 280px;
+  }
 }
 </style>

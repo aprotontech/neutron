@@ -215,11 +215,11 @@ export default class WebRTCClient extends BaseClient {
         }
     }
 
-    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, timeoutMs = 15000) {
+    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, timeoutMs = -1, idleTimeout = 10000) {
         const key = this._getRequestKey('getFileContent', filePath, mimeType + (stream ? ':stream' : ':blob'));
 
         return await this._executeWithDeduplication(key, async () => {
-            console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream);
+            console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
             const id = uuidv4();
             const label = mimeType.replaceAll('/', '-') + '-' + id;
 
@@ -235,10 +235,10 @@ export default class WebRTCClient extends BaseClient {
 
                 if (stream) {
                     // Return ReadableStream for streaming
-                    return await filedc.receiveFileContentStream(label, fileSize, timeoutMs);
+                    return await filedc.receiveFileContentStream(label, fileSize, timeoutMs, idleTimeout);
                 } else {
                     // Return Blob for direct download
-                    const blob = await filedc.receiveFileContent(label, fileSize, timeoutMs, mimeType);
+                    const blob = await filedc.receiveFileContent(label, fileSize, timeoutMs, idleTimeout, mimeType);
                     console.log("Received file content as blob, size:", blob.size);
                     return blob;
                 }
@@ -283,7 +283,7 @@ export default class WebRTCClient extends BaseClient {
 
             try {
                 // Get file content as blob (stream = false)
-                const blob = await this.getFileContent(filePath, mimeType, false, 15000);
+                const blob = await this.getFileContent(filePath, mimeType, false);
 
                 // Create object URL from blob
                 const objectUrl = URL.createObjectURL(blob);

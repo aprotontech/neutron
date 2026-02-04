@@ -26,7 +26,14 @@ func ServeCommand() *cobra.Command {
 		Run:   StartServer,
 	}
 
+	testCmd := &cobra.Command{
+		Use:   "test",
+		Short: "Start Test Server",
+		Run:   TestServer,
+	}
+
 	serveCmd.AddCommand(startCmd)
+	serveCmd.AddCommand(testCmd)
 
 	return serveCmd
 }

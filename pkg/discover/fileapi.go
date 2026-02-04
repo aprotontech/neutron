@@ -44,11 +44,12 @@ func getFileList(fsm *FileSystemMock, req any) (any, error) {
 		}
 
 		item := FileFolderInfo{
-			"name":    info.Name(),
-			"isDir":   info.IsDir(),
-			"size":    info.Size(),
-			"modTime": info.ModTime().Format("2006-01-02 15:04:05"),
-			"path":    path.Join(folder, info.Name()),
+			"name":     info.Name(),
+			"isDir":    info.IsDir(),
+			"size":     info.Size(),
+			"modTime":  info.ModTime().Format("2006-01-02 15:04:05"),
+			"path":     path.Join(folder, info.Name()),
+			"mimeType": "",
 		}
 		result = append(result, item)
 	}

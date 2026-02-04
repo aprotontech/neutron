@@ -18,7 +18,7 @@ local-test: neutron
 html:
 	@cd ui && npm run build
 
-remote: neutron
+remote: neutron html
 	@bash ./test/remote/update.sh
 
 web:

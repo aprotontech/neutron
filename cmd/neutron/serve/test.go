@@ -1,10 +1,13 @@
-package test
+package serve
 
 import (
 	"context"
 	"path"
 
+	"github.com/spf13/cobra"
+
 	"github.com/aproton/neutron/cmd/neutron/config"
+	"github.com/aproton/neutron/cmd/neutron/discoversvr"
 	baidudisk "github.com/aproton/neutron/pkg/storage/baidu_disk"
 	"github.com/aproton/neutron/pkg/utils/log"
 	"github.com/aproton/neutron/pkg/web"
@@ -59,4 +62,10 @@ func testBaiduSDK(ctx context.Context) {
 
 	_ = web.StartWebServer(config.GlobalConfig.WebServer, handles)
 
+}
+
+func TestServer(cmd *cobra.Command, args []string) {
+	go discoversvr.StartDiscover(cmd, args)
+
+	StartServer(cmd, args)
 }

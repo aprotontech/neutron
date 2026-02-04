@@ -35,7 +35,7 @@ const config: CapacitorConfig = {
   //   cleartext: true
   // },
    server: {
-    url: 'http://192.168.1.115:8080',
+    url: 'https://www.huxiaolong.cn',
     cleartext: true 
   },
 

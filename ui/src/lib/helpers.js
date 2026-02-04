@@ -17,7 +17,43 @@ export class FileTypeDetector {
         'video/quicktime': ['.mov'],
         'video/x-msvideo': ['.avi'],
         'video/x-matroska': ['.mkv'],
-        'video/x-flv': ['.flv']
+        'video/x-flv': ['.flv'],
+
+        'audio/mpeg': ['.mp3', '.mpeg'],
+        'audio/wav': ['.wav'],
+        'audio/ogg': ['.ogg'],
+        'audio/aac': ['.aac'],
+        'audio/flac': ['.flac'],
+        'audio/x-m4a': ['.m4a'],
+
+        'text/plain': ['.txt', '.text', '.log', '.md', '.markdown'],
+        'text/html': ['.html', '.htm'],
+        'text/css': ['.css'],
+        'text/javascript': ['.js', '.jsx', '.mjs'],
+        'application/javascript': ['.js', '.jsx', '.mjs'],
+        'text/typescript': ['.ts', '.tsx'],
+        'application/x-python': ['.py'],
+        'application/x-java': ['.java'],
+        'text/x-c': ['.c', '.h'],
+        'text/x-c++': ['.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx'],
+        'text/x-csharp': ['.cs'],
+        'text/x-php': ['.php'],
+        'text/x-ruby': ['.rb'],
+        'text/x-go': ['.go'],
+        'text/x-rust': ['.rs'],
+        'text/x-swift': ['.swift'],
+        'text/x-kotlin': ['.kt', '.kts'],
+        'application/json': ['.json'],
+        'application/xml': ['.xml'],
+        'text/x-yaml': ['.yaml', '.yml'],
+        'text/x-toml': ['.toml'],
+        'text/x-ini': ['.ini'],
+        'text/x-shellscript': ['.sh', '.bash', '.zsh'],
+        'text/x-powershell': ['.ps1'],
+        'text/x-batch': ['.bat', '.cmd'],
+        'text/x-lua': ['.lua'],
+        'text/x-perl': ['.pl', '.pm'],
+        'text/x-sql': ['.sql']
     };
 
     static _ext(name) {
@@ -46,6 +82,33 @@ export class FileTypeDetector {
             if (mime.startsWith('video/') && exts.includes(ext)) return true;
         }
         return false;
+    }
+
+    static isAudio(filename) {
+        const ext = this._ext(filename);
+        for (const [mime, exts] of Object.entries(this.MIME_TYPES)) {
+            if (mime.startsWith('audio/') && exts.includes(ext)) return true;
+        }
+        return false;
+    }
+
+    static isText(filename) {
+        const ext = this._ext(filename);
+        for (const [mime, exts] of Object.entries(this.MIME_TYPES)) {
+            if (mime.startsWith('text/') && exts.includes(ext)) return true;
+        }
+        return false;
+    }
+
+    static isCode(filename) {
+        const ext = this._ext(filename);
+        const codeExtensions = [
+            '.js', '.jsx', '.mjs', '.ts', '.tsx', '.py', '.java', '.c', '.h',
+            '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx', '.cs', '.php', '.rb',
+            '.go', '.rs', '.swift', '.kt', '.kts', '.lua', '.pl', '.pm', '.sql',
+            '.sh', '.bash', '.zsh', '.ps1', '.bat', '.cmd'
+        ];
+        return codeExtensions.includes(ext);
     }
 }
 
