@@ -34,7 +34,7 @@ node_modules
 /ui/cache/
 /ui/.cache/
 /ui/node_modules/
-/ui/android/
+#/ui/android/
 /ui/www
 /backups
 /test
