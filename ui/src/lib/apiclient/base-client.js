@@ -1,6 +1,10 @@
 
 export default class BaseClient {
 
+    async getConnectionStatus() {
+        throw new Error('Not implemented');
+    }
+
     async listFiles(path) {
         throw new Error('Not implemented');
     }

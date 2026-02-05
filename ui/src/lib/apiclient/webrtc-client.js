@@ -199,6 +199,10 @@ export default class WebRTCClient extends BaseClient {
         return await promise;
     }
 
+    async getConnectionStatus() {
+        return this.signalingSocket.readyState == WebSocket.OPEN && this.pc.connectionState == 'connected'
+    }
+
     /**
      * List files in directory
      * For now, returns mock data simulating P2P response
