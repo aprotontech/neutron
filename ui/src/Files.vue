@@ -108,7 +108,7 @@
               <div>修改时间</div>
             </div>
 
-            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)">
+            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)">
               <div class="file-icon">{{ getFileIcon(file) }}</div>
               <div class="file-name">{{ file.name }}</div>
               <div class="file-size">{{ formatSize(file.size) }}</div>
@@ -117,7 +117,7 @@
           </div>
 
           <div v-else class="thumbnail-grid">
-            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file)" @touchend="handleFileTouchEnd(file)" ref="thumbnailItems">
+            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)" ref="thumbnailItems">
               <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
                 <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
                 <div v-else-if="isVideo(file)" class="thumbnail-icon">🎬</div>
@@ -148,7 +148,7 @@
         </div>
       </div>
 
-      <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo || isViewingAudio || isViewingText }">
+      <div id="media-viewer" class="media-viewer" :class="{ active: isViewingImage || isViewingVideo || isViewingAudio || isViewingText }" @click="handleMediaBackgroundClick">
         <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
         <div class="media-viewer-content" 
              @touchstart="handleMediaTouchStart" 
@@ -632,6 +632,46 @@ function closeMediaViewer() {
   }
 }
 
+// 处理点击媒体查看器背景关闭预览
+function handleMediaBackgroundClick(event) {
+  // 只有在媒体查看器激活时才处理点击
+  if (!isViewingImage.value && !isViewingVideo.value && !isViewingAudio.value && !isViewingText.value) {
+    return
+  }
+  
+  // 如果点击的是关闭按钮，不处理（关闭按钮有自己的点击事件）
+  if (event.target.closest('.media-viewer-close')) {
+    return
+  }
+  
+  // 如果点击的是导航按钮，不处理（导航按钮有自己的点击事件）
+  if (event.target.closest('.nav-btn')) {
+    return
+  }
+  
+  // 如果点击的是内容区域（图片、视频、音频、文本查看器），不处理
+  const contentElement = event.target.closest('.media-viewer-content')
+  if (contentElement) {
+    // 进一步检查是否点击的是内容区域内的媒体元素
+    const mediaElements = contentElement.querySelectorAll('img, video, audio, .text-viewer, .media-loading')
+    for (const mediaElement of mediaElements) {
+      if (mediaElement.contains(event.target)) {
+        return
+      }
+    }
+    // 如果点击的是内容区域但不是媒体元素本身（比如内容区域的空白部分），也不关闭
+    return
+  }
+  
+  // 如果点击的是媒体查看器导航信息，不处理
+  if (event.target.closest('.media-viewer-nav')) {
+    return
+  }
+  
+  // 否则，点击的是背景区域，关闭媒体查看器
+  closeMediaViewer()
+}
+
 function goToRoot() { loadFiles('/') }
 async function goToPath(index) {
   const parts = currentPathArray.value.slice(0, index + 1)
@@ -691,7 +731,7 @@ function handlePopState(event) {
 
 
 // 文件触摸事件处理
-function handleFileTouchStart(file) {
+function handleFileTouchStart(file, event) {
   fileTouchStartTime.value = Date.now()
   touchedFile.value = file
   fileTouchTimer.value = setTimeout(() => {
@@ -700,13 +740,13 @@ function handleFileTouchStart(file) {
   }, 500)
 }
 
-function handleFileTouchEnd(file) {
+function handleFileTouchEnd(file, event) {
   clearTimeout(fileTouchTimer.value)
   const touchDuration = Date.now() - fileTouchStartTime.value
   const currentTime = Date.now()
   
   // 检测双击
-  if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 300) {
+  if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 500) {
     // 双击：如果是目录，进入目录；如果是图片或视频，直接查看
     if (file.isDir) {
       openFile(file)
@@ -716,6 +756,11 @@ function handleFileTouchEnd(file) {
     lastTapTime.value = 0
     lastTappedFile.value = null
     touchedFile.value = null
+    // 阻止事件冒泡，避免触发click事件
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
     return
   }
   
