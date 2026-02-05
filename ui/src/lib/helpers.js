@@ -144,6 +144,7 @@ export class RuntimeVariables {
 
     constructor() {
         this.username = ""
+        this.password = ""
         this.clientID = ""
         this.storageServerID = ""
         this.httpApiPrefix = ""
@@ -175,6 +176,10 @@ export class RuntimeVariables {
         return RuntimeVariables.instance().username
     }
 
+    static getPassword() {
+        return RuntimeVariables.instance().password
+    }
+
     static getClientID() {
         return RuntimeVariables.instance().clientID
     }
@@ -184,23 +189,25 @@ export class RuntimeVariables {
     }
 
 
-    static updateAfterLogin(username, storageServerID, token) {
+    static updateAfterLogin(username, storageServerID, token, password = "") {
         const myself = RuntimeVariables.instance()
         myself.username = username
         myself.storageServerID = storageServerID
         myself.token = token
+        myself.password = password
 
         myself._saveData()
     }
 
     static cleanup() {
-        RuntimeVariables.updateAfterLogin("", "", "")
+        RuntimeVariables.updateAfterLogin("", "", "", "")
     }
 
     _initBySelf() {
-        this.username = localStorage.getItem('username')
-        this.storageServerID = localStorage.getItem('storageServerID')
-        this.token = localStorage.getItem('token')
+        this.username = localStorage.getItem('username') || ""
+        this.password = localStorage.getItem('password') || ""
+        this.storageServerID = localStorage.getItem('storageServerID') || ""
+        this.token = localStorage.getItem('token') || ""
 
         this.clientID = uuidv4();
         this.httpApiPrefix = ""
@@ -218,7 +225,8 @@ export class RuntimeVariables {
 
     _saveData() {
         localStorage.setItem('username', this.username)
-        localStorage.getItem('storageServerID', this.storageServerID)
-        localStorage.getItem('token', this.token)
+        localStorage.setItem('storageServerID', this.storageServerID)
+        localStorage.setItem('token', this.token)
+        localStorage.setItem('password', this.password)
     }
 }

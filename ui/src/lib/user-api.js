@@ -10,7 +10,7 @@ export default class UserAPI {
         return !!RuntimeVariables.getToken()
     }
 
-    static async login(username, password, storageServerID) {
+    static async login(username, password, storageServerID, rememberPassword = false) {
         try {
             const login_api_path = RuntimeVariables.getHttpAPIPrefix() + '/api/login'
             const resp = await fetch(login_api_path, {
@@ -27,7 +27,9 @@ export default class UserAPI {
             if (resp.status === 200) {
                 const data = await resp.json()
                 if (data && data.token) {
-                    RuntimeVariables.updateAfterLogin(username, storageServerID, data.token)
+                    // 根据rememberPassword参数决定是否保存密码
+                    const passwordToSave = rememberPassword ? password : ""
+                    RuntimeVariables.updateAfterLogin(username, storageServerID, data.token, passwordToSave)
                     return true
                 }
                 return '登录成功，但未返回 token'
