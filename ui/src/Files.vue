@@ -30,30 +30,69 @@
         
         <!-- 移动设备专用header -->
         <div class="mobile-header mobile-only">
-          <!-- 第一行：标题和用户按钮 -->
+          <!-- 第一行：左侧菜单按钮、标题和右侧菜单按钮 -->
           <div class="mobile-header-top">
-            <h1 class="mobile-title">📁 文件浏览器</h1>
-            <div class="user-menu">
-              <button class="user-btn" @click="toggleUserMenu">
-                <span class="user-icon">👤</span>
+            <!-- 左侧三条杠菜单按钮 -->
+            <div class="mobile-menu-left">
+              <button class="menu-btn" @click="toggleLeftMenu">
+                <span class="menu-icon">☰</span>
               </button>
-              <div class="user-dropdown" :class="{ active: showUserMenu }">
-                <button class="dropdown-item" @click="logout">
-                  <span class="dropdown-icon">🚪</span>
-                  <span>登出</span>
-                </button>
+              <!-- 左侧菜单内容 -->
+              <div class="menu-overlay" :class="{ active: showLeftMenu }" @click="hideLeftMenu"></div>
+              <div class="menu-left" :class="{ active: showLeftMenu }">
+                <div class="menu-header">
+                  <div class="menu-user-info">
+                    <span class="menu-user-icon">👤</span>
+                    <span class="menu-username">{{ getUserName() }}</span>
+                  </div>
+                </div>
+                <div class="menu-list">
+                  <button class="menu-item" @click="goToRoot">
+                    <span class="menu-item-icon">📁</span>
+                    <span class="menu-item-text">我的文件</span>
+                  </button>
+                  <button class="menu-item" @click="logout">
+                    <span class="menu-item-icon">🚪</span>
+                    <span class="menu-item-text">退出登录</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <h1 class="mobile-title">📁 文件浏览器</h1>
+            
+            <!-- 右侧三点菜单按钮 -->
+            <div class="mobile-menu-right">
+              <button class="menu-btn" @click="toggleRightMenu">
+                <span class="menu-icon">⋮</span>
+              </button>
+              <!-- 右侧菜单内容 -->
+              <div class="menu-overlay" :class="{ active: showRightMenu }" @click="hideRightMenu"></div>
+              <div class="menu-right" :class="{ active: showRightMenu }">
+                <div class="menu-list">
+                  <button class="menu-item" @click="toggleViewMode">
+                    <span class="menu-item-icon">{{ viewMode === 'list' ? '□' : '≡' }}</span>
+                    <span class="menu-item-text">{{ viewMode === 'list' ? '显示缩略图' : '显示列表' }}</span>
+                  </button>
+                  <button class="menu-item disabled">
+                    <span class="menu-item-icon">⬇️</span>
+                    <span class="menu-item-text">下载</span>
+                  </button>
+                  <button class="menu-item disabled">
+                    <span class="menu-item-icon">⬆️</span>
+                    <span class="menu-item-text">上传</span>
+                  </button>
+                  <button class="menu-item disabled">
+                    <span class="menu-item-icon">ℹ️</span>
+                    <span class="menu-item-text">文件详情</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
           
-          <!-- 第二行：导航按钮 -->
+          <!-- 第二行：当前目录按钮（移动到工具栏中） -->
           <div class="mobile-nav" v-if="currentPath !== '/'">
-            <!-- 返回按钮 -->
-            <button class="back-btn" @click="goBack">
-              <span class="back-icon">←</span>
-              <span class="back-text">返回</span>
-            </button>
-            
             <!-- 当前目录名按钮和下拉菜单 -->
             <div class="current-path-container">
               <button class="current-path-btn" @click="showPathDropdown">
@@ -82,7 +121,64 @@
       </div>
 
       <div class="toolbar">
-        <div class="view-toggle">
+        <!-- 移动设备：导航按钮、当前目录按钮和视图切换按钮在同一行 -->
+        <div class="mobile-toolbar mobile-only">
+          <!-- 导航按钮组 -->
+          <div class="mobile-nav-buttons">
+            <!-- Home按钮（快速回到根目录） -->
+            <button class="nav-home-btn" 
+                    @click="goToRoot" 
+                    title="根目录">
+              <span class="nav-home-icon">🏠</span>
+            </button>
+            
+            <!-- 向上按钮（到达上级目录） -->
+            <button class="nav-up-btn" 
+                    :class="{ disabled: currentPath === '/' }" 
+                    @click="goBack" 
+                    :disabled="currentPath === '/'" 
+                    title="上级目录">
+              <span class="nav-up-icon">↑</span>
+            </button>
+          </div>
+          
+          <!-- 当前目录按钮和下拉菜单 -->
+          <div class="mobile-path-container">
+            <button class="mobile-path-btn" @click="showPathDropdown">
+              <span class="mobile-path-text">{{ getCurrentPathDisplay() }}</span>
+            </button>
+            
+            <!-- 路径下拉菜单 -->
+            <div class="path-dropdown-overlay" :class="{ active: showPathList }" @click="hidePathDropdown"></div>
+            <div class="path-dropdown" :class="{ active: showPathList }">
+              <div class="path-dropdown-list">
+                <button class="path-item" @click="goToRoot">
+                  <span class="path-icon">🏠</span>
+                  <span>根目录</span>
+                </button>
+                <template v-for="(path, index) in currentPathArray" :key="index">
+                  <button class="path-item" @click="goToPath(index)">
+                    <span class="path-icon">📁</span>
+                    <span>{{ path }}</span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 视图切换按钮 -->
+          <div class="mobile-view-toggle">
+            <button class="mobile-view-btn" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'" title="列表视图">
+              <span class="mobile-view-icon">≡</span>
+            </button>
+            <button class="mobile-view-btn" :class="{ active: viewMode === 'thumbnail' }" @click="viewMode = 'thumbnail'" title="缩微图视图">
+              <span class="mobile-view-icon">□</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 桌面端：保持原来的视图切换按钮 -->
+        <div class="view-toggle desktop-only">
           <button class="view-toggle-btn" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'" title="列表视图">
             <span class="view-toggle-icon">≡</span>
             <span class="view-toggle-text desktop-only">列表视图</span>
@@ -260,6 +356,8 @@ const currentTextContent = ref('')
 const isMediaLoading = ref(false)
 const showUserMenu = ref(false)
 const showPathList = ref(false)
+const showLeftMenu = ref(false)
+const showRightMenu = ref(false)
 const fileTouchStartTime = ref(0)
 const fileTouchTimer = ref(null)
 const touchedFile = ref(null)
@@ -946,9 +1044,52 @@ function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value
 }
 
+// 左侧菜单控制函数
+function toggleLeftMenu() {
+  showLeftMenu.value = !showLeftMenu.value
+  // 如果打开左侧菜单，关闭右侧菜单
+  if (showLeftMenu.value) {
+    showRightMenu.value = false
+  }
+}
+
+function hideLeftMenu() {
+  showLeftMenu.value = false
+}
+
+// 右侧菜单控制函数
+function toggleRightMenu() {
+  showRightMenu.value = !showRightMenu.value
+  // 如果打开右侧菜单，关闭左侧菜单
+  if (showRightMenu.value) {
+    showLeftMenu.value = false
+  }
+}
+
+function hideRightMenu() {
+  showRightMenu.value = false
+}
+
+// 切换视图模式
+function toggleViewMode() {
+  viewMode.value = viewMode.value === 'list' ? 'thumbnail' : 'list'
+  hideRightMenu()
+}
+
+// 获取用户名
+function getUserName() {
+  try {
+    // 从 RuntimeVariables 获取用户名
+    return window.RuntimeVariables?.getUserName() || '用户'
+  } catch (e) {
+    return '用户'
+  }
+}
+
 function logout() {
   
   showUserMenu.value = false
+  showLeftMenu.value = false
   UserAPI.logout().then(() => {
     console.log("用户已登出")
     emit('login-state-changed')
@@ -991,10 +1132,19 @@ onMounted(() => {
     }
   })
   
-  // 点击页面其他地方时关闭用户菜单
+  // 点击页面其他地方时关闭菜单
   document.addEventListener('click', (e) => {
+    // 关闭用户菜单
     if (showUserMenu.value && !e.target.closest('.user-menu')) {
       showUserMenu.value = false
+    }
+    // 关闭左侧菜单
+    if (showLeftMenu.value && !e.target.closest('.mobile-menu-left')) {
+      showLeftMenu.value = false
+    }
+    // 关闭右侧菜单
+    if (showRightMenu.value && !e.target.closest('.mobile-menu-right')) {
+      showRightMenu.value = false
     }
   })
   
@@ -1102,6 +1252,129 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .view-toggle-btn.active { background: #667eea; color: white; border-color: #667eea; }
 .view-toggle-icon { font-size: 16px; }
 .view-toggle-text { font-size: 14px; }
+
+/* 移动设备工具栏样式 */
+.mobile-toolbar {
+  display: none;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-nav-buttons {
+  flex-shrink: 0; /* 防止导航按钮被压缩 */
+}
+
+.mobile-path-container {
+  flex: 1;
+  min-width: 0; /* 防止flex item溢出 */
+  position: relative; /* 为下拉菜单提供定位上下文 */
+}
+
+.mobile-view-toggle {
+  flex-shrink: 0; /* 防止视图切换按钮被压缩 */
+}
+
+.mobile-path-btn {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+
+.mobile-path-btn:hover {
+  background: #f5f7fa;
+  border-color: #667eea;
+}
+
+/* 移动设备导航按钮样式 */
+.mobile-nav-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nav-up-btn,
+.nav-home-btn {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.nav-up-btn:hover:not(.disabled),
+.nav-home-btn:hover {
+  background: #f5f7fa;
+  border-color: #667eea;
+}
+
+.nav-up-btn.disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: #eee;
+}
+
+.nav-up-btn.disabled:hover {
+  background: #f5f5f5;
+  border-color: #eee;
+}
+
+.nav-up-icon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.nav-home-icon {
+  font-size: 16px;
+}
+
+.mobile-view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.mobile-view-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 34px;
+}
+
+.mobile-view-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.mobile-view-icon {
+  font-size: 16px;
+}
 .content { flex: 1; overflow: auto; padding: 20px; }
 .file-list { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; }
@@ -1373,6 +1646,175 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   text-align: center;
 }
 
+/* 移动设备菜单样式 */
+.mobile-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.mobile-menu-left,
+.mobile-menu-right {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.menu-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  transition: all 0.3s;
+}
+
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.menu-icon {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.menu-overlay.active {
+  display: block;
+}
+
+.menu-left,
+.menu-right {
+  display: none;
+  position: fixed;
+  top: 0;
+  width: 280px;
+  height: 100%;
+  background: white;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.menu-left {
+  left: 0;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+
+.menu-left.active {
+  display: block;
+  transform: translateX(0);
+}
+
+.menu-right {
+  right: 0;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+.menu-right.active {
+  display: block;
+  transform: translateX(0);
+}
+
+.menu-header {
+  padding: 20px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menu-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-user-icon {
+  font-size: 24px;
+}
+
+.menu-username {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.menu-list {
+  padding: 16px 0;
+}
+
+.menu-item {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  background: white;
+  color: #333;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background: #f5f7fa;
+}
+
+.menu-item.disabled {
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.menu-item.disabled:hover {
+  background: white;
+}
+
+.menu-item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.menu-item-text {
+  font-weight: 500;
+}
+
+.mobile-title {
+  font-size: 18px;
+  margin: 0;
+  text-align: center;
+  flex: 1;
+  padding: 0 12px;
+}
+
 @media (max-width: 768px) {
   .desktop-only { display: none !important; }
   .mobile-only { display: flex !important; }
@@ -1387,11 +1829,28 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .current-path-btn { height: 36px; }
   .user-btn { padding: 6px; font-size: 22px; width: 40px; height: 40px; }
   .user-btn .user-icon { margin-right: 0; }
+  
+  /* 移动设备菜单按钮样式 */
+  .menu-btn { padding: 6px; font-size: 20px; width: 40px; height: 40px; }
+  .mobile-title { font-size: 16px; }
+  
+  /* 移动设备工具栏样式 */
+  .mobile-toolbar { display: flex; }
+  .mobile-nav { display: none; } /* 隐藏旧的导航 */
+  .toolbar { padding: 8px; justify-content: space-between; }
+  .mobile-nav-buttons { gap: 4px; }
+  .nav-up-btn,
+  .nav-home-btn { padding: 3px 6px; width: 30px; height: 30px; font-size: 12px; }
+  .nav-up-icon,
+  .nav-home-icon { font-size: 14px; }
+  .mobile-path-btn { padding: 6px 10px; font-size: 13px; height: 34px; }
+  .mobile-view-btn { padding: 4px 8px; width: 36px; height: 32px; }
+  .mobile-view-icon { font-size: 14px; }
 }
 @media (max-width: 480px) {
   .header { padding: 10px; flex-direction: column; gap: 10px; }
   .header h1 { font-size: 16px; margin-bottom: 6px; }
-  .mobile-title { font-size: 16px; }
+  .mobile-title { font-size: 14px; }
   .user-btn { padding: 4px; font-size: 20px; width: 36px; height: 36px; }
   .user-dropdown { min-width: 140px; }
   .dropdown-item { padding: 10px 14px; font-size: 13px; }
@@ -1399,10 +1858,22 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .back-btn { padding: 6px 10px; font-size: 12px; min-width: 55px; height: 32px; }
   .back-icon { font-size: 14px; }
   .current-path-btn { padding: 6px 10px; font-size: 12px; height: 32px; }
-  .toolbar { padding: 8px; justify-content: flex-end; }
+  .toolbar { padding: 6px; justify-content: space-between; }
   .view-toggle-btn { padding: 4px 8px; font-size: 12px; }
   .view-toggle-icon { font-size: 14px; }
   .content { padding: 8px; }
+  
+  /* 小屏幕移动设备工具栏样式 */
+  .mobile-path-btn { padding: 4px 8px; font-size: 12px; height: 32px; }
+  .mobile-view-btn { padding: 3px 6px; width: 34px; height: 30px; }
+  .mobile-view-icon { font-size: 13px; }
+  
+  /* 小屏幕导航按钮样式 */
+  .mobile-nav-buttons { gap: 3px; }
+  .nav-up-btn,
+  .nav-home-btn { padding: 2px 4px; width: 28px; height: 28px; font-size: 11px; }
+  .nav-up-icon,
+  .nav-home-icon { font-size: 13px; }
   .file-list-header { display: none; }
   .file-list-item { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; }
   .file-list-item .file-name { font-size: 14px; }
@@ -1415,6 +1886,15 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .path-dropdown-header { padding: 14px 16px; }
   .path-dropdown-header h3 { font-size: 16px; }
   .path-item { padding: 12px 16px; font-size: 15px; }
+  
+  /* 小屏幕菜单样式 */
+  .menu-btn { padding: 4px; font-size: 18px; width: 36px; height: 36px; }
+  .menu-left, .menu-right { width: 240px; }
+  .menu-header { padding: 16px 14px; }
+  .menu-user-icon { font-size: 20px; }
+  .menu-username { font-size: 14px; }
+  .menu-item { padding: 12px 16px; font-size: 14px; gap: 10px; }
+  .menu-item-icon { font-size: 16px; width: 20px; }
 }
 
 /* 提示组件样式 */
