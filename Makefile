@@ -25,4 +25,7 @@ web:
 	@cd ui && npm run dev
 
 android: html
-	@cd ui && npx cap sync android && cd android && ./gradlew assembleDebug
+	@cd ui && npx cap sync android && cd android && ./gradlew clean &&./gradlew assembleDebug
+
+online: android neutron
+	@TO=dev01 bash ./test/remote/update.sh

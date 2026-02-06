@@ -26,18 +26,5 @@ Ensure you have make installed on your system (e.g. apt install make on Debian/U
 
 ```
 
-# 清理构建
-docker run --rm -v $(pwd):/app android-capacitor-builder \
-  bash -c "cd /app/android && ./gradlew clean"
 
-# 编译 debug APK
-docker run --rm -v $(pwd):/app android-capacitor-builder \
-  bash -c "cd /app/android && ./gradlew assembleDebug"
-
-# 编译 release APK
-docker run --rm -v $(pwd):/app android-capacitor-builder \
-  bash -c "cd /app/android && ./gradlew assembleRelease"
-
-# 运行测试
-docker run --rm -v $(pwd):/app android-capacitor-builder \
-  bash -c "cd /app/android && ./gradlew test"
+netsh advfirewall firewall add rule name="开放端口" dir=in action=allow protocol=TCP localport=

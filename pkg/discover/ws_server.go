@@ -128,7 +128,7 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *LoginRequest, w http.Respo
 		}
 
 		if signal.Source != client.clientID {
-			log.Warnf("received invalidate source")
+			log.Warnf("received invalidate source, current %s, expect %s", signal.Source, client.clientID)
 			break
 		}
 
@@ -359,7 +359,7 @@ func (s *DiscoverServer) CheckTokenHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if _, ok := s.tokenCaches.Get(tokenStr); !ok {
+	if loginData, ok := s.tokenCaches.Get(tokenStr); !ok || loginData == nil {
 		http.Error(w, "Invalid Token", http.StatusUnauthorized)
 		return
 	}

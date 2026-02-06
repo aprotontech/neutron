@@ -123,9 +123,15 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	go func() {
 		// If not cached, generate thumbnail using imaging
 		if _, err := os.Stat(cachePath); err != nil {
-			img, err := imaging.Open(srcPath)
+			file, err := os.Open(srcPath)
 			if err != nil {
-				log.Warnf("Open image %s error: %v", srcPath, err)
+				return
+			}
+			defer file.Close()
+
+			img, err := imaging.Decode(file, imaging.AutoOrientation(true))
+			if err != nil {
+				return
 			}
 
 			thumb := imaging.Thumbnail(img, size, size, imaging.Lanczos)
