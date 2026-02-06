@@ -209,7 +209,7 @@ export class RuntimeVariables {
         this.storageServerID = localStorage.getItem('storageServerID') || ""
         this.token = localStorage.getItem('token') || ""
 
-        this.clientID = uuidv4();
+        this.clientID = localStorage.getItem('clientId') || uuidv4();
         this.httpApiPrefix = ""
 
         const host = window.location.host
@@ -228,5 +228,6 @@ export class RuntimeVariables {
         localStorage.setItem('storageServerID', this.storageServerID)
         localStorage.setItem('token', this.token)
         localStorage.setItem('password', this.password)
+        localStorage.setItem('clientId', this.clientID)
     }
 }

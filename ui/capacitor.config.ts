@@ -35,13 +35,25 @@ const config: CapacitorConfig = {
   //   cleartext: true
   // },
    server: {
-    url: 'https://www.huxiaolong.cn',
+    //url: 'https://www.huxiaolong.cn',
+    url: 'http://192.168.1.111:5173',
     cleartext: true 
   },
 
   plugins: {
     CapacitorHttp: {
       enabled: true
+    },
+    StatusBar: {
+      overlay: false,
+      style: 'DEFAULT',
+      
+      iosOverlaysWebView: false,
+      iosScrollsToTop: true,
+      
+      androidOverlaysWebView: false,
+      androidBackgroundColor: '#ffffff',
+      androidTextColor: '#000000'
     }
   }
 };

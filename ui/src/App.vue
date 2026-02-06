@@ -12,6 +12,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { App } from '@capacitor/app'
 import Files from './Files.vue';
 import UserAPI from './lib/user-api'
@@ -75,6 +76,29 @@ async function refreshPage() {
   }
 }
 
+const initializeApp = async () => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // 确保状态栏显示
+      await StatusBar.show();
+      
+      // 强制设置不覆盖内容（关键）
+      await StatusBar.setOverlaysWebView({ overlay: false });
+      
+      // 设置背景色
+      await StatusBar.setBackgroundColor({ color: '#ffffff' });
+      
+      // 设置样式
+      await StatusBar.setStyle({ style: Style.Default });
+      
+      console.log('状态栏设置完成');
+    } catch (error) {
+      console.error('状态栏设置失败:', error);
+    }
+  }
+};
+
+initializeApp();
 
 
 onMounted(() => {

@@ -190,7 +190,33 @@
         </div>
       </div>
 
-      <div class="content">
+      <div
+        class="content"
+        ref="contentContainer"
+      >
+        <!-- 移动端下拉刷新指示器，仅在列表顶部下拉时显示 -->
+        <div
+          class="pull-refresh-indicator mobile-only"
+          :class="{ active: (isPulling || isRefreshing) && isMobile, refreshing: isRefreshing }"
+          :style="{ transform: `translateY(${pullDistance}px)` }"
+        >
+          <div v-if="!isRefreshing" class="pull-refresh-inner">
+            <div
+              class="pull-arrow"
+              :style="{ transform: `rotate(${pullProgress * 180}deg)` }"
+            >
+              ⬇️
+            </div>
+            <div class="pull-text">
+              {{ pullProgress >= 1 ? '松开即可刷新' : '下拉刷新文件列表' }}
+            </div>
+          </div>
+          <div v-else class="pull-refresh-inner">
+            <div class="pull-spinner"></div>
+            <div class="pull-text">正在刷新...</div>
+          </div>
+        </div>
+
         <div v-if="error" class="error-message">{{ error }}</div>
 
         <div v-if="loading" class="loading"><div class="spinner"></div></div>
@@ -374,6 +400,25 @@ const mediaTouchStartY = ref(0)
 const mediaTouchEndY = ref(0)
 const mediaMouseMoveTimer = ref(null)
 
+// 移动端下拉刷新相关
+const isMobile = ref(false)
+const contentContainer = ref(null)
+const pullTouchActive = ref(false)
+const isPulling = ref(false)
+const isRefreshing = ref(false)
+const pullStartY = ref(0)
+const pullStartTime = ref(0)
+const startScrollTop = ref(0)
+const pullDistance = ref(0)
+const pullThreshold = 70
+const maxPullDistance = 120
+
+let contentTouchStartListener = null
+let contentTouchMoveListener = null
+let contentTouchEndListener = null
+let contentTouchCancelListener = null
+let pullMoveAttached = false
+
 // 提示系统相关
 const showToast = ref(false)
 const toastMessage = ref('')
@@ -450,6 +495,12 @@ const highlightedCode = computed(() => {
     }
   }
   return currentTextContent.value
+})
+
+// 下拉刷新进度（0-1）
+const pullProgress = computed(() => {
+  if (pullThreshold === 0) return 0
+  return Math.min(1, pullDistance.value / pullThreshold)
 })
 
 
@@ -768,6 +819,148 @@ function handleMediaBackgroundClick(event) {
   
   // 否则，点击的是背景区域，关闭媒体查看器
   closeMediaViewer()
+}
+
+// 更新是否为移动设备视图
+function handleResize() {
+  if (typeof window !== 'undefined') {
+    isMobile.value = window.innerWidth <= 768
+  }
+}
+
+// 内容区域触摸事件（移动端下拉刷新）
+function attachPullMoveListeners() {
+  if (!contentContainer.value || pullMoveAttached) return
+  contentTouchMoveListener = onContentTouchMove
+  contentTouchEndListener = onContentTouchEnd
+  contentTouchCancelListener = onContentTouchEnd
+  // 只有下拉刷新需要阻止默认滚动，所以这里必须 passive:false
+  contentContainer.value.addEventListener('touchmove', contentTouchMoveListener, { passive: false })
+  contentContainer.value.addEventListener('touchend', contentTouchEndListener, { passive: true })
+  contentContainer.value.addEventListener('touchcancel', contentTouchCancelListener, { passive: true })
+  pullMoveAttached = true
+}
+
+function detachPullMoveListeners() {
+  if (!contentContainer.value || !pullMoveAttached) return
+  if (contentTouchMoveListener) {
+    contentContainer.value.removeEventListener('touchmove', contentTouchMoveListener)
+  }
+  if (contentTouchEndListener) {
+    contentContainer.value.removeEventListener('touchend', contentTouchEndListener)
+  }
+  if (contentTouchCancelListener) {
+    contentContainer.value.removeEventListener('touchcancel', contentTouchCancelListener)
+  }
+  contentTouchMoveListener = null
+  contentTouchEndListener = null
+  contentTouchCancelListener = null
+  pullMoveAttached = false
+}
+
+function onContentTouchStart(event) {
+  if (!isMobile.value || isRefreshing.value) return
+  if (!contentContainer.value) return
+
+  const currentScrollTop = contentContainer.value.scrollTop
+  startScrollTop.value = currentScrollTop
+
+  const touch = event.touches[0]
+  pullStartY.value = touch.clientY
+  pullStartTime.value = Date.now()
+  pullDistance.value = 0
+  isPulling.value = false
+  pullTouchActive.value = currentScrollTop <= 0
+
+  // 只在“起手就在顶部”时才挂载 touchmove（避免影响中部/底部滚动，尤其是 iOS/WKWebView）
+  if (pullTouchActive.value) {
+    attachPullMoveListeners()
+  } else {
+    detachPullMoveListeners()
+  }
+}
+
+function onContentTouchMove(event) {
+  if (!isMobile.value || isRefreshing.value) return
+  if (!contentContainer.value) return
+
+  const touch = event.touches[0]
+  const diffY = touch.clientY - pullStartY.value
+  const currentScrollTop = contentContainer.value.scrollTop
+
+  // 用户开始正常滚动（手指往上），立即退出下拉刷新逻辑并卸载监听，让滚动完全交给原生
+  if (diffY <= 0) {
+    isPulling.value = false
+    pullDistance.value = 0
+    detachPullMoveListeners()
+    return
+  }
+
+  // 如果当前已经不在顶部（比如轻微滚动产生了 scrollTop），则交给原生滚动，不拦截
+  if (!isPulling.value && currentScrollTop > 0) {
+    pullDistance.value = 0
+    detachPullMoveListeners()
+    return
+  }
+
+  // 只有在顶部且向下拉时，才启动下拉刷新手势
+  if (!isPulling.value && currentScrollTop <= 0) isPulling.value = true
+
+  if (!isPulling.value) return
+
+  // 已经进入下拉刷新状态时，拦截默认滚动，改为下拉动画
+  if (event.cancelable) event.preventDefault()
+
+  const distance = Math.min(maxPullDistance, diffY)
+  pullDistance.value = distance
+}
+
+async function onContentTouchEnd() {
+  if (!isMobile.value) {
+    pullDistance.value = 0
+    isPulling.value = false
+    pullTouchActive.value = false
+    detachPullMoveListeners()
+    return
+  }
+
+  if (!isPulling.value) {
+    pullDistance.value = 0
+    pullTouchActive.value = false
+    detachPullMoveListeners()
+    return
+  }
+
+  const duration = Date.now() - pullStartTime.value
+  const shouldRefresh = pullDistance.value >= pullThreshold && duration >= 200
+
+  if (shouldRefresh && !isRefreshing.value) {
+    await triggerPullToRefresh()
+  } else {
+    // 未达到刷新条件，复位动画
+    pullDistance.value = 0
+  }
+
+  isPulling.value = false
+  pullTouchActive.value = false
+  detachPullMoveListeners()
+}
+
+async function triggerPullToRefresh() {
+  if (isRefreshing.value) return
+
+  isRefreshing.value = true
+
+  try {
+    // 使用当前路径重新加载文件列表
+    await loadFiles(currentPath.value)
+  } finally {
+    // 略微延时让动画更自然
+    setTimeout(() => {
+      isRefreshing.value = false
+      pullDistance.value = 0
+    }, 300)
+  }
 }
 
 function goToRoot() { loadFiles('/') }
@@ -1097,6 +1290,17 @@ function logout() {
 }
 
 onMounted(() => {
+  // 初始化移动端视图判断
+  handleResize()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResize)
+  }
+  // content 触摸监听（touchstart 用 passive:true，不影响滚动）
+  if (contentContainer.value) {
+    contentTouchStartListener = onContentTouchStart
+    contentContainer.value.addEventListener('touchstart', contentTouchStartListener, { passive: true })
+  }
+
   if (UserAPI.isLogined()) {
     UserAPI.refreshToken().then(error_msg => {
       console.log("refreshToken", error_msg)
@@ -1166,6 +1370,14 @@ onMounted(() => {
 // 组件卸载时清理资源
 onUnmounted(() => {
   cleanupThumbnails()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleResize)
+  }
+  if (contentContainer.value && contentTouchStartListener) {
+    contentContainer.value.removeEventListener('touchstart', contentTouchStartListener)
+  }
+  detachPullMoveListeners()
+  contentTouchStartListener = null
 })
 
 // 监听视图模式变化，重新初始化Observer
@@ -1375,7 +1587,14 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .mobile-view-icon {
   font-size: 16px;
 }
-.content { flex: 1; overflow: auto; padding: 20px; }
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  position: relative; /* 为下拉刷新指示器提供定位上下文 */
+  overscroll-behavior: contain; /* 防止滚动到边界后把手势传递给 body */
+  touch-action: pan-y; /* 提示浏览器以垂直滚动为主 */
+}
 .file-list { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; }
 .file-list-item { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 12px 20px; align-items: center; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: all 0.2s; }
@@ -1395,6 +1614,54 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .thumbnail-info { padding: 10px; border-top: 1px solid #f0f0f0; }
 .thumbnail-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; margin-bottom: 5px; }
 .thumbnail-size { font-size: 11px; color: #999; }
+.pull-refresh-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+}
+
+.pull-refresh-indicator.active {
+  opacity: 1;
+}
+
+.pull-refresh-inner {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pull-arrow {
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+
+.pull-text {
+  font-size: 12px;
+  color: #555;
+  white-space: nowrap;
+}
+
+.pull-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  border-top-color: #667eea;
+  animation: spin 0.8s linear infinite;
+}
 .media-viewer { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; }
 .media-viewer.active { display: flex; }
 .media-viewer-content { position: relative; max-width: 90%; max-height: 90%; display: flex; align-items: center; justify-content: center; }
