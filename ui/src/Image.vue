@@ -1,24 +1,12 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
-    <!-- 图库头部 -->
-    <div class="gallery-header">
-      <h1>图库</h1>
-      <div class="gallery-tools">
-        <button class="tool-btn" @click="refreshGallery">
-          <span class="tool-icon">↻</span>
-          <span class="tool-text">刷新</span>
-        </button>
-        <button class="tool-btn" @click="toggleViewMode">
-          <span class="tool-icon">{{ viewMode === 'grid' ? '☰' : '⏹' }}</span>
-          <span class="tool-text">{{ viewMode === 'grid' ? '列表' : '网格' }}</span>
-        </button>
-      </div>
-    </div>
+    <!-- 图库头部（保留紫色渐变区块，但去掉文案和按钮） -->
+    <div class="gallery-header"></div>
 
     <!-- 图库内容 -->
     <div class="gallery-content">
-      <!-- 网格视图 -->
-      <div v-if="viewMode === 'grid'" class="image-grid">
+      <!-- 只使用缩略图模式 -->
+      <div class="image-grid">
         <div 
           v-for="(image, index) in sampleImages" 
           :key="index" 
@@ -33,32 +21,6 @@
               <span class="image-name">{{ image.name }}</span>
               <span class="image-date">{{ image.date }}</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 列表视图 -->
-      <div v-else class="image-list">
-        <div 
-          v-for="(image, index) in sampleImages" 
-          :key="index" 
-          class="image-list-item"
-          @click="openImagePreview(image)"
-        >
-          <div class="list-image-icon">
-            <span>🖼️</span>
-          </div>
-          <div class="list-image-info">
-            <div class="list-image-name">{{ image.name }}</div>
-            <div class="list-image-details">
-              <span class="list-image-size">{{ image.size }}</span>
-              <span class="list-image-date">{{ image.date }}</span>
-            </div>
-          </div>
-          <div class="list-image-actions">
-            <button class="action-btn" @click.stop="downloadImage(image)">
-              <span class="action-icon">⬇️</span>
-            </button>
           </div>
         </div>
       </div>
@@ -111,9 +73,6 @@
 import { ref, onMounted } from 'vue'
 import { Capacitor } from '@capacitor/core'
 
-// 视图模式：grid（网格）或 list（列表）
-const viewMode = ref('grid')
-
 // Android原生App检测
 const isAndroidApp = ref(false)
 
@@ -131,21 +90,6 @@ const sampleImages = ref([
 
 // 预览相关状态
 const previewImage = ref(null)
-
-// 切换视图模式
-function toggleViewMode() {
-  viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
-}
-
-// 刷新图库
-function refreshGallery() {
-  // 这里可以添加实际的API调用
-  console.log('刷新图库')
-  // 模拟加载
-  setTimeout(() => {
-    console.log('图库刷新完成')
-  }, 500)
-}
 
 // 打开图片预览
 function openImagePreview(image) {
@@ -311,67 +255,6 @@ onMounted(() => {
   font-size: 11px;
   color: #ccc;
   margin-top: 4px;
-}
-
-/* 列表视图样式 */
-.image-list {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.image-list-item {
-  display: flex;
-  align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.image-list-item:hover {
-  background: #f9f9f9;
-}
-
-.image-list-item:last-child {
-  border-bottom: none;
-}
-
-.list-image-icon {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 20px;
-  margin-right: 15px;
-}
-
-.list-image-info {
-  flex: 1;
-}
-
-.list-image-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.list-image-details {
-  display: flex;
-  gap: 15px;
-  font-size: 12px;
-  color: #999;
-}
-
-.list-image-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .action-btn {

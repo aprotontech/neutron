@@ -1,6 +1,8 @@
 <template>
   <div class="settings-container" :class="{ 'android-native-app': isAndroidApp }">
     
+    <!-- 设置头部（保留紫色渐变区块，但去掉文案和按钮） -->
+    <div class="settings-header"></div>
 
     <!-- 设置内容 -->
     <div class="settings-content">
@@ -244,7 +246,7 @@ onMounted(() => {
 }
 
 .android-native-app .settings-header {
-  padding-top: calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
 }
 
 .settings-header h1 {
