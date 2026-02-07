@@ -1,8 +1,7 @@
 <template>
   <div class="settings-container" :class="{ 'android-native-app': isAndroidApp }">
     
-    <!-- 设置头部（保留紫色渐变区块，但去掉文案和按钮） -->
-    <div class="settings-header"></div>
+    <!-- 紫色状态栏已移至App.vue中统一管理 -->
 
     <!-- 设置内容 -->
     <div class="settings-content">
@@ -235,24 +234,7 @@ onMounted(() => {
   background-color: #f5f5f5;
 }
 
-.settings-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.android-native-app .settings-header {
-  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-}
-
-.settings-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
+/* 紫色状态栏已移至App.vue中统一管理 */
 
 .settings-actions {
   display: flex;
@@ -550,21 +532,7 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .settings-header {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-    padding: 12px;
-  }
-  
-  .settings-header h1 {
-    font-size: 16px;
-    margin-bottom: 6px;
-  }
-  
-  .android-native-app .settings-header {
-    padding-top: calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
+  /* 紫色状态栏已移至App.vue中统一管理 */
   
   .settings-content {
     padding: 12px;
@@ -591,20 +559,7 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  .settings-header {
-    padding: 10px;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .settings-header h1 {
-    font-size: 14px;
-    margin-bottom: 4px;
-  }
-  
-  .android-native-app .settings-header {
-    padding-top: calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
+  /* 紫色状态栏已移至App.vue中统一管理 */
   
   .settings-content {
     padding: 8px;

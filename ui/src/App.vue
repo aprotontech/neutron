@@ -5,6 +5,16 @@
     
     <!-- 主应用页面（登录后显示） -->
     <div v-else class="main-app">
+      <!-- 统一的紫色状态栏 -->
+      <div class="app-header" :class="{ 'android-native-app': isCapacitorNative }">
+        <div class="header-left">
+          <h1>{{ getHeaderTitle() }}</h1>
+        </div>
+        <div class="header-right">
+          <!-- 这里可以添加全局操作按钮 -->
+        </div>
+      </div>
+      
       <!-- 内容区域 -->
       <div class="tab-content">
         <Image v-if="activeTab === 'gallery'" />
@@ -75,6 +85,20 @@ function handleLoginStateChanged() {
 function switchTab(tab) {
   console.log("切换Tab到:", tab)
   activeTab.value = tab
+}
+
+// 获取头部标题
+function getHeaderTitle() {
+  switch (activeTab.value) {
+    case 'gallery':
+      return '图库'
+    case 'browse':
+      return '文件浏览器'
+    case 'settings':
+      return '设置'
+    default:
+      return 'Neutron'
+  }
 }
 
 // 处理应用状态变化
@@ -353,6 +377,35 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+/* 统一的紫色状态栏 */
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+/* Android 原生 App 模式下，为顶部预留状态栏高度 */
+.android-native-app .app-header {
+  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+}
+
+.header-left {
+  flex: 1;
+}
+
+.app-header h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.header-right {
+  position: relative;
+}
+
 /* 内容区域 */
 .tab-content {
   flex: 1;
@@ -365,6 +418,17 @@ onUnmounted(() => {
 
 /* 移动端优化 */
 @media (max-width: 768px) {
+  .app-header {
+    padding: 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .app-header h1 {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  
   .tab-navigation {
     height: 56px; /* 移动端稍矮一些 */
   }
@@ -384,6 +448,19 @@ onUnmounted(() => {
   .tab-content {
     padding-bottom: 56px;
     margin-bottom: 56px;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 10px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .app-header h1 {
+    font-size: 14px;
+    margin-bottom: 4px;
   }
 }
 

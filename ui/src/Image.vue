@@ -1,7 +1,5 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
-    <!-- 图库头部（保留紫色渐变区块，但去掉文案和按钮） -->
-    <div class="gallery-header"></div>
 
     <!-- 图库内容 -->
     <div class="gallery-content">
@@ -129,24 +127,7 @@ onMounted(() => {
   background-color: #ffffff;
 }
 
-.gallery-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.android-native-app .gallery-header {
-  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-}
-
-.gallery-header h1 {
-  font-size: 24px;
-  margin: 0;
-}
+/* 紫色状态栏已移至App.vue中统一管理 */
 
 .gallery-tools {
   display: flex;
@@ -449,20 +430,7 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .gallery-header {
-    padding: 12px;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .gallery-header h1 {
-    font-size: 16px;
-    margin-bottom: 6px;
-  }
-  
-  .android-native-app .gallery-header {
-    padding-top: calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
+  /* 紫色状态栏已移至App.vue中统一管理 */
   
   .gallery-content {
     padding: 8px;
@@ -489,20 +457,7 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  .gallery-header {
-    padding: 10px;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .gallery-header h1 {
-    font-size: 14px;
-    margin-bottom: 4px;
-  }
-  
-  .android-native-app .gallery-header {
-    padding-top: calc(10px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-  }
+  /* 紫色状态栏已移至App.vue中统一管理 */
   
   .gallery-content {
     padding: 4px;

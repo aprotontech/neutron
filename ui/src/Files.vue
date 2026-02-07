@@ -1,75 +1,7 @@
 <template>
   <div id="app" :class="{ 'android-native-app': isAndroidApp }">
-    <div>
-      <div class="header">
-        <div class="header-left desktop-only">
-          <h1>📁 文件浏览器</h1>
-          <div class="breadcrumb-container">
-            <button class="breadcrumb-btn" @click="goToRoot">根目录</button>
-            <template v-for="(path, index) in currentPathArray" :key="index">
-              <span class="breadcrumb-separator">/</span>
-              <button class="breadcrumb-btn" @click="goToPath(index)">{{ path }}</button>
-            </template>
-          </div>
-        </div>
-        
-        <!-- 桌面端用户按钮 -->
-        <div class="header-right desktop-only">
-          <div class="user-menu">
-            <button class="user-btn" @click="toggleUserMenu">
-              <span class="user-icon">👤</span>
-            </button>
-            <div class="user-dropdown" :class="{ active: showUserMenu }">
-              <button class="dropdown-item" @click="cleanCache">
-                <span class="dropdown-icon">🗑️</span>
-                <span>清理缓存</span>
-              </button>
-              <button class="dropdown-item" @click="reloadPage">
-                <span class="dropdown-icon">↻</span>
-                <span>重新加载</span>
-              </button>
-              <button class="dropdown-item" @click="logout">
-                <span class="dropdown-icon">🚪</span>
-                <span>登出</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 移动设备专用header -->
-        <div class="mobile-header mobile-only">
-          <!-- 移动设备header（现在只包含第二行的当前目录按钮） -->
-          
-          <!-- 第二行：当前目录按钮（移动到工具栏中） -->
-          <div class="mobile-nav" v-if="currentPath !== '/'">
-            <!-- 当前目录名按钮和下拉菜单 -->
-            <div class="current-path-container">
-              <button class="current-path-btn" @click="showPathDropdown">
-                <span class="current-path-text">{{ getCurrentPathDisplay() }}</span>
-              </button>
-              
-              <!-- 路径下拉菜单 -->
-              <div class="path-dropdown-overlay" :class="{ active: showPathList }" @click="hidePathDropdown"></div>
-              <div class="path-dropdown" :class="{ active: showPathList }">
-                <div class="path-dropdown-list">
-                  <button class="path-item" @click="goToRoot">
-                    <span class="path-icon">🏠</span>
-                    <span>根目录</span>
-                  </button>
-                  <template v-for="(path, index) in currentPathArray" :key="index">
-                    <button class="path-item" @click="goToPath(index)">
-                      <span class="path-icon">📁</span>
-                      <span>{{ path }}</span>
-                    </button>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="toolbar">
+    
+    <div class="toolbar">
         <!-- 移动设备：导航按钮、当前目录按钮和视图切换按钮在同一行 -->
         <div class="mobile-toolbar mobile-only">
           <!-- 导航按钮组 -->
@@ -210,7 +142,7 @@
           </div>
         </template>
 
-        <div v-else class="empty-state"><div class="empty-icon">📭</div><div>文件夹为空</div></div>
+        <div v-else class="empty-state"><div class="empty-icon">📭</div><div>文件夹为空</div>
       </div>
 
       <!-- 提示组件 -->
@@ -1493,16 +1425,9 @@ watch(files, (newFiles, oldFiles) => {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
 #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
-.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: flex-start; }
+/* 紫色状态栏已移至App.vue中统一管理 */
 
-/* Android 原生 App 模式下，为文件浏览器顶部预留状态栏高度 */
-.android-native-app .header {
-  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
-}
-.header-left { flex: 1; }
-.header h1 { font-size: 24px; margin-bottom: 10px; }
 .breadcrumb-container { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.header-right { position: relative; }
 .user-menu { position: relative; }
 .user-btn { background: transparent; border: none; color: white; padding: 8px; cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; width: 44px; height: 44px; border-radius: 50%; }
 .user-btn:hover { background: rgba(255,255,255,0.2); }
@@ -1789,15 +1714,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 .desktop-only { display: block; }
 .mobile-only { display: none; }
 
-.mobile-header { display: none; flex-direction: column; }
+/* 移动设备专用header已移除，因为现在有了统一的紫色状态栏 */
 .mobile-title { font-size: 18px; margin: 0; }
-
-.mobile-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
 
 .back-btn {
   background: rgba(255,255,255,0.2);
@@ -2101,9 +2019,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .desktop-only { display: none !important; }
   .mobile-only { display: flex !important; }
   
-  .header { padding: 12px; flex-direction: column; gap: 12px; }
-  .mobile-header { display: flex; width: 100%; flex-direction: column; }
-  .mobile-nav { display: flex; align-items: center; }
+  /* 紫色状态栏已移至App.vue中统一管理 */
+  /* 移动设备专用header已移除，因为现在有了统一的紫色状态栏 */
   .back-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s; height: 36px; min-width: 70px; }
   .back-btn:hover { background: rgba(255,255,255,0.3); }
   .back-icon { font-size: 16px; }
@@ -2134,13 +2051,12 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .menu-item { padding: 12px 16px; font-size: 14px; }
 }
 @media (max-width: 480px) {
-  .header { padding: 10px; flex-direction: column; gap: 10px; }
-  .header h1 { font-size: 16px; margin-bottom: 6px; }
+  /* 紫色状态栏已移至App.vue中统一管理 */
   .mobile-title { font-size: 14px; }
   .user-btn { padding: 4px; font-size: 20px; width: 36px; height: 36px; }
   .user-dropdown { min-width: 140px; }
   .dropdown-item { padding: 10px 14px; font-size: 13px; }
-  .mobile-nav { gap: 8px; margin-top: 2px; }
+  /* 移动设备专用header已移除，因为现在有了统一的紫色状态栏 */
   /* 小屏幕菜单样式 */
   .menu-right { width: 160px; max-height: 250px; }
   .menu-item { padding: 10px 14px; font-size: 13px; }
@@ -2150,7 +2066,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   .toolbar { padding: 6px; justify-content: space-between; }
   .view-toggle-btn { padding: 4px 8px; font-size: 12px; }
   .view-toggle-icon { font-size: 14px; }
-  .content { padding: 8px; }
+  .content { padding: 4px; }
   
   /* 小屏幕移动设备工具栏样式 */
   .mobile-path-btn { padding: 4px 8px; font-size: 12px; height: 32px; }
