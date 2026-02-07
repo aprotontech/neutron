@@ -20,6 +20,14 @@
               <span class="user-icon">👤</span>
             </button>
             <div class="user-dropdown" :class="{ active: showUserMenu }">
+              <button class="dropdown-item" @click="cleanCache">
+                <span class="dropdown-icon">🗑️</span>
+                <span>清理缓存</span>
+              </button>
+              <button class="dropdown-item" @click="reloadPage">
+                <span class="dropdown-icon">↻</span>
+                <span>重新加载</span>
+              </button>
               <button class="dropdown-item" @click="logout">
                 <span class="dropdown-icon">🚪</span>
                 <span>登出</span>
@@ -50,6 +58,14 @@
                   <button class="menu-item" @click="goToRoot">
                     <span class="menu-item-icon">📁</span>
                     <span class="menu-item-text">我的文件</span>
+                  </button>
+                  <button class="menu-item" @click="cleanCache">
+                    <span class="menu-item-icon">🗑️</span>
+                    <span class="menu-item-text">清理缓存</span>
+                  </button>
+                  <button class="menu-item" @click="reloadPage">
+                    <span class="menu-item-icon">↻</span>
+                    <span class="menu-item-text">重新加载</span>
                   </button>
                   <button class="menu-item" @click="logout">
                     <span class="menu-item-icon">🚪</span>
@@ -349,6 +365,7 @@ import { ref, onMounted, defineEmits, watch, onUnmounted, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import UserAPI from './lib/user-api'
 import FileAPI from './lib/file-api'
+import CacheManager from './lib/cache-manager'
 import { FileTypeDetector, FileSizeFormatter, DateFormatter } from './lib/helpers'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
@@ -1318,6 +1335,43 @@ function getUserName() {
   } catch (e) {
     return '用户'
   }
+}
+
+// 清理缓存
+async function cleanCache() {
+  showUserMenu.value = false
+  showLeftMenu.value = false
+  showRightMenu.value = false
+  
+  try {
+    // 清理文件API的缓存
+    fileAPI.clearMemoryCache()
+    
+    // 获取CacheManager实例
+    const cacheManager = CacheManager.getInstance()
+    
+    // 清理CacheManager的localStorage缓存
+    cacheManager.cleanupLocalStorage()
+    
+    // 清理CacheManager的文件系统缓存
+    await cacheManager.cleanupCache()
+    
+    // 清理CacheManager的内存缓存
+    cacheManager.clearMemoryCache()
+    
+    alert('缓存清理完成！已清理：内存缓存、localStorage缓存和文件系统缓存。')
+  } catch (error) {
+    console.error('清理缓存失败:', error)
+    alert('清理缓存失败: ' + error.message)
+  }
+}
+
+// 重新加载页面
+function reloadPage() {
+  showUserMenu.value = false
+  showLeftMenu.value = false
+  showRightMenu.value = false
+  window.location.reload()
 }
 
 function logout() {
