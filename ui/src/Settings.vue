@@ -38,6 +38,38 @@
           </div>
         </div>
 
+        <!-- 服务器连接 -->
+        <div class="settings-section">
+          <h3 class="section-title">
+            <span class="section-icon">🔗</span>
+            服务器连接
+          </h3>
+          <div class="section-content">
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">连接状态</div>
+                <div class="setting-value" :class="getConnectionStatusClass()">
+                  {{ getConnectionStatusText() }}
+                </div>
+              </div>
+              <div class="setting-action">
+                <button class="reconnect-btn" disabled>
+                  重连
+                </button>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">传输协议</div>
+                <div class="setting-value">{{ transportType }}</div>
+              </div>
+              <div class="setting-action">
+                <button class="refresh-btn" @click="refreshConnectionStatus">刷新</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 存储设置 -->
         <div class="settings-section">
           <h3 class="section-title">
@@ -130,6 +162,7 @@ import { RuntimeVariables } from './lib/helpers.js'
 import UserAPI from './lib/user-api.js'
 import FileAPI from './lib/file-api.js'
 import CacheManager from './lib/cache-manager.js'
+import TransferClient from './lib/transfer.js'
 
 const emit = defineEmits(['login-state-changed'])
 
@@ -139,6 +172,10 @@ const isLoggedIn = ref(false)
 
 // Android原生App检测
 const isAndroidApp = ref(false)
+
+// 连接状态
+const connectionStatus = ref('unknown')
+const transportType = ref('webrtc') // 默认使用webrtc
 
 // 初始化用户状态
 function initUserState() {
@@ -215,9 +252,58 @@ function showHelp() {
   alert('帮助中心功能正在开发中')
 }
 
+// 获取连接状态文本
+function getConnectionStatusText() {
+  const statusMap = {
+    'connected': '已连接',
+    'connecting': '连接中',
+    'disconnected': '未连接',
+    'unknown': '未知状态'
+  }
+  return statusMap[connectionStatus.value] || connectionStatus.value
+}
+
+// 获取连接状态CSS类
+function getConnectionStatusClass() {
+  const classMap = {
+    'connected': 'status-connected',
+    'connecting': 'status-connecting',
+    'disconnected': 'status-disconnected',
+    'unknown': 'status-unknown'
+  }
+  return classMap[connectionStatus.value] || 'status-unknown'
+}
+
+// 刷新连接状态
+async function refreshConnectionStatus() {
+  try {
+    // 检查TransferClient是否已初始化
+    if (!TransferClient.instance) {
+      connectionStatus.value = 'disconnected'
+      return
+    }
+    
+    const client = TransferClient.get()
+    connectionStatus.value = await client.getConnectionStatus()
+  } catch (error) {
+    console.error('获取连接状态失败:', error)
+    connectionStatus.value = 'disconnected'
+  }
+}
+
+
+
+// 初始化连接状态
+async function initConnectionStatus() {
+  await refreshConnectionStatus()
+  // 设置定时刷新连接状态
+  setInterval(refreshConnectionStatus, 30000) // 每30秒刷新一次
+}
+
 // 组件挂载时初始化
 onMounted(() => {
   initUserState()
+  initConnectionStatus()
   
   // 判断是否为 Android 原生 App（Capacitor 环境）
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
@@ -457,6 +543,39 @@ onMounted(() => {
   background: #4ecdc4;
   color: white;
   border-color: #4ecdc4 !important;
+}
+
+.reconnect-btn {
+  background: #667eea;
+  color: white;
+  border-color: #667eea !important;
+}
+
+.refresh-btn {
+  background: #4caf50;
+  color: white;
+  border-color: #4caf50 !important;
+}
+
+/* 连接状态样式 */
+.status-connected {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.status-connecting {
+  color: #ffa726;
+  font-weight: 600;
+}
+
+.status-disconnected {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.status-unknown {
+  color: #666;
+  font-weight: 600;
 }
 
 /* 关于信息 */

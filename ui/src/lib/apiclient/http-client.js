@@ -75,4 +75,25 @@ export default class HttpClient extends BaseClient {
 
         return response.json();
     }
+
+    async getConnectionStatus() {
+        try {
+            // 发送一个简单的健康检查请求
+            const response = await fetch(`${this.baseURL}/health`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                return "connected";
+            } else {
+                return "disconnected";
+            }
+        } catch (error) {
+            console.error('Health check failed:', error);
+            return "disconnected";
+        }
+    }
 }

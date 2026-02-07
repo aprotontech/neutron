@@ -200,7 +200,31 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getConnectionStatus() {
-        return this.signalingSocket.readyState == WebSocket.OPEN && this.pc.connectionState == 'connected'
+        // Status: connecting, connected, disconnected, error
+        const wsState = this.signalingSocket.readyState;
+        const pcState = this.pc.connectionState;
+
+        // WebSocket状态
+        if (wsState === WebSocket.CONNECTING) {
+            return "connecting";
+        }
+
+        if (wsState === WebSocket.CLOSED || wsState === WebSocket.CLOSING) {
+            return "disconnected";
+        }
+
+        if (wsState === WebSocket.OPEN) {
+            // WebSocket已连接，检查WebRTC状态
+            if (pcState === 'connected') {
+                return "connected";
+            } else if (pcState === 'connecting' || pcState === 'new') {
+                return "connecting";
+            } else if (pcState === 'disconnected' || pcState === 'failed' || pcState === 'closed') {
+                return "disconnected";
+            }
+        }
+
+        return "unknown";
     }
 
     /**

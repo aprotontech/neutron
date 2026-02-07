@@ -119,7 +119,7 @@
               <div>修改时间</div>
             </div>
 
-            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)">
+            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="handleFileClick(file, $event)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)">
               <div class="file-icon">{{ getFileIcon(file) }}</div>
               <div class="file-name">{{ file.name }}</div>
               <div class="file-size">{{ formatSize(file.size) }}</div>
@@ -128,7 +128,7 @@
           </div>
 
           <div v-else class="thumbnail-grid">
-            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="selectFile(file)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)" ref="thumbnailItems">
+            <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="handleFileClick(file, $event)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)" ref="thumbnailItems">
               <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
                 <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
                 <div v-else-if="isVideo(file)" class="thumbnail-icon">🎬</div>
@@ -149,13 +149,13 @@
       <div class="toast-container" :class="{ active: showToast }">
         <div class="toast" :class="toastType">
           <div class="toast-icon">
-            <span v-if="toastType === 'info'">ℹ️</span>
-            <span v-else-if="toastType === 'success'">✅</span>
-            <span v-else-if="toastType === 'warning'">⚠️</span>
-            <span v-else-if="toastType === 'error'">❌</span>
+            <span v-if="toastType === 'info'" class="icon-info">i</span>
+            <span v-else-if="toastType === 'success'" class="icon-success">✓</span>
+            <span v-else-if="toastType === 'warning'" class="icon-warning">!</span>
+            <span v-else-if="toastType === 'error'" class="icon-error">×</span>
           </div>
           <div class="toast-content" v-html="formatToastMessage(toastMessage)"></div>
-          <button class="toast-close" @click="hideToast">✕</button>
+          <button class="toast-close" @click="hideToast">×</button>
         </div>
       </div>
 
@@ -534,6 +534,7 @@ async function openFile(f) {
     } else {
       console.log("not support preview of file ", f.name)
       // 文件不支持预览，显示提示
+      selectedFile.value = f // 设置选中的文件，以便下载按钮可以正常工作
       showToastMessage(`"${f.name}" 不支持预览，请下载后再查看。`, 'warning', 5000)
     }
   }
@@ -553,6 +554,7 @@ async function openMediaViewer(file) {
   
   // 检查文件大小限制（5MB）
   if (file.size > 5 * 1024 * 1024) {
+    selectedFile.value = file // 设置选中的文件，以便下载按钮可以正常工作
     showToastMessage('文件内容过大，暂时不支持预览，请下载后再预览。', 'warning')
     isMediaLoading.value = false
     return
@@ -846,12 +848,15 @@ function handleResize() {
   }
 }
 
-function goToRoot() { loadFiles('/') }
+async function goToRoot() { 
+  await loadFiles('/')
+  hidePathDropdown()
+}
 async function goToPath(index) {
   const parts = currentPathArray.value.slice(0, index + 1)
   const path = '/' + parts.join('/')
-  hidePathDropdown()
   await loadFiles(path)
+  hidePathDropdown()
 }
 
 // 移动设备导航方法
@@ -928,12 +933,8 @@ function handleFileTouchEnd(file, event) {
   
   // 检测双击
   if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 500) {
-    // 双击：如果是目录，进入目录；如果是图片或视频，直接查看
-    if (file.isDir) {
-      openFile(file)
-    } else if (isImage(file) || isVideo(file)) {
-      openMediaViewer(file)
-    }
+    // 双击：调用 openFile 处理所有文件类型
+    openFile(file)
     lastTapTime.value = 0
     lastTappedFile.value = null
     touchedFile.value = null
@@ -961,6 +962,18 @@ function isVideo(file) { return !file.isDir && FileTypeDetector.isVideo(file.nam
 function isAudio(file) { return !file.isDir && FileTypeDetector.isAudio(file.name) }
 function isText(file) { return !file.isDir && FileTypeDetector.isText(file.name) }
 function isPreviewable(file) { return !file.isDir && (isImage(file) || isVideo(file) || isAudio(file) || isText(file)) }
+
+// 处理文件点击事件
+function handleFileClick(file, event) {
+  // 在移动设备上，单击打开文件；在PC上，只选择文件
+  if (isMobile.value) {
+    // 移动设备：单击打开文件
+    openFile(file)
+  } else {
+    // PC：只选择文件（双击打开）
+    selectFile(file)
+  }
+}
 
 // 上下文菜单相关函数
 function showContextMenuForFile(file, event) {
@@ -1010,9 +1023,10 @@ function hideContextMenu() {
 }
 
 async function downloadCurrentFile() {
-  if (!contextMenuFile.value) return
+  // 优先使用contextMenuFile，如果没有则使用selectedFile
+  const file = contextMenuFile.value || selectedFile.value
+  if (!file) return
   
-  const file = contextMenuFile.value
   const filePath = file.path || (currentPath.value + (currentPath.value.endsWith('/') ? '' : '/') + file.name)
   
   try {
@@ -2107,99 +2121,202 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
 /* 提示组件样式 */
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 2000;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-20px);
-  transition: all 0.3s ease;
+  transform: translateY(-24px) scale(0.95);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .toast-container.active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   pointer-events: auto;
 }
 
 .toast {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  min-width: 300px;
-  max-width: 400px;
-  animation: toastSlideIn 0.3s ease;
-  border-left: 4px solid #2196F3;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  min-width: 320px;
+  max-width: 420px;
+  animation: toastSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
 }
 
-.toast.info {
-  border-left-color: #2196F3;
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #2196F3, #21CBF3);
+  border-radius: 16px 16px 0 0;
 }
 
-.toast.success {
-  border-left-color: #4CAF50;
+.toast.info::before {
+  background: linear-gradient(90deg, #3B82F6, #60A5FA);
 }
 
-.toast.warning {
-  border-left-color: #FF9800;
+.toast.success::before {
+  background: linear-gradient(90deg, #10B981, #34D399);
 }
 
-.toast.error {
-  border-left-color: #F44336;
+.toast.warning::before {
+  background: linear-gradient(90deg, #F59E0B, #FBBF24);
+}
+
+.toast.error::before {
+  background: linear-gradient(90deg, #EF4444, #F87171);
 }
 
 @keyframes toastSlideIn {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translateX(40px) scale(0.9);
   }
-  to {
+  70% {
+    transform: translateX(-5px) scale(1.02);
+  }
+  100% {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 .toast-icon {
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-weight: bold;
+}
+
+.icon-info {
+  background: linear-gradient(135deg, #3B82F6, #60A5FA);
+  color: white;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.icon-success {
+  background: linear-gradient(135deg, #10B981, #34D399);
+  color: white;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.icon-warning {
+  background: linear-gradient(135deg, #F59E0B, #FBBF24);
+  color: white;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.icon-error {
+  background: linear-gradient(135deg, #EF4444, #F87171);
+  color: white;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .toast-content {
   flex: 1;
   font-size: 14px;
-  line-height: 1.4;
-  color: #333;
+  line-height: 1.5;
+  color: #2D3748;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.toast-content a,
+.toast-content button {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 500;
 }
 
 .toast-close {
-  background: none;
+  background: rgba(0, 0, 0, 0.05);
   border: none;
-  color: #999;
+  color: #718096;
   font-size: 16px;
   cursor: pointer;
-  padding: 4px;
-  margin-left: 8px;
+  padding: 6px;
+  margin-left: 4px;
   flex-shrink: 0;
-  transition: color 0.2s;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
 }
 
 .toast-close:hover {
-  color: #666;
+  background: rgba(0, 0, 0, 0.1);
+  color: #4A5568;
+  transform: rotate(90deg);
+}
+
+.toast-close:active {
+  transform: scale(0.95) rotate(90deg);
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
   .toast-container {
-    top: 10px;
-    right: 10px;
-    left: 10px;
+    top: 16px;
+    right: 16px;
+    left: 16px;
     align-items: center;
   }
   
@@ -2207,46 +2324,124 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
     min-width: auto;
     width: 100%;
     max-width: 100%;
-    padding: 14px 16px;
+    padding: 16px;
+    border-radius: 14px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
   
   .toast-content {
     font-size: 13px;
+    line-height: 1.4;
+  }
+  
+  .toast-icon {
+    font-size: 20px;
+  }
+  
+  .icon-info,
+  .icon-success,
+  .icon-warning,
+  .icon-error {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+  }
+  
+  .icon-success,
+  .icon-warning,
+  .icon-error {
+    font-size: 16px;
+  }
+  
+  .toast-close {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
   }
 }
 
 /* 下载按钮样式 */
 .download-btn {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
   color: white;
   border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   text-decoration: none;
+  box-shadow: 
+    0 4px 16px rgba(99, 102, 241, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.3px;
+}
+
+.download-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transition: left 0.7s ease;
 }
 
 .download-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 10px 25px rgba(99, 102, 241, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+}
+
+.download-btn:hover::before {
+  left: 100%;
 }
 
 .download-btn:active {
-  transform: translateY(0);
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 
+    0 3px 10px rgba(99, 102, 241, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.download-btn::after {
+  content: '↓';
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 2px;
 }
 
 /* 在警告提示中的下载按钮 */
 .toast.warning .download-btn {
-  background: linear-gradient(135deg, #FF9800 0%, #FF5722 100%);
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  box-shadow: 
+    0 4px 16px rgba(245, 158, 11, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .toast.warning .download-btn:hover {
-  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+  background: linear-gradient(135deg, #EAB308 0%, #CA8A04 100%);
+  box-shadow: 
+    0 10px 25px rgba(245, 158, 11, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.toast.warning .download-btn:active {
+  box-shadow: 
+    0 3px 10px rgba(245, 158, 11, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* 文本查看器样式 */
