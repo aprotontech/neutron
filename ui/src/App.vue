@@ -29,21 +29,27 @@
           :class="{ active: activeTab === 'gallery' }"
           @click="switchTab('gallery')"
         >
-          <span class="tab-icon">🖼️</span>
+          <div class="tab-icon-container">
+            <span class="tab-icon">🖼️</span>
+          </div>
         </button>
         <button 
           class="tab-btn" 
           :class="{ active: activeTab === 'browse' }"
           @click="switchTab('browse')"
         >
-          <span class="tab-icon">📁</span>
+          <div class="tab-icon-container">
+            <span class="tab-icon">📂</span>
+          </div>
         </button>
         <button 
           class="tab-btn" 
           :class="{ active: activeTab === 'settings' }"
           @click="switchTab('settings')"
         >
-          <span class="tab-icon">⚙️</span>
+          <div class="tab-icon-container">
+            <span class="tab-icon">⚙️</span>
+          </div>
         </button>
       </div>
     </div>
@@ -313,24 +319,27 @@ onUnmounted(() => {
 .tab-navigation {
   display: flex;
   background: white;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
   z-index: 1000;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px; /* 固定高度 */
+  height: 70px; /* 增加高度以容纳标签 */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.95);
 }
 
 /* 底部Tab导航 */
 .tab-navigation.bottom-tab {
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid rgba(224, 224, 224, 0.5);
   border-bottom: none;
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 0;
+  padding: 12px 0;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -338,43 +347,68 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  transition: all 0.3s;
+  gap: 6px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   height: 100%; /* 占满父容器高度 */
+  overflow: hidden;
 }
 
 .tab-btn:hover {
-  background: #f9f9f9;
+  background: rgba(102, 126, 234, 0.05);
 }
 
 .tab-btn.active {
   color: #667eea;
 }
 
-.tab-btn.active::after {
+.tab-btn.active::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
   height: 3px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 0 0 3px 3px;
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.tab-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .tab-icon {
-  font-size: 20px;
-  transition: all 0.3s;
+  font-size: 22px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: grayscale(0.3);
+  opacity: 0.7;
 }
 
 .tab-btn.active .tab-icon {
-  transform: scale(1.1);
+  transform: translateY(-4px) scale(1.15);
+  filter: grayscale(0);
+  opacity: 1;
+  text-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
-.tab-text {
-  font-size: 12px;
+.tab-label {
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.3px;
+  opacity: 0.6;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-btn.active .tab-label {
+  opacity: 1;
+  font-weight: 600;
+  color: #667eea;
+  transform: translateY(-2px);
 }
 
 /* 统一的紫色状态栏 */
@@ -430,24 +464,24 @@ onUnmounted(() => {
   }
   
   .tab-navigation {
-    height: 56px; /* 移动端稍矮一些 */
+    height: 65px; /* 移动端稍矮一些 */
   }
   
   .tab-btn {
-    padding: 6px 0;
+    padding: 10px 0;
   }
   
   .tab-icon {
     font-size: 20px; /* 移动端图标稍大 */
   }
   
-  .tab-text {
+  .tab-label {
     font-size: 10px; /* 移动端文字稍小 */
   }
   
   .tab-content {
-    padding-bottom: 56px;
-    margin-bottom: 56px;
+    padding-bottom: 65px;
+    margin-bottom: 65px;
   }
 }
 
