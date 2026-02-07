@@ -1,9 +1,45 @@
 <template>
   <div class="app-container">
+    <!-- 登录页面 -->
     <Login v-if="!isLoggedIn" @login-state-changed="handleLoginStateChanged" />
-    <Files v-else @login-state-changed="handleLoginStateChanged" />
     
-    <div v-if="!isCapacitorNative" class="footer-beian">
+    <!-- 主应用页面（登录后显示） -->
+    <div v-else class="main-app">
+      <!-- 内容区域 -->
+      <div class="tab-content">
+        <Image v-if="activeTab === 'gallery'" />
+        <Files v-else-if="activeTab === 'browse'" @login-state-changed="handleLoginStateChanged" />
+        <Settings v-else-if="activeTab === 'settings'" @login-state-changed="handleLoginStateChanged" />
+      </div>
+      
+      <!-- 底部Tab导航 -->
+      <div class="tab-navigation bottom-tab">
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'gallery' }"
+          @click="switchTab('gallery')"
+        >
+          <span class="tab-icon">🖼️</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'browse' }"
+          @click="switchTab('browse')"
+        >
+          <span class="tab-icon">📁</span>
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'settings' }"
+          @click="switchTab('settings')"
+        >
+          <span class="tab-icon">⚙️</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- 底部备案信息（仅Web版显示） -->
+    <div v-if="!isCapacitorNative && isLoggedIn" class="footer-beian">
       京ICP备16041151号-1
     </div>
   </div>
@@ -15,6 +51,8 @@ import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { App } from '@capacitor/app'
 import Files from './Files.vue';
+import Image from './Image.vue';
+import Settings from './Settings.vue';
 import UserAPI from './lib/user-api'
 import Login from './Login.vue';
 import { triggerAppResumed, triggerAppRefreshError } from './lib/app-events';
@@ -22,6 +60,7 @@ import { triggerAppResumed, triggerAppRefreshError } from './lib/app-events';
 const loginState = ref(UserAPI.isLogined())
 const isCapacitorNative = ref(false)
 const appState = ref('active')
+const activeTab = ref('browse') // 默认显示浏览Tab
 
 const isLoggedIn = computed(() => {
   return loginState.value
@@ -30,6 +69,12 @@ const isLoggedIn = computed(() => {
 function handleLoginStateChanged() {
   console.log("App.vue: login state changed. logged in =", UserAPI.isLogined())
   loginState.value = UserAPI.isLogined()
+}
+
+// 切换Tab
+function switchTab(tab) {
+  console.log("切换Tab到:", tab)
+  activeTab.value = tab
 }
 
 // 处理应用状态变化
@@ -229,6 +274,127 @@ onUnmounted(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* 主应用容器 */
+.main-app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: relative;
+}
+
+/* Tab导航样式 - 固定在窗口底部 */
+.tab-navigation {
+  display: flex;
+  background: white;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+  z-index: 1000;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px; /* 固定高度 */
+}
+
+/* 底部Tab导航 */
+.tab-navigation.bottom-tab {
+  border-top: 1px solid #e0e0e0;
+  border-bottom: none;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s;
+  position: relative;
+  height: 100%; /* 占满父容器高度 */
+}
+
+.tab-btn:hover {
+  background: #f9f9f9;
+}
+
+.tab-btn.active {
+  color: #667eea;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0 0 3px 3px;
+}
+
+.tab-icon {
+  font-size: 20px;
+  transition: all 0.3s;
+}
+
+.tab-btn.active .tab-icon {
+  transform: scale(1.1);
+}
+
+.tab-text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 内容区域 */
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  padding-bottom: 60px; /* 为底部固定Tab导航留出空间 */
+  margin-bottom: 60px; /* 确保内容不被Tab遮挡 */
+  background: #f5f7fa; /* 统一所有Tab页面的背景色 */
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .tab-navigation {
+    height: 56px; /* 移动端稍矮一些 */
+  }
+  
+  .tab-btn {
+    padding: 6px 0;
+  }
+  
+  .tab-icon {
+    font-size: 20px; /* 移动端图标稍大 */
+  }
+  
+  .tab-text {
+    font-size: 10px; /* 移动端文字稍小 */
+  }
+  
+  .tab-content {
+    padding-bottom: 56px;
+    margin-bottom: 56px;
+  }
+}
+
+/* Android原生App适配 */
+.android-native-app .tab-navigation {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.android-native-app .tab-navigation.bottom-tab {
+  padding-top: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .footer-beian {
