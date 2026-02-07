@@ -126,7 +126,7 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
 }
 
 .gallery-header {
@@ -185,45 +185,46 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* 网格视图样式 */
+/* 网格视图样式 - iOS风格 */
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 2px;
 }
 
 .image-grid-item {
-  background: white;
-  border-radius: 8px;
+  background: transparent;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.image-grid-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+.image-grid-item:hover,
+.image-grid-item:active {
+  opacity: 0.8;
+  transform: scale(0.98);
 }
 
 .image-thumbnail {
   position: relative;
   width: 100%;
-  height: 180px;
+  height: 120px;
 }
 
 .image-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #f8f8f8;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .image-icon {
-  font-size: 48px;
-  opacity: 0.7;
+  font-size: 32px;
+  opacity: 0.5;
 }
 
 .image-overlay {
@@ -231,20 +232,20 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
   color: white;
-  padding: 10px;
-  transform: translateY(100%);
-  transition: transform 0.3s;
+  padding: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .image-grid-item:hover .image-overlay {
-  transform: translateY(0);
+  opacity: 1;
 }
 
 .image-name {
   display: block;
-  font-size: 12px;
+  font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -252,9 +253,9 @@ onMounted(() => {
 
 .image-date {
   display: block;
-  font-size: 11px;
-  color: #ccc;
-  margin-top: 4px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 2px;
 }
 
 .action-btn {
@@ -464,16 +465,16 @@ onMounted(() => {
   }
   
   .gallery-content {
-    padding: 12px;
+    padding: 8px;
   }
   
   .image-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 2px;
   }
   
   .image-thumbnail {
-    height: 150px;
+    height: 100px;
   }
   
   .preview-content {
@@ -504,7 +505,20 @@ onMounted(() => {
   }
   
   .gallery-content {
-    padding: 8px;
+    padding: 4px;
+  }
+  
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 1px;
+  }
+  
+  .image-thumbnail {
+    height: 80px;
+  }
+  
+  .image-icon {
+    font-size: 24px;
   }
   
   .gallery-tools {
