@@ -98,6 +98,106 @@ const initializeApp = async () => {
   }
 };
 
+// 禁用浏览器原始菜单
+const disableBrowserMenus = () => {
+  if (!Capacitor.isNativePlatform()) {
+    return; // 只在Capacitor本地模式下生效
+  }
+  
+  console.log('禁用浏览器原始菜单...');
+  
+  // 1. 禁用全局上下文菜单
+  document.addEventListener('contextmenu', (e) => {
+    // 检查是否应该允许自定义上下文菜单
+    const target = e.target;
+    const shouldAllowCustomMenu = target.closest('.file-list-item') || 
+                                  target.closest('.thumbnail-item') ||
+                                  target.closest('.context-menu') ||
+                                  target.closest('[data-allow-context-menu]');
+    
+    if (!shouldAllowCustomMenu) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, { capture: true });
+  
+  // 2. 禁用文本选择菜单（长按文本时出现的菜单）
+  document.addEventListener('selectstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }, { capture: true });
+  
+  // 3. 禁用拖拽相关菜单
+  document.addEventListener('dragstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  }, { capture: true });
+  
+  // 4. 禁用图片长按菜单
+  document.addEventListener('touchstart', (e) => {
+    // 如果是长按事件，阻止默认行为
+    if (e.touches && e.touches.length > 0) {
+      const target = e.target;
+      
+      // 检查是否应该允许自定义菜单
+      const shouldAllowCustomMenu = target.closest('.file-list-item') || 
+                                    target.closest('.thumbnail-item') ||
+                                    target.closest('.context-menu') ||
+                                    target.closest('[data-allow-context-menu]');
+      
+      // 如果是图片元素且不是文件项，阻止长按菜单
+      if (target.tagName === 'IMG' && !shouldAllowCustomMenu) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    }
+  }, { passive: false, capture: true });
+  
+  // 5. 添加CSS样式禁用文本选择
+  const style = document.createElement('style');
+  style.textContent = `
+    * {
+      -webkit-touch-callout: none !important; /* iOS Safari */
+      -webkit-user-select: none !important; /* Safari */
+      -khtml-user-select: none !important; /* Konqueror HTML */
+      -moz-user-select: none !important; /* Firefox */
+      -ms-user-select: none !important; /* Internet Explorer/Edge */
+      user-select: none !important; /* Non-prefixed version, currently supported by Chrome and Opera */
+      -webkit-tap-highlight-color: transparent !important;
+    }
+    
+    /* 允许输入框和可编辑区域的文本选择 */
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
+    }
+    
+    /* 允许文件项中的文本选择（用于自定义菜单） */
+    .file-list-item, .file-list-item *,
+    .thumbnail-item, .thumbnail-item * {
+      -webkit-touch-callout: default !important;
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
+    }
+    
+    /* 允许链接的正常点击 */
+    a {
+      -webkit-touch-callout: default !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  console.log('浏览器原始菜单已禁用');
+};
+
 initializeApp();
 
 
@@ -108,6 +208,9 @@ onMounted(() => {
   if (isCapacitorNative.value) {
     console.log('Setting up app state change listener...')
     App.addListener('appStateChange', handleAppStateChange)
+    
+    // 禁用浏览器原始菜单
+    disableBrowserMenus();
   }
 })
 

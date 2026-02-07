@@ -10,6 +10,8 @@ const androidKeystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD || '';
 const androidKeystoreAlias = process.env.ANDROID_KEY_ALIAS || 'aproton';
 const androidKeystoreAliasPassword = process.env.ANDROID_KEY_PASSWORD || '';
 
+const serverURL= process.env.SERVER_URL || 'https://www.huxiaolong.cn'
+
 
 
 const config: CapacitorConfig = {
@@ -35,7 +37,7 @@ const config: CapacitorConfig = {
   //   cleartext: true
   // },
    server: {
-    url: 'https://www.huxiaolong.cn',
+    url: serverURL,
     //url: 'http://192.168.1.111:5173',
     cleartext: true 
   },

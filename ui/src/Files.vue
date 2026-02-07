@@ -131,14 +131,12 @@
                     title="根目录">
               <span class="nav-home-icon">🏠</span>
             </button>
-
             <!-- 刷新按钮（刷新当前列表） -->
             <button class="nav-refresh-btn"
                     @click="refreshCurrentList"
                     title="刷新">
               <span class="nav-refresh-icon">↻</span>
             </button>
-            
             <!-- 向上按钮（到达上级目录） -->
             <button class="nav-up-btn" 
                     :class="{ disabled: currentPath === '/' }" 
@@ -251,6 +249,50 @@
           </div>
           <div class="toast-content" v-html="formatToastMessage(toastMessage)"></div>
           <button class="toast-close" @click="hideToast">✕</button>
+        </div>
+      </div>
+
+      <!-- 上下文菜单 -->
+      <div 
+        v-if="showContextMenu" 
+        class="context-menu" 
+        :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+        @click.stop
+      >
+        <div class="context-menu-header">
+          <div class="context-menu-title">{{ contextMenuFile?.name }}</div>
+          <button class="context-menu-close" @click="hideContextMenu">✕</button>
+        </div>
+        <div class="context-menu-items">
+          <button 
+            class="context-menu-item" 
+            @click="downloadCurrentFile"
+            :disabled="contextMenuFile?.isDir"
+          >
+            <span class="context-menu-icon">⬇️</span>
+            <span class="context-menu-text">下载</span>
+          </button>
+          <button 
+            class="context-menu-item disabled" 
+            disabled
+          >
+            <span class="context-menu-icon">📋</span>
+            <span class="context-menu-text">复制</span>
+          </button>
+          <button 
+            class="context-menu-item disabled" 
+            disabled
+          >
+            <span class="context-menu-icon">✏️</span>
+            <span class="context-menu-text">重命名</span>
+          </button>
+          <button 
+            class="context-menu-item disabled" 
+            disabled
+          >
+            <span class="context-menu-icon">🗑️</span>
+            <span class="context-menu-text">删除</span>
+          </button>
         </div>
       </div>
 
@@ -400,6 +442,11 @@ const isMobile = ref(false)
 const isAndroidApp = ref(false)
 const contentContainer = ref(null)
 let contentTouchStartListener = null
+
+// 长按菜单相关
+const showContextMenu = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuFile = ref(null)
 
 const isMediaViewerActive = computed(() => {
   return isViewingImage.value || isViewingVideo.value || isViewingAudio.value || isViewingText.value
@@ -575,8 +622,10 @@ async function openFile(f) {
     await loadFiles(newPath)
   } else {
     if (isPreviewable(f)) {
+      console.log("start to preview file", f.name)
       await openMediaViewer(f)
     } else {
+      console.log("not support preview of file ", f.name)
       // 文件不支持预览，显示提示
       showToastMessage(`"${f.name}" 不支持预览，请下载后再查看。`, 'warning', 5000)
     }
@@ -953,8 +1002,8 @@ function handleFileTouchStart(file, event) {
   fileTouchStartTime.value = Date.now()
   touchedFile.value = file
   fileTouchTimer.value = setTimeout(() => {
-    // 长按文件（超过500ms）可以显示文件操作菜单
-    // 这里暂时只处理短按
+    // 长按文件（超过500ms）显示文件操作菜单
+    showContextMenuForFile(file, event)
   }, 500)
 }
 
@@ -962,6 +1011,13 @@ function handleFileTouchEnd(file, event) {
   clearTimeout(fileTouchTimer.value)
   const touchDuration = Date.now() - fileTouchStartTime.value
   const currentTime = Date.now()
+  
+  // 如果是长按（超过500ms），不处理短按逻辑
+  if (touchDuration >= 500) {
+    // 长按已经显示了菜单，不需要其他处理
+    touchedFile.value = null
+    return
+  }
   
   // 检测双击
   if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 500) {
@@ -998,6 +1054,89 @@ function isVideo(file) { return !file.isDir && FileTypeDetector.isVideo(file.nam
 function isAudio(file) { return !file.isDir && FileTypeDetector.isAudio(file.name) }
 function isText(file) { return !file.isDir && FileTypeDetector.isText(file.name) }
 function isPreviewable(file) { return !file.isDir && (isImage(file) || isVideo(file) || isAudio(file) || isText(file)) }
+
+// 上下文菜单相关函数
+function showContextMenuForFile(file, event) {
+  // 阻止默认行为
+  if (event) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  
+  // 设置菜单位置
+  let x, y
+  if (event && event.touches && event.touches[0]) {
+    // 触摸事件
+    x = event.touches[0].clientX
+    y = event.touches[0].clientY
+  } else if (event) {
+    // 鼠标事件
+    x = event.clientX
+    y = event.clientY
+  } else {
+    // 默认位置
+    x = window.innerWidth / 2
+    y = window.innerHeight / 2
+  }
+  
+  // 确保菜单在可视区域内
+  const menuWidth = 200
+  const menuHeight = 150
+  if (x + menuWidth > window.innerWidth) {
+    x = window.innerWidth - menuWidth - 10
+  }
+  if (y + menuHeight > window.innerHeight) {
+    y = window.innerHeight - menuHeight - 10
+  }
+  
+  contextMenuPosition.value = { x, y }
+  contextMenuFile.value = file
+  showContextMenu.value = true
+  
+  // 选中文件
+  selectFile(file)
+}
+
+function hideContextMenu() {
+  showContextMenu.value = false
+  contextMenuFile.value = null
+}
+
+async function downloadCurrentFile() {
+  if (!contextMenuFile.value) return
+  
+  const file = contextMenuFile.value
+  const filePath = file.path || (currentPath.value + (currentPath.value.endsWith('/') ? '' : '/') + file.name)
+  
+  try {
+    showToastMessage('开始下载文件: ' + file.name, 'info')
+    
+    // 调用FileAPI下载文件
+    const fileAPI = new FileAPI()
+    const success = await fileAPI.downloadFile(filePath, file)
+    
+    if (success) {
+      showToastMessage('文件下载成功: ' + file.name, 'success')
+    } else {
+      showToastMessage('文件下载失败', 'error')
+    }
+  } catch (error) {
+    console.error('Download error:', error)
+    showToastMessage('下载失败: ' + error.message, 'error')
+  } finally {
+    hideContextMenu()
+  }
+}
+
+// 点击其他地方关闭菜单
+function handleDocumentClick(event) {
+  if (showContextMenu.value) {
+    const menuElement = document.querySelector('.context-menu')
+    if (menuElement && !menuElement.contains(event.target)) {
+      hideContextMenu()
+    }
+  }
+}
 function getFileIcon(file) {
   if (file.isDir) return '📁'
   const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -1135,31 +1274,6 @@ function formatToastMessage(message) {
   return message
 }
 
-// 下载当前选中的文件
-async function downloadCurrentFile() {
-  if (!selectedFile.value) return
-  
-  try {
-    const file = selectedFile.value
-    const url = await fileAPI.getFileUrl(file.path)
-    
-    // 创建下载链接
-    const a = document.createElement('a')
-    a.href = url
-    a.download = file.name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    
-    // 显示下载成功提示
-    showToastMessage(`文件"${file.name}"开始下载`, 'success')
-    
-  } catch (error) {
-    console.error('下载文件失败:', error)
-    showToastMessage('下载文件失败，请重试', 'error')
-  }
-}
-
 function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value
 }
@@ -1227,6 +1341,10 @@ onMounted(() => {
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
     isAndroidApp.value = true
   }
+  
+  // 添加文档点击事件监听器，用于关闭上下文菜单
+  document.addEventListener('click', handleDocumentClick)
+  
   // content 触摸监听（touchstart 用 passive:true，不影响滚动）
   if (contentContainer.value) {
     // 下拉刷新已移除：不再劫持 touch 事件，避免滚动混乱
@@ -1309,6 +1427,9 @@ onUnmounted(() => {
     contentContainer.value.removeEventListener('touchstart', contentTouchStartListener)
   }
   contentTouchStartListener = null
+  
+  // 移除文档点击事件监听器
+  document.removeEventListener('click', handleDocumentClick)
 })
 
 // 预览打开时锁住背景滚动，避免手势带动列表滚动
@@ -2297,6 +2418,119 @@ audio {
   audio {
     min-width: 200px;
     max-width: 280px;
+  }
+}
+
+/* 上下文菜单样式 */
+.context-menu {
+  position: fixed;
+  z-index: 3000;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  min-width: 200px;
+  max-width: 300px;
+  animation: contextMenuFadeIn 0.2s ease;
+  overflow: hidden;
+}
+
+.context-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.context-menu-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.context-menu-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.context-menu-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.context-menu-items {
+  padding: 8px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.context-menu-item:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.context-menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.context-menu-text {
+  flex: 1;
+}
+
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 移动端上下文菜单适配 */
+@media (max-width: 768px) {
+  .context-menu {
+    min-width: 180px;
+    max-width: 250px;
+  }
+  
+  .context-menu-title {
+    max-width: 140px;
   }
 }
 </style>

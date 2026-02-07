@@ -26,6 +26,10 @@ web:
 
 android: html
 	@cd ui && npx cap sync android && cd android && ./gradlew clean &&./gradlew assembleDebug
+	@if [ "$(INSTALL)" = "true" ]; then \
+		echo "install to android"; \
+		adb install -r -d ./ui/android/app/build/outputs/apk/debug/app-debug.apk \
+	fi
 
 online: android neutron
 	@TO=dev01 bash ./test/remote/update.sh
