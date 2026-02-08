@@ -23,6 +23,48 @@ export default class FileAPI {
         this.cacheManager = CacheManager.getInstance();
         // Ensure cache is ready
         this.cacheManager.ready();
+
+        // Concurrent request cache for deduplication
+        this._pendingRequests = new Map(); // key -> Promise
+    }
+
+    /**
+     * Generate a unique key for a request
+     * @private
+     */
+    _getRequestKey(method, filePath, size = null) {
+        if (size !== null) {
+            return `${method}:${filePath}:${size}`;
+        }
+        return `${method}:${filePath}`;
+    }
+
+    /**
+     * Execute a request with deduplication
+     * @private
+     */
+    async _executeWithDeduplication(key, requestFn) {
+        // Check if there's already a pending request for this key
+        if (this._pendingRequests.has(key)) {
+            console.log(`Request ${key} already in progress, waiting...`);
+            return await this._pendingRequests.get(key);
+        }
+
+        // Create a new promise for this request
+        const promise = (async () => {
+            try {
+                const result = await requestFn();
+                return result;
+            } finally {
+                // Clean up the pending request
+                this._pendingRequests.delete(key);
+            }
+        })();
+
+        // Store the promise in the cache
+        this._pendingRequests.set(key, promise);
+
+        return await promise;
     }
 
     /**
@@ -106,78 +148,82 @@ export default class FileAPI {
 
         console.log(`请求文件内容: ${filePath}, MIME类型: ${mimeType}, 流模式: ${stream}`);
 
-        try {
-            const result = await TransferClient.get().getFileContent(filePath, mimeType, stream);
+        const dedupKey = this._getRequestKey('getFileContent', filePath, mimeType + (stream ? ':stream' : ':blob'));
 
-            console.log(`文件内容获取结果:`, {
-                type: typeof result,
-                constructor: result?.constructor?.name,
-                isBlob: BlobAvailable && result instanceof Blob,
-                size: result?.size,
-                result: result
-            });
+        return await this._executeWithDeduplication(dedupKey, async () => {
+            try {
+                const result = await TransferClient.get().getFileContent(filePath, mimeType, stream);
 
-            if (!result) {
-                throw new Error('服务器返回空结果');
-            }
+                console.log(`文件内容获取结果:`, {
+                    type: typeof result,
+                    constructor: result?.constructor?.name,
+                    isBlob: BlobAvailable && result instanceof Blob,
+                    size: result?.size,
+                    result: result
+                });
 
-            // 验证返回的对象是否是有效的Blob或类似Blob的对象
-            const isValidBlob = this.validateBlobObject(result);
-            if (!isValidBlob) {
-                console.error('服务器返回的不是有效的Blob对象:', result);
-
-                // 检查是否是ReadableStream
-                if (result && result.constructor && result.constructor.name === 'ReadableStream') {
-                    console.log('检测到ReadableStream，正在转换为Blob...');
-                    try {
-                        // 将ReadableStream转换为Blob
-                        const blob = await this.readableStreamToBlob(result, mimeType);
-                        console.log('ReadableStream转换为Blob成功:', {
-                            size: blob.size,
-                            type: blob.type
-                        });
-                        return blob;
-                    } catch (streamError) {
-                        console.error('ReadableStream转换失败:', streamError);
-                        throw new Error('流式数据转换失败: ' + streamError.message);
-                    }
+                if (!result) {
+                    throw new Error('服务器返回空结果');
                 }
 
-                // 尝试将结果转换为Blob（如果可能）
-                if (typeof result === 'string') {
-                    console.log('尝试将字符串转换为Blob...');
-                    return new Blob([result], { type: mimeType });
-                } else if (result && typeof result === 'object') {
-                    // 如果是对象，尝试转换为JSON字符串再转为Blob
-                    try {
-                        const jsonStr = JSON.stringify(result);
-                        console.log('服务器返回的是JSON对象，可能是错误信息:', jsonStr.substring(0, 200));
-                        throw new Error(`服务器返回错误: ${jsonStr}`);
-                    } catch (jsonError) {
+                // 验证返回的对象是否是有效的Blob或类似Blob的对象
+                const isValidBlob = this.validateBlobObject(result);
+                if (!isValidBlob) {
+                    console.error('服务器返回的不是有效的Blob对象:', result);
+
+                    // 检查是否是ReadableStream
+                    if (result && result.constructor && result.constructor.name === 'ReadableStream') {
+                        console.log('检测到ReadableStream，正在转换为Blob...');
+                        try {
+                            // 将ReadableStream转换为Blob
+                            const blob = await this.readableStreamToBlob(result, mimeType);
+                            console.log('ReadableStream转换为Blob成功:', {
+                                size: blob.size,
+                                type: blob.type
+                            });
+                            return blob;
+                        } catch (streamError) {
+                            console.error('ReadableStream转换失败:', streamError);
+                            throw new Error('流式数据转换失败: ' + streamError.message);
+                        }
+                    }
+
+                    // 尝试将结果转换为Blob（如果可能）
+                    if (typeof result === 'string') {
+                        console.log('尝试将字符串转换为Blob...');
+                        return new Blob([result], { type: mimeType });
+                    } else if (result && typeof result === 'object') {
+                        // 如果是对象，尝试转换为JSON字符串再转为Blob
+                        try {
+                            const jsonStr = JSON.stringify(result);
+                            console.log('服务器返回的是JSON对象，可能是错误信息:', jsonStr.substring(0, 200));
+                            throw new Error(`服务器返回错误: ${jsonStr}`);
+                        } catch (jsonError) {
+                            throw new Error('服务器返回的数据格式不正确');
+                        }
+                    } else {
                         throw new Error('服务器返回的数据格式不正确');
                     }
-                } else {
-                    throw new Error('服务器返回的数据格式不正确');
                 }
+
+                return result;
+            } catch (error) {
+                console.error(`获取文件内容失败: ${filePath}`, error);
+
+                // 提供更具体的错误信息
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    throw new Error('网络连接失败，请检查网络连接');
+                } else if (error.message.includes('404')) {
+                    throw new Error(`文件不存在: ${filePath}`);
+                } else if (error.message.includes('403')) {
+                    throw new Error(`没有权限访问文件: ${filePath}`);
+                } else if (error.message.includes('500')) {
+                    throw new Error('服务器内部错误，请稍后重试');
+                }
+
+                throw new Error(`下载文件失败: ${error.message}`);
             }
-
-            return result;
-        } catch (error) {
-            console.error(`获取文件内容失败: ${filePath}`, error);
-
-            // 提供更具体的错误信息
-            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                throw new Error('网络连接失败，请检查网络连接');
-            } else if (error.message.includes('404')) {
-                throw new Error(`文件不存在: ${filePath}`);
-            } else if (error.message.includes('403')) {
-                throw new Error(`没有权限访问文件: ${filePath}`);
-            } else if (error.message.includes('500')) {
-                throw new Error('服务器内部错误，请稍后重试');
-            }
-
-            throw new Error(`下载文件失败: ${error.message}`);
-        }
+        });
     }
 
     /**
@@ -409,9 +455,12 @@ export default class FileAPI {
      */
     async getFileThumbnail(filePath, maxSize = 200) {
         const cacheKey = this.generateThumbnailCacheKey(filePath, maxSize);
+        const dedupKey = this._getRequestKey('getFileThumbnail', filePath, maxSize);
 
-        return await this.cacheFile('thumbnail', cacheKey, async () => {
-            return TransferClient.get().getFileThumbnail(filePath, maxSize);
+        return await this._executeWithDeduplication(dedupKey, async () => {
+            return await this.cacheFile('thumbnail', cacheKey, async () => {
+                return TransferClient.get().getFileThumbnail(filePath, maxSize);
+            });
         });
     }
 
@@ -420,9 +469,13 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {string} - File URL
      */
-    getFileUrl(filePath) {
-        const mimeType = FileTypeDetector.getMIMEType(filePath)
-        return TransferClient.get().getFileUrl(filePath, mimeType);
+    async getFileUrl(filePath) {
+        const mimeType = FileTypeDetector.getMIMEType(filePath);
+        const dedupKey = this._getRequestKey('getFileUrl', filePath);
+
+        return await this._executeWithDeduplication(dedupKey, async () => {
+            return TransferClient.get().getFileUrl(filePath, mimeType);
+        });
     }
 
     /**
@@ -792,7 +845,11 @@ export default class FileAPI {
      */
     async getImageRepo(offset, count) {
         console.log(`Requesting image repo: offset=${offset}, count=${count}`);
-        return TransferClient.get().getImageRepo(offset, count);
+        const dedupKey = this._getRequestKey('getImageRepo', offset, count);
+
+        return await this._executeWithDeduplication(dedupKey, async () => {
+            return TransferClient.get().getImageRepo(offset, count);
+        });
     }
 
     /**

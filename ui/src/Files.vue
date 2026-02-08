@@ -71,10 +71,6 @@
                     <span class="menu-item-icon">{{ viewMode === 'list' ? '□' : '≡' }}</span>
                     <span class="menu-item-text">{{ viewMode === 'list' ? '显示缩略图' : '显示列表' }}</span>
                   </button>
-                  <button class="menu-item" @click="reloadPage">
-                    <span class="menu-item-icon">↻</span>
-                    <span class="menu-item-text">重新加载</span>
-                  </button>
                   <button class="menu-item disabled">
                     <span class="menu-item-icon">⬇️</span>
                     <span class="menu-item-text">下载</span>
@@ -93,12 +89,50 @@
           </div>
         </div>
         
-        <!-- 桌面端：合并的视图切换按钮 -->
-        <div class="view-toggle desktop-only">
-          <button class="view-toggle-btn" @click="toggleViewMode" :title="viewMode === 'list' ? '显示缩略图' : '显示列表'">
-            <span class="view-toggle-icon">{{ viewMode === 'list' ? '□' : '≡' }}</span>
-            <span class="view-toggle-text desktop-only">{{ viewMode === 'list' ? '显示缩略图' : '显示列表' }}</span>
-          </button>
+        <!-- 桌面端：完整的工具栏 -->
+        <div class="desktop-toolbar desktop-only">
+          <!-- 左侧：Home按钮、刷新按钮、面包屑导航 -->
+          <div class="desktop-toolbar-left">
+            <!-- Home按钮 -->
+            <button class="desktop-nav-btn desktop-home-btn" 
+                    @click="goToRoot" 
+                    title="根目录">
+              <span class="desktop-nav-icon">🏠</span>
+              <span class="desktop-nav-text">Home</span>
+            </button>
+            
+            <!-- 刷新按钮 -->
+            <button class="desktop-nav-btn desktop-refresh-btn"
+                    @click="refreshCurrentList"
+                    title="刷新">
+              <span class="desktop-nav-icon">↻</span>
+              <span class="desktop-nav-text">刷新</span>
+            </button>
+            
+            <!-- 面包屑导航 -->
+            <div class="breadcrumb-nav">
+              <button class="breadcrumb-item" @click="goToRoot">
+                <span class="breadcrumb-text">根目录</span>
+              </button>
+              <template v-for="(path, index) in currentPathArray" :key="index">
+                <span class="breadcrumb-separator"> > </span>
+                <button v-if="index < currentPathArray.length - 1" class="breadcrumb-item" @click="goToPath(index)">
+                  <span class="breadcrumb-text">{{ path }}</span>
+                </button>
+                <span v-else class="breadcrumb-current">
+                  <span class="breadcrumb-text">{{ path }}</span>
+                </span>
+              </template>
+            </div>
+          </div>
+          
+          <!-- 右侧：视图切换按钮 -->
+          <div class="desktop-toolbar-right">
+            <button class="desktop-view-toggle-btn" @click="toggleViewMode" :title="viewMode === 'list' ? '显示缩略图' : '显示列表'">
+              <span class="desktop-view-toggle-icon">{{ viewMode === 'list' ? '□' : '≡' }}</span>
+              <span class="desktop-view-toggle-text">{{ viewMode === 'list' ? '显示缩略图' : '显示列表' }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -119,12 +153,14 @@
               <div>大小</div>
               <div>修改时间</div>
             </div>
-
-            <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="handleFileClick(file, $event)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)">
-              <div class="file-icon">{{ getFileIcon(file) }}</div>
-              <div class="file-name">{{ file.name }}</div>
-              <div class="file-size">{{ formatSize(file.size) }}</div>
-              <div class="file-modified">{{ formatDate(file.modTime) }}</div>
+            
+            <div class="file-list-items-container">
+              <div v-for="file in files" :key="file.name" class="file-list-item" :class="{ selected: selectedFile === file }" @click="handleFileClick(file, $event)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)">
+                <div class="file-icon">{{ getFileIcon(file) }}</div>
+                <div class="file-name">{{ file.name }}</div>
+                <div class="file-size">{{ formatSize(file.size) }}</div>
+                <div class="file-modified">{{ formatDate(file.modTime) }}</div>
+              </div>
             </div>
           </div>
 
@@ -1292,13 +1328,6 @@ async function cleanCache() {
   }
 }
 
-// 重新加载页面
-function reloadPage() {
-  showUserMenu.value = false
-  showRightMenu.value = false
-  window.location.reload()
-}
-
 function logout() {
   
   showUserMenu.value = false
@@ -1493,7 +1522,184 @@ html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, san
 .breadcrumb-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
 .breadcrumb-btn:hover { background: rgba(255,255,255,0.3); }
 .breadcrumb-separator { color: rgba(255,255,255,0.7); }
-.toolbar { background: white; padding: 15px 20px; display: flex; justify-content: flex-end; border-bottom: 1px solid #e0e0e0; }
+.toolbar { background: white; padding: 10px 16px; display: flex; justify-content: flex-end; border-bottom: 1px solid #e0e0e0; min-height: 52px; box-sizing: border-box; }
+
+/* 桌面端工具栏样式 */
+.desktop-toolbar {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.desktop-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.desktop-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 12px;
+  min-width: 120px;
+  justify-content: flex-end;
+  height: 100%;
+  align-items: stretch;
+}
+
+.desktop-nav-btn {
+  padding: 4px 8px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.desktop-nav-btn:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  color: #333;
+}
+
+.desktop-nav-icon {
+  font-size: 14px;
+}
+
+.desktop-nav-text {
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* 面包屑导航样式 */
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #eee;
+  height: 100%;
+  flex-wrap: nowrap;
+}
+
+.breadcrumb-item {
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: #555;
+  text-decoration: underline;
+  text-decoration-color: #667eea;
+  text-underline-offset: 1px;
+  text-decoration-thickness: 1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  border-radius: 2px;
+  flex-shrink: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.breadcrumb-item:hover {
+  color: #667eea;
+  text-decoration-color: #4c51bf;
+  background: #f8f9fa;
+}
+
+.breadcrumb-separator {
+  color: #ccc;
+  font-size: 12px;
+  margin: 0 1px;
+  font-weight: 300;
+  line-height: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-text {
+  display: inline-block;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.breadcrumb-current {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  flex-shrink: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.desktop-view-toggle-btn {
+  padding: 4px 8px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  font-size: 13px;
+  color: #555;
+  box-sizing: border-box;
+}
+
+.desktop-view-toggle-btn:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  color: #333;
+}
+
+.desktop-view-toggle-icon {
+  font-size: 14px;
+}
+
+.desktop-view-toggle-text {
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .view-toggle { display: flex; gap: 8px; }
 .view-toggle-btn { padding: 6px 12px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; transition: all 0.3s; display: flex; align-items: center; gap: 6px; }
 .view-toggle-btn:hover { background: #f5f7fa; border-color: #667eea; }
@@ -1637,9 +1843,11 @@ html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, san
   position: relative; /* 为下拉刷新指示器提供定位上下文 */
   overscroll-behavior: contain; /* 防止滚动到边界后把手势传递给 body */
   touch-action: pan-y; /* 提示浏览器以垂直滚动为主 */
+  box-sizing: border-box;
 }
-.file-list { background: white; border-radius: 8px; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-.file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; }
+.file-list { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); position: relative; display: flex; flex-direction: column; max-height: 100%; }
+.file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background-color: rgba(249, 249, 249, 0.95); }
+.file-list-items-container { overflow-y: auto; flex: 1; }
 .file-list-item { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 12px 20px; align-items: center; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: all 0.2s; }
 .file-list-item:hover { background: #f9f9f9; }
 .file-list-item.selected { background: #e6f0ff; }
@@ -2072,6 +2280,15 @@ html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, san
   .desktop-only { display: none !important; }
   .mobile-only { display: flex !important; }
   
+  /* 桌面工具栏在小屏幕上的调整 */
+  .desktop-toolbar-right {
+    min-width: 100px;
+  }
+  .breadcrumb-item,
+  .breadcrumb-current {
+    max-width: 80px;
+  }
+  
   /* 紫色状态栏已移至App.vue中统一管理 */
   /* 移动设备专用header已移除，因为现在有了统一的紫色状态栏 */
   .back-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s; height: 36px; min-width: 70px; }
@@ -2103,6 +2320,26 @@ html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, san
   .menu-right { width: 180px; max-height: 280px; }
   .menu-item { padding: 12px 16px; font-size: 14px; }
 }
+@media (max-width: 600px) {
+  /* 中等屏幕调整 */
+  .desktop-toolbar-right {
+    min-width: 90px;
+  }
+  .breadcrumb-item,
+  .breadcrumb-current {
+    max-width: 70px;
+  }
+  .desktop-nav-text,
+  .desktop-view-toggle-text {
+    display: none;
+  }
+  .desktop-nav-btn,
+  .desktop-view-toggle-btn {
+    padding: 4px 6px;
+    gap: 2px;
+  }
+}
+
 @media (max-width: 480px) {
   /* 紫色状态栏已移至App.vue中统一管理 */
   .mobile-title { font-size: 14px; }

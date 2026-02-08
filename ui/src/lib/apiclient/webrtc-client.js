@@ -42,9 +42,6 @@ export default class WebRTCClient extends BaseClient {
         // Thumbnail data channel helper (receives binary thumbnails)
         this.thumbnail = new WebRTCDataChannelThumbnail(this.pc);
 
-        // Concurrent request cache for deduplication
-        this._pendingRequests = new Map(); // key -> Promise
-
         // Handle common auth failure cases on socket errors/close
         this.signalingSocket.onerror = (ev) => {
             console.error('Signaling socket error', ev);
@@ -160,45 +157,6 @@ export default class WebRTCClient extends BaseClient {
         if (this.rpc) this.rpc.registerRpcHandler(cmd, fn);
     }
 
-    /**
-     * Generate a unique key for a request
-     * @private
-     */
-    _getRequestKey(method, filePath, size = null) {
-        if (size !== null) {
-            return `${method}:${filePath}:${size}`;
-        }
-        return `${method}:${filePath}`;
-    }
-
-    /**
-     * Execute a request with deduplication
-     * @private
-     */
-    async _executeWithDeduplication(key, requestFn) {
-        // Check if there's already a pending request for this key
-        if (this._pendingRequests.has(key)) {
-            console.log(`Request ${key} already in progress, waiting...`);
-            return await this._pendingRequests.get(key);
-        }
-
-        // Create a new promise for this request
-        const promise = (async () => {
-            try {
-                const result = await requestFn();
-                return result;
-            } finally {
-                // Clean up the pending request
-                this._pendingRequests.delete(key);
-            }
-        })();
-
-        // Store the promise in the cache
-        this._pendingRequests.set(key, promise);
-
-        return await promise;
-    }
-
     async getConnectionStatus() {
         // Status: connecting, connected, disconnected, error
         const wsState = this.signalingSocket.readyState;
@@ -244,59 +202,51 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, timeoutMs = -1, idleTimeout = 10000) {
-        const key = this._getRequestKey('getFileContent', filePath, mimeType + (stream ? ':stream' : ':blob'));
+        console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
+        const id = uuidv4();
+        const label = mimeType.replaceAll('/', '-') + '-' + id;
 
-        return await this._executeWithDeduplication(key, async () => {
-            console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
-            const id = uuidv4();
-            const label = mimeType.replaceAll('/', '-') + '-' + id;
+        // Create file content helper
+        const filedc = new WebRTCDataChannelFileContent(this.pc);
 
-            // Create file content helper
-            const filedc = new WebRTCDataChannelFileContent(this.pc);
+        try {
+            // Ask remote peer to prepare and send the file on the given label
+            const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
+            console.log("Requested file receive via WebRTC:", filePath, resp);
 
-            try {
-                // Ask remote peer to prepare and send the file on the given label
-                const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label });
-                console.log("Requested file receive via WebRTC:", filePath, resp);
+            const fileSize = resp["size"] || null;
 
-                const fileSize = resp["size"] || null;
-
-                if (stream) {
-                    // Return ReadableStream for streaming
-                    return await filedc.receiveFileContentStream(label, fileSize, timeoutMs, idleTimeout);
-                } else {
-                    // Return Blob for direct download
-                    const blob = await filedc.receiveFileContent(label, fileSize, timeoutMs, idleTimeout, mimeType);
-                    console.log("Received file content as blob, size:", blob.size);
-                    return blob;
-                }
-            } catch (err) {
-                console.error('WebRTC file transfer failed:', err);
-                throw err;
+            if (stream) {
+                // Return ReadableStream for streaming
+                return await filedc.receiveFileContentStream(label, fileSize, timeoutMs, idleTimeout);
+            } else {
+                // Return Blob for direct download
+                const blob = await filedc.receiveFileContent(label, fileSize, timeoutMs, idleTimeout, mimeType);
+                console.log("Received file content as blob, size:", blob.size);
+                return blob;
             }
-        });
+        } catch (err) {
+            console.error('WebRTC file transfer failed:', err);
+            throw err;
+        }
     }
 
     async getFileThumbnail(filePath, maxSize = 200) {
-        const key = this._getRequestKey('getFileThumbnail', filePath, maxSize);
+        try {
+            // Ask remote peer (via RPC) to prepare/produce a thumbnail.
+            // The server should respond with an id that will be sent over
+            // the thumbnail datachannel as a binary packet (first 16 bytes = id).
+            const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
+            const thumbId = (resp && resp.id) ? resp.id : resp;
+            if (!thumbId) return null;
 
-        return await this._executeWithDeduplication(key, async () => {
-            try {
-                // Ask remote peer (via RPC) to prepare/produce a thumbnail.
-                // The server should respond with an id that will be sent over
-                // the thumbnail datachannel as a binary packet (first 16 bytes = id).
-                const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
-                const thumbId = (resp && resp.id) ? resp.id : resp;
-                if (!thumbId) return null;
-
-                // Wait for binary thumbnail data on the thumbnail datachannel
-                const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
-                return blob;
-            } catch (err) {
-                console.error('getFileThumbnail error:', err);
-                throw err;
-            }
-        });
+            // Wait for binary thumbnail data on the thumbnail datachannel
+            const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
+            return blob;
+        } catch (err) {
+            console.error('getFileThumbnail error:', err);
+            throw err;
+        }
     }
 
     async playVideo(filepath) {
@@ -304,25 +254,21 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileUrl(filePath, mimeType) {
-        const key = this._getRequestKey('getFileUrl', filePath);
+        console.log('Generating file URL via WebRTC for:', filePath, 'type:', mimeType);
 
-        return await this._executeWithDeduplication(key, async () => {
-            console.log('Generating file URL via WebRTC for:', filePath, 'type:', mimeType);
+        try {
+            // Get file content as blob (stream = false)
+            const blob = await this.getFileContent(filePath, mimeType, false);
 
-            try {
-                // Get file content as blob (stream = false)
-                const blob = await this.getFileContent(filePath, mimeType, false);
-
-                // Create object URL from blob
-                const objectUrl = URL.createObjectURL(blob);
-                console.log("Created object URL for file:", filePath, "size:", blob.size);
-                return objectUrl;
-            } catch (err) {
-                // Fallback to a placeholder URL if WebRTC transfer fails
-                console.warn('WebRTC file transfer failed, using fallback URL:', err);
-                return 'webrtc://' + filePath;
-            }
-        });
+            // Create object URL from blob
+            const objectUrl = URL.createObjectURL(blob);
+            console.log("Created object URL for file:", filePath, "size:", blob.size);
+            return objectUrl;
+        } catch (err) {
+            // Fallback to a placeholder URL if WebRTC transfer fails
+            console.warn('WebRTC file transfer failed, using fallback URL:', err);
+            return 'webrtc://' + filePath;
+        }
     }
 
     async getFileInfo(filePath) {
@@ -336,39 +282,35 @@ export default class WebRTCClient extends BaseClient {
     async getImageRepo(offset, count) {
         console.log('getImageRepo:', offset, count);
 
-        const key = this._getRequestKey('getImageRepo', offset, count);
+        try {
+            const resp = await this.rpc.sendRpc('getImageVideos', {
+                "types": ["image", "video"],
+                "offset": offset,
+                "count": count
+            });
 
-        return await this._executeWithDeduplication(key, async () => {
-            try {
-                const resp = await this.rpc.sendRpc('getImageVideos', {
-                    "types": ["image", "video"],
-                    "offset": offset,
-                    "count": count
-                });
+            console.log('getImageRepo response:', resp);
 
-                console.log('getImageRepo response:', resp);
-
-                // 确保返回正确的格式
-                if (resp && typeof resp === 'object') {
-                    return {
-                        total: resp.total || 0,
-                        items: resp.items || []
-                    };
-                } else {
-                    // 如果服务器返回的不是对象，返回默认格式
-                    return {
-                        total: 0,
-                        items: []
-                    };
-                }
-            } catch (err) {
-                console.error('getImageRepo error:', err);
-                // 返回空结果而不是抛出错误，避免UI崩溃
+            // 确保返回正确的格式
+            if (resp && typeof resp === 'object') {
+                return {
+                    total: resp.total || 0,
+                    items: resp.items || []
+                };
+            } else {
+                // 如果服务器返回的不是对象，返回默认格式
                 return {
                     total: 0,
                     items: []
                 };
             }
-        });
+        } catch (err) {
+            console.error('getImageRepo error:', err);
+            // 返回空结果而不是抛出错误，避免UI崩溃
+            return {
+                total: 0,
+                items: []
+            };
+        }
     }
 }

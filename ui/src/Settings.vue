@@ -67,6 +67,15 @@
                 <button class="refresh-btn" @click="refreshConnectionStatus">刷新</button>
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">重新加载页面</div>
+                <div class="setting-value">刷新整个应用界面</div>
+              </div>
+              <div class="setting-action">
+                <button class="reload-btn" @click="reloadPage">重载</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -288,6 +297,13 @@ async function refreshConnectionStatus() {
   } catch (error) {
     console.error('获取连接状态失败:', error)
     connectionStatus.value = 'disconnected'
+  }
+}
+
+// 重新加载页面
+function reloadPage() {
+  if (confirm('确定要重新加载页面吗？当前页面状态可能会丢失。')) {
+    window.location.reload()
   }
 }
 
@@ -555,6 +571,12 @@ onMounted(() => {
   background: #4caf50;
   color: white;
   border-color: #4caf50 !important;
+}
+
+.reload-btn {
+  background: #9c27b0;
+  color: white;
+  border-color: #9c27b0 !important;
 }
 
 /* 连接状态样式 */
