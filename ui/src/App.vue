@@ -301,7 +301,7 @@ onUnmounted(() => {
 
 <style scoped>
 .app-container {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -311,8 +311,8 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
   position: relative;
+  overflow: hidden;
 }
 
 /* Tab导航样式 - 固定在窗口底部 */
@@ -445,8 +445,6 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   position: relative;
-  padding-bottom: 60px; /* 为底部固定Tab导航留出空间 */
-  margin-bottom: 60px; /* 确保内容不被Tab遮挡 */
   background: #f5f7fa; /* 统一所有Tab页面的背景色 */
 }
 
@@ -480,8 +478,7 @@ onUnmounted(() => {
   }
   
   .tab-content {
-    padding-bottom: 65px;
-    margin-bottom: 65px;
+    /* 移动端不需要特殊高度设置，flex布局会自动处理 */
   }
 }
 

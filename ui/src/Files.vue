@@ -105,6 +105,7 @@
       <div
         class="content"
         ref="contentContainer"
+        @wheel="handleWheel"
       >
         <div v-if="error" class="error-message">{{ error }}</div>
 
@@ -1088,6 +1089,14 @@ function handleDocumentClick(event) {
     }
   }
 }
+
+// 处理鼠标滚轮事件
+function handleWheel(event) {
+  // 确保事件在content元素上正常处理滚动
+  // 不需要额外处理，CSS的overflow:auto会自动处理滚动
+  // 这里主要是为了确保事件不会冒泡到其他元素
+  event.stopPropagation()
+}
 function getFileIcon(file) {
   if (file.isDir) return '📁'
   const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
@@ -1467,7 +1476,7 @@ watch(files, (newFiles, oldFiles) => {
 @import 'highlight.js/styles/github-dark.css';
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
 #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
 /* 紫色状态栏已移至App.vue中统一管理 */
 
@@ -1629,7 +1638,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-
   overscroll-behavior: contain; /* 防止滚动到边界后把手势传递给 body */
   touch-action: pan-y; /* 提示浏览器以垂直滚动为主 */
 }
-.file-list { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.file-list { background: white; border-radius: 8px; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .file-list-header { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 15px 20px; background: #f9f9f9; border-bottom: 1px solid #e0e0e0; font-weight: 600; color: #333; position: sticky; top: 0; }
 .file-list-item { display: grid; grid-template-columns: 40px 1fr 120px 120px; gap: 20px; padding: 12px 20px; align-items: center; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: all 0.2s; }
 .file-list-item:hover { background: #f9f9f9; }
