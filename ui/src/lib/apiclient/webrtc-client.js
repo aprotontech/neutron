@@ -332,4 +332,43 @@ export default class WebRTCClient extends BaseClient {
         // In production, send request and wait for response
         throw new Error('Not implemented in demo mode');
     }
+
+    async getImageRepo(offset, count) {
+        console.log('getImageRepo:', offset, count);
+
+        const key = this._getRequestKey('getImageRepo', offset, count);
+
+        return await this._executeWithDeduplication(key, async () => {
+            try {
+                const resp = await this.rpc.sendRpc('getImageVideos', {
+                    "types": ["image", "video"],
+                    "offset": offset,
+                    "count": count
+                });
+
+                console.log('getImageRepo response:', resp);
+
+                // 确保返回正确的格式
+                if (resp && typeof resp === 'object') {
+                    return {
+                        total: resp.total || 0,
+                        items: resp.items || []
+                    };
+                } else {
+                    // 如果服务器返回的不是对象，返回默认格式
+                    return {
+                        total: 0,
+                        items: []
+                    };
+                }
+            } catch (err) {
+                console.error('getImageRepo error:', err);
+                // 返回空结果而不是抛出错误，避免UI崩溃
+                return {
+                    total: 0,
+                    items: []
+                };
+            }
+        });
+    }
 }

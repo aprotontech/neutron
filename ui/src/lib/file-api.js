@@ -785,6 +785,17 @@ export default class FileAPI {
     }
 
     /**
+     * Get image repository with pagination
+     * @param {number} offset - Starting offset
+     * @param {number} count - Number of items to retrieve
+     * @returns {Promise<Object>} - Object with total count and items array
+     */
+    async getImageRepo(offset, count) {
+        console.log(`Requesting image repo: offset=${offset}, count=${count}`);
+        return TransferClient.get().getImageRepo(offset, count);
+    }
+
+    /**
      * Clear memory cache
      */
     clearMemoryCache() {

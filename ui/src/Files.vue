@@ -217,6 +217,11 @@
           class="media-viewer-content"
           @mousemove="handleMediaMouseMove"
           @mouseleave="handleMediaMouseLeave"
+          :style="{
+            transform: `translateY(${mediaSlideOffset}px)`,
+            opacity: mediaSlideOpacity,
+            transition: mediaSlideOffset === 0 ? 'transform 0.3s ease, opacity 0.3s ease' : 'none'
+          }"
         >
           <!-- 加载动画 -->
           <div v-if="isMediaLoading" class="media-loading">
@@ -344,6 +349,8 @@ const mediaMouseMoveTimer = ref(null)
 // 媒体预览手势相关（上下滑关闭、左右滑切图）
 const mediaSwipeAxis = ref(null) // 'x' | 'y' | null
 const mediaSwipeStartedOnClosableArea = ref(false)
+const mediaSlideOffset = ref(0) // 滑动偏移量，用于动画效果
+const mediaSlideOpacity = ref(1) // 滑动时的透明度，用于动画效果
 
 const isMobile = ref(false)
 const isAndroidApp = ref(false)
@@ -691,10 +698,19 @@ function handleMediaTouchStart(event) {
 
   mediaSwipeAxis.value = null
 
-  // 对视频/音频/文本等交互控件内的手势，默认不触发“上下滑关闭”
-  // 图片（以及加载态）允许直接上下滑关闭
+  // 所有预览类型都支持上下滑关闭手势
+  // 但如果是视频/音频的控件区域，优先响应控件操作
   const startedOnMediaElement = !!event.target.closest('img, video, audio, .text-viewer')
-  mediaSwipeStartedOnClosableArea.value = isViewingImage.value || !startedOnMediaElement
+  const startedOnMediaControls = !!event.target.closest('video, audio') && 
+    (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || 
+     event.target.hasAttribute('controls'))
+  
+  // 如果触摸开始于媒体控件，则不触发上下滑关闭
+  mediaSwipeStartedOnClosableArea.value = !startedOnMediaControls
+  
+  // 重置滑动动画
+  mediaSlideOffset.value = 0
+  mediaSlideOpacity.value = 1
 }
 
 function handleMediaTouchMove(event) {
@@ -719,6 +735,11 @@ function handleMediaTouchMove(event) {
   if (mediaSwipeAxis.value === 'y' && mediaSwipeStartedOnClosableArea.value) {
     event.preventDefault()
     event.stopPropagation()
+    
+    // 更新滑动动画效果
+    const slideRatio = Math.min(Math.abs(deltaY) / 200, 1) // 最大滑动200px
+    mediaSlideOffset.value = deltaY
+    mediaSlideOpacity.value = 1 - slideRatio * 0.5 // 最多变淡50%
   }
 }
 
@@ -746,6 +767,10 @@ function handleMediaTouchEnd() {
   if (mediaSwipeStartedOnClosableArea.value) {
     if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 80) {
       closeMediaViewer()
+    } else {
+      // 如果没有触发关闭，则添加滑动返回动画
+      mediaSlideOffset.value = 0
+      mediaSlideOpacity.value = 1
     }
   }
 
@@ -756,6 +781,7 @@ function handleMediaTouchEnd() {
   mediaTouchEndY.value = 0
   mediaSwipeAxis.value = null
   mediaSwipeStartedOnClosableArea.value = false
+  // 滑动动画变量会在下次触摸开始时重置
 }
 
 // 鼠标移动显示/隐藏导航按钮
@@ -793,6 +819,10 @@ function closeMediaViewer() {
   isMediaLoading.value = false
   currentMediaIndex.value = -1
   imageFiles.value = []
+  
+  // 重置滑动动画
+  mediaSlideOffset.value = 0
+  mediaSlideOpacity.value = 1
   
   // 清理鼠标移动定时器
   if (mediaMouseMoveTimer.value) {

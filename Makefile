@@ -7,13 +7,13 @@ neutron:
 	@rm -rf ./build/www ./build/etc
 	@mkdir -p ./build/bin ./build/www ./build/etc
 	@go fmt ./... && go vet ./...
-	@go build -o ./build/bin/neutron ./cmd/neutron/
+	@CGO_ENABLED=1 go build -o ./build/bin/neutron ./cmd/neutron/
 	@cp ./etc/config.yaml ./build/etc/
 	@cp ./etc/passwords.txt ./build/etc/
 	@cp -r ui/www ./build
 
 local-test: neutron
-	@cd ./build && ./bin/neutron server test
+	@cd ./build && ./bin/neutron server start
 
 html:
 	@cd ui && npm run build

@@ -24,4 +24,8 @@ export default class BaseClient {
     async getFileInfo(filePath) {
         throw new Error('Not implemented');
     }
+
+    async getImageRepo(offset, count) {
+        throw new Error('Not implemented');
+    }
 }

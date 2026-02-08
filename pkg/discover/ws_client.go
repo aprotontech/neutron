@@ -43,6 +43,11 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 		panic("invalidate config")
 	}
 
+	var metadataRepo *MetadataRepository
+	if config.MetadataRepo != nil {
+		metadataRepo = NewMetadataRepository(config)
+	}
+
 	return &RemoteStorageServer{
 		config:                  config,
 		conn:                    nil,
@@ -54,14 +59,19 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 			"prepareFileReceive": prepareFileReceive,
 			"getThumbnail":       getThumbnail,
 			"playVideo":          playVideo,
+			"getImageVideos":     getImageVideos,
 		},
 		dcm: &FileSystemMock{
-			dcFileMap: map[string]string{},
+			dcFileMap:    map[string]string{},
+			metadataRepo: metadataRepo,
 		},
 	}
 }
 
 func (s *RemoteStorageServer) Start(ctx context.Context) error {
+	if s.dcm.metadataRepo != nil {
+		go s.dcm.metadataRepo.Start(ctx)
+	}
 
 	settingEngine := webrtc.SettingEngine{}
 	s.api = webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))

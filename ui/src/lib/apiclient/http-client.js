@@ -76,6 +76,39 @@ export default class HttpClient extends BaseClient {
         return response.json();
     }
 
+    async getImageRepo(offset, count) {
+        console.log(`HTTP getImageRepo: offset=${offset}, count=${count}`);
+
+        try {
+            const response = await fetch(`${this.baseURL}/files/image-repo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ offset, count })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to get image repo: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            // 确保返回正确的格式
+            return {
+                total: result.total || 0,
+                items: result.items || []
+            };
+        } catch (error) {
+            console.error('getImageRepo error:', error);
+            // 返回空结果而不是抛出错误
+            return {
+                total: 0,
+                items: []
+            };
+        }
+    }
+
     async getConnectionStatus() {
         try {
             // 发送一个简单的健康检查请求

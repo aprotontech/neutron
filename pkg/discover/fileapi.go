@@ -21,6 +21,8 @@ type FileFolderInfo map[string]interface{}
 type FileSystemMock struct {
 	dcFileMap map[string]string
 
+	metadataRepo *MetadataRepository
+
 	thumbnailDC    *webrtc.DataChannel
 	peerConnection *webrtc.PeerConnection
 }
@@ -161,6 +163,40 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}()
 
 	return map[string]any{"id": hex.EncodeToString(id)}, nil
+}
+
+func getImageVideos(fsm *FileSystemMock, req any) (any, error) {
+	info := req.(map[string]interface{})
+	_types, ok := info["types"].([]interface{})
+	if !ok {
+		log.Warnf("get types failed")
+		return nil, os.ErrInvalid
+	}
+
+	types := make([]string, len(_types))
+	for i, v := range _types {
+		types[i] = v.(string)
+	}
+
+	offset, ok := info["offset"].(int)
+	if !ok {
+		offset = 0
+	}
+
+	count, ok := info["count"].(int)
+	if !ok {
+		count = 100
+	}
+
+	imgs, total, err := fsm.metadataRepo.ListFiles(types, offset, count)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"items": imgs,
+		"total": total,
+	}, nil
 }
 
 func playVideo(fsm *FileSystemMock, req any) (any, error) {

@@ -2,25 +2,46 @@
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
 
     <!-- 图库内容 -->
-    <div class="gallery-content">
+    <div class="gallery-content" @scroll="handleScroll">
       <!-- 只使用缩略图模式 -->
       <div class="image-grid">
         <div 
-          v-for="(image, index) in sampleImages" 
-          :key="index" 
+          v-for="(image, index) in images" 
+          :key="image.id" 
           class="image-grid-item"
           @click="openImagePreview(image)"
         >
           <div class="image-thumbnail">
-            <div class="image-placeholder">
-              <span class="image-icon">🖼️</span>
+            <div v-if="image.thumbnailUrl" class="image-real">
+              <img 
+                :src="image.thumbnailUrl" 
+                :alt="image.name"
+                loading="lazy"
+                @load="image.loaded = true"
+              />
+            </div>
+            <div v-else class="image-placeholder">
+              <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
+              <div v-if="image.loadingThumbnail" class="thumbnail-loading">
+                <div class="loading-spinner"></div>
+              </div>
             </div>
             <div class="image-overlay">
               <span class="image-name">{{ image.name }}</span>
-              <span class="image-date">{{ image.date }}</span>
+              <span class="image-type">{{ image.type }}</span>
             </div>
           </div>
         </div>
+      </div>
+      
+      <!-- 加载更多指示器 -->
+      <div v-if="loading" class="loading-more">
+        <div class="loading-spinner"></div>
+        <span>加载中...</span>
+      </div>
+      
+      <div v-if="!hasMore && images.length > 0" class="no-more">
+        没有更多图片了
       </div>
     </div>
 
@@ -56,7 +77,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="sampleImages.length === 0" class="empty-state">
+    <div v-if="!loading && images.length === 0" class="empty-state">
       <div class="empty-icon">🖼️</div>
       <h3>暂无图片</h3>
       <p>图库中还没有图片，请上传或同步图片</p>
@@ -68,26 +89,183 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
+import FileAPI from './lib/file-api.js'
 
 // Android原生App检测
 const isAndroidApp = ref(false)
 
-// 示例图片数据
-const sampleImages = ref([
-  { id: 1, name: '风景照.jpg', size: '2.3 MB', date: '2024-01-15', type: 'JPEG' },
-  { id: 2, name: '人物照.png', size: '1.8 MB', date: '2024-01-14', type: 'PNG' },
-  { id: 3, name: '建筑照.jpg', size: '3.1 MB', date: '2024-01-13', type: 'JPEG' },
-  { id: 4, name: '夜景照.jpg', size: '4.2 MB', date: '2024-01-12', type: 'JPEG' },
-  { id: 5, name: '花卉照.png', size: '1.5 MB', date: '2024-01-11', type: 'PNG' },
-  { id: 6, name: '动物照.jpg', size: '2.7 MB', date: '2024-01-10', type: 'JPEG' },
-  { id: 7, name: '美食照.jpg', size: '2.1 MB', date: '2024-01-09', type: 'JPEG' },
-  { id: 8, name: '旅行照.png', size: '3.5 MB', date: '2024-01-08', type: 'PNG' },
-])
+// FileAPI实例
+const fileAPI = new FileAPI()
+
+// 图片数据
+const images = ref([])
+const totalImages = ref(0)
+const loading = ref(false)
+const hasMore = ref(true)
+const currentOffset = ref(0)
+const pageSize = 20 // 每页加载数量
 
 // 预览相关状态
 const previewImage = ref(null)
+
+// 可见图片索引
+const visibleImageIndices = ref(new Set())
+
+// 缩略图缓存
+const thumbnailCache = ref({})
+
+// 计算当前可视区域可以显示的图片数量
+function calculateVisibleCount() {
+  const grid = document.querySelector('.image-grid')
+  if (!grid) return pageSize
+  
+  const gridRect = grid.getBoundingClientRect()
+  const itemHeight = 120 // 图片项高度
+  const itemWidth = 120 // 图片项宽度
+  
+  const cols = Math.floor(gridRect.width / itemWidth)
+  const rows = Math.ceil(gridRect.height / itemHeight)
+  
+  return Math.max(pageSize, cols * rows * 2) // 加载比可视区域多一倍的图片
+}
+
+// 加载图片列表
+async function loadImages(offset = 0, count = null) {
+  if (loading.value) return
+  
+  loading.value = true
+  try {
+    const loadCount = count || calculateVisibleCount()
+    console.log(`Loading images: offset=${offset}, count=${loadCount}`)
+    
+    const result = await fileAPI.getImageRepo(offset, loadCount)
+    console.log('Image repo result:', result)
+    
+    if (offset === 0) {
+      images.value = []
+      thumbnailCache.value = {}
+    }
+    
+    if (result && result.items) {
+      // 转换服务器返回的数据格式
+      const newImages = result.items.map((item, index) => {
+        const path = typeof item === 'string' ? item : (item.path || item)
+        const name = path.split('/').pop() || '未命名文件'
+        return {
+          id: offset + index,
+          path: path,
+          name: name,
+          size: '未知大小',
+          date: '未知日期',
+          type: getFileType(name),
+          thumbnailUrl: null,
+          loadingThumbnail: false
+        }
+      })
+      
+      images.value = [...images.value, ...newImages]
+      totalImages.value = result.total || 0
+      currentOffset.value = offset + newImages.length
+      hasMore.value = newImages.length > 0 && currentOffset.value < totalImages.value
+      
+      // 加载可见图片的缩略图
+      loadVisibleThumbnails()
+    }
+  } catch (error) {
+    console.error('Failed to load images:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 获取文件类型
+function getFileType(filename) {
+  const ext = filename.split('.').pop().toLowerCase()
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
+  const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm']
+  
+  if (imageExts.includes(ext)) return '图片'
+  if (videoExts.includes(ext)) return '视频'
+  return '文件'
+}
+
+// 加载可见图片的缩略图
+async function loadVisibleThumbnails() {
+  const visibleIndices = Array.from(visibleImageIndices.value)
+  
+  for (const index of visibleIndices) {
+    if (index >= images.value.length) continue
+    
+    const image = images.value[index]
+    if (!image.thumbnailUrl && !image.loadingThumbnail && !thumbnailCache.value[image.path]) {
+      await loadThumbnail(image, index)
+    }
+  }
+}
+
+// 加载单个缩略图
+async function loadThumbnail(image, index) {
+  if (thumbnailCache.value[image.path]) {
+    images.value[index].thumbnailUrl = thumbnailCache.value[image.path]
+    return
+  }
+  
+  images.value[index].loadingThumbnail = true
+  
+  try {
+    const blob = await fileAPI.getFileThumbnail(image.path, 200)
+    if (blob) {
+      const thumbnailUrl = URL.createObjectURL(blob)
+      images.value[index].thumbnailUrl = thumbnailUrl
+      thumbnailCache.value[image.path] = thumbnailUrl
+    }
+  } catch (error) {
+    console.error(`Failed to load thumbnail for ${image.path}:`, error)
+  } finally {
+    images.value[index].loadingThumbnail = false
+  }
+}
+
+// 处理滚动事件
+function handleScroll() {
+  const grid = document.querySelector('.image-grid')
+  if (!grid) return
+  
+  const items = grid.querySelectorAll('.image-grid-item')
+  const gridRect = grid.getBoundingClientRect()
+  
+  visibleImageIndices.value.clear()
+  
+  items.forEach((item, index) => {
+    const itemRect = item.getBoundingClientRect()
+    
+    // 检查是否在可视区域内
+    if (
+      itemRect.bottom >= gridRect.top &&
+      itemRect.top <= gridRect.bottom &&
+      itemRect.right >= gridRect.left &&
+      itemRect.left <= gridRect.right
+    ) {
+      visibleImageIndices.value.add(index)
+    }
+  })
+  
+  // 加载可见图片的缩略图
+  loadVisibleThumbnails()
+  
+  // 检查是否需要加载更多图片
+  if (!loading.value && hasMore.value) {
+    const lastItem = items[items.length - 1]
+    if (lastItem) {
+      const lastItemRect = lastItem.getBoundingClientRect()
+      if (lastItemRect.bottom <= gridRect.bottom + 100) {
+        loadImages(currentOffset.value)
+      }
+    }
+  }
+}
 
 // 打开图片预览
 function openImagePreview(image) {
@@ -99,11 +277,25 @@ function closePreview() {
   previewImage.value = null
 }
 
+// 刷新图库
+function refreshGallery() {
+  console.log('Refreshing gallery...')
+  currentOffset.value = 0
+  hasMore.value = true
+  loadImages(0)
+}
+
 // 下载图片
-function downloadImage(image) {
+async function downloadImage(image) {
   console.log('下载图片:', image.name)
-  // 这里可以添加实际的下载逻辑
-  alert(`开始下载: ${image.name}`)
+  try {
+    alert(`开始下载: ${image.name}`)
+    await fileAPI.downloadFile(image.path, image)
+    alert(`下载成功: ${image.name}`)
+  } catch (error) {
+    console.error('下载失败:', error)
+    alert(`下载失败: ${error.message}`)
+  }
 }
 
 // 分享图片
@@ -113,9 +305,46 @@ function shareImage(image) {
   alert(`分享图片: ${image.name}`)
 }
 
+// 清理缩略图URL
+function cleanupThumbnailUrls() {
+  Object.values(thumbnailCache.value).forEach(url => {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  })
+  thumbnailCache.value = {}
+}
+
 onMounted(() => {
   console.log('Image.vue 组件已加载')
-  // 这里可以添加初始化逻辑，比如加载图片数据
+  
+  // 判断是否为 Android 原生 App（Capacitor 环境）
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    isAndroidApp.value = true
+  }
+  
+  // 初始加载图片
+  loadImages(0)
+  
+  // 添加滚动监听
+  const galleryContent = document.querySelector('.gallery-content')
+  if (galleryContent) {
+    galleryContent.addEventListener('scroll', handleScroll)
+  }
+  
+  // 初始计算可见区域
+  setTimeout(handleScroll, 100)
+})
+
+onUnmounted(() => {
+  // 清理缩略图URL
+  cleanupThumbnailUrls()
+  
+  // 移除滚动监听
+  const galleryContent = document.querySelector('.gallery-content')
+  if (galleryContent) {
+    galleryContent.removeEventListener('scroll', handleScroll)
+  }
 })
 </script>
 
@@ -201,6 +430,24 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.image-real {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.image-real img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.image-grid-item:hover .image-real img {
+  transform: scale(1.05);
 }
 
 .image-icon {
@@ -208,12 +455,38 @@ onMounted(() => {
   opacity: 0.5;
 }
 
+.thumbnail-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .image-overlay {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   color: white;
   padding: 6px;
   opacity: 0;
@@ -232,11 +505,28 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.image-date {
+.image-type {
   display: block;
   font-size: 9px;
   color: rgba(255, 255, 255, 0.8);
   margin-top: 2px;
+}
+
+.loading-more {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.no-more {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 14px;
 }
 
 .action-btn {

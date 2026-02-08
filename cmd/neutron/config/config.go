@@ -6,9 +6,11 @@ type Config struct {
 	Home           string                `yaml:"home"`
 	Fuse           *FuseMountConfig      `yaml:"fuse"`
 	Storage        []StorageConfig       `yaml:"storage"`
+	MetadataRepo   *MetadataRepoConfig   `yaml:"metadata"`
 	Cache          *CacheConfig          `yaml:"cache"`
 	WebServer      *web.WebServerConfig  `yaml:"web"`
 	Users          *UserConfig           `yaml:"users"`
+	Tools          *ToolsConfig          `yaml:"tools"`
 	DiscoverClient *DiscoverClientConfig `yaml:"discoverClient"`
 }
 
@@ -37,6 +39,23 @@ type DiscoverClientConfig struct {
 	WebSocketURL    string `yaml:"websocketURL"`
 	StorageServerID string `yaml:"storageServerID"`
 	Password        string `yaml:"password"`
+}
+
+type FfmpegConfig struct {
+	Mode  string `yaml:"mode"`  // binary/docker
+	Image string `yaml:"image"` //docker-image, validate when `mode` == "docker"
+	Path  string `yaml:"path"`  // binary path
+}
+
+type ToolsConfig struct {
+	Ffmpeg *FfmpegConfig `yaml:"ffmpeg"`
+}
+
+type MetadataRepoConfig struct {
+	Driver       string   `yaml:"driver"`
+	Sqlite       string   `yaml:"sqlite"`
+	ScanSpeedQPS int      `yaml:"qps"`
+	Excludes     []string `yaml:"excludes"`
 }
 
 var GlobalConfig *Config
