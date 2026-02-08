@@ -45,34 +45,70 @@
       </div>
     </div>
 
-    <!-- 图片预览模态框 -->
-    <div v-if="previewImage" class="image-preview-modal" @click="closePreview">
-      <div class="preview-content" @click.stop>
-        <button class="preview-close" @click="closePreview">×</button>
-        <div class="preview-image-container">
-          <div class="preview-image-placeholder">
-            <span class="preview-icon">🖼️</span>
-            <p class="preview-text">图片预览: {{ previewImage.name }}</p>
-          </div>
+    <!-- 媒体预览组件 -->
+    <div 
+      class="media-viewer" 
+      :class="{ active: isViewingImage || isViewingVideo }"
+      @click="handleMediaBackgroundClick"
+      @touchstart="handleMediaTouchStart"
+      @touchmove="handleMediaTouchMove"
+      @touchend="handleMediaTouchEnd"
+      @mousemove="handleMediaMouseMove"
+      @mouseleave="handleMediaMouseLeave"
+    >
+      <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
+      
+      <div 
+        class="media-viewer-content" 
+        :style="{ 
+          transform: `translateY(${mediaSlideOffset}px)`,
+          opacity: mediaSlideOpacity
+        }"
+      >
+        <div v-if="isMediaLoading" class="media-loading">
+          <div class="media-spinner"></div>
+          <div class="media-loading-text">加载中...</div>
         </div>
-        <div class="preview-info">
-          <h3>{{ previewImage.name }}</h3>
-          <div class="preview-details">
-            <p><strong>大小:</strong> {{ previewImage.size }}</p>
-            <p><strong>日期:</strong> {{ previewImage.date }}</p>
-            <p><strong>类型:</strong> {{ previewImage.type }}</p>
-          </div>
-          <div class="preview-actions">
-            <button class="preview-action-btn" @click="downloadImage(previewImage)">
-              <span class="action-icon">⬇️</span>
-              <span>下载</span>
-            </button>
-            <button class="preview-action-btn" @click="shareImage(previewImage)">
-              <span class="action-icon">↗️</span>
-              <span>分享</span>
-            </button>
-          </div>
-        </div>
+        
+        <img 
+          v-if="isViewingImage && !isMediaLoading" 
+          :src="currentMediaUrl" 
+          :alt="currentMediaFile?.name" 
+          @click.stop
+        />
+        
+        <video 
+          v-else-if="isViewingVideo && !isMediaLoading" 
+          :src="currentMediaUrl" 
+          controls 
+          autoplay
+          @click.stop
+        ></video>
+      </div>
+      
+      <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">
+        <span class="nav-info">{{ currentMediaFile.name }}</span>
+        <span class="nav-counter" v-if="imageFiles.length > 1">
+          {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
+        </span>
+        
+        <!-- 导航按钮 -->
+        <button 
+          v-if="hasPrevMedia" 
+          class="nav-btn nav-prev" 
+          @click="prevMedia"
+          @click.stop
+        >
+          ←
+        </button>
+        <button 
+          v-if="hasNextMedia" 
+          class="nav-btn nav-next" 
+          @click="nextMedia"
+          @click.stop
+        >
+          →
+        </button>
       </div>
     </div>
 
@@ -110,11 +146,45 @@ const pageSize = 20 // 每页加载数量
 // 预览相关状态
 const previewImage = ref(null)
 
+// 媒体预览相关状态
+const isViewingImage = ref(false)
+const isViewingVideo = ref(false)
+const currentMediaFile = ref(null)
+const currentMediaUrl = ref('')
+const isMediaLoading = ref(false)
+
+// 图片导航相关
+const imageFiles = ref([])
+const currentMediaIndex = ref(-1)
+
+// 媒体预览手势相关（上下滑关闭、左右滑切图）
+const mediaTouchStartX = ref(0)
+const mediaTouchEndX = ref(0)
+const mediaTouchStartY = ref(0)
+const mediaTouchEndY = ref(0)
+const mediaSwipeAxis = ref(null) // 'x' | 'y' | null
+const mediaSwipeStartedOnClosableArea = ref(false)
+const mediaSlideOffset = ref(0) // 滑动偏移量，用于动画效果
+const mediaSlideOpacity = ref(1) // 滑动时的透明度，用于动画效果
+
 // 可见图片索引
 const visibleImageIndices = ref(new Set())
 
 // 缩略图缓存
 const thumbnailCache = ref({})
+
+// 计算是否有前一张/后一张图片
+const hasPrevMedia = computed(() => {
+  return currentMediaIndex.value > 0 && imageFiles.value.length > 1
+})
+
+const hasNextMedia = computed(() => {
+  return currentMediaIndex.value < imageFiles.value.length - 1 && imageFiles.value.length > 1
+})
+
+const isMediaViewerActive = computed(() => {
+  return isViewingImage.value || isViewingVideo.value
+})
 
 // 计算当前可视区域可以显示的图片数量
 function calculateVisibleCount() {
@@ -189,6 +259,15 @@ function getFileType(filename) {
   if (imageExts.includes(ext)) return '图片'
   if (videoExts.includes(ext)) return '视频'
   return '文件'
+}
+
+// 判断文件类型
+function isImage(file) {
+  return !file.isDir && getFileType(file.name) === '图片'
+}
+
+function isVideo(file) {
+  return !file.isDir && getFileType(file.name) === '视频'
 }
 
 // 加载可见图片的缩略图
@@ -269,12 +348,151 @@ function handleScroll() {
 
 // 打开图片预览
 function openImagePreview(image) {
-  previewImage.value = image
+  openMediaViewer(image)
 }
 
 // 关闭图片预览
 function closePreview() {
-  previewImage.value = null
+  closeMediaViewer()
+}
+
+// 打开媒体查看器
+async function openMediaViewer(file) {
+  currentMediaFile.value = file
+  isMediaLoading.value = true
+  
+  // 重置所有查看状态
+  isViewingImage.value = false
+  isViewingVideo.value = false
+  currentMediaUrl.value = ''
+  
+  // 检查文件大小限制（5MB）
+  if (file.size && file.size > 5 * 1024 * 1024) {
+    showToastMessage('文件内容过大，暂时不支持预览，请下载后再预览。', 'warning')
+    isMediaLoading.value = false
+    return
+  }
+  
+  // 更新图片文件列表
+  updateImageFilesList()
+  
+  // 查找当前文件在图片列表中的位置
+  const index = imageFiles.value.findIndex(f => f.path === file.path)
+  currentMediaIndex.value = index
+  
+  if (isImage(file)) {
+    isViewingImage.value = true
+    try {
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+      
+      // 图片加载完成后隐藏加载动画
+      const img = new Image()
+      img.onload = () => {
+        isMediaLoading.value = false
+      }
+      img.onerror = () => {
+        isMediaLoading.value = false
+      }
+      img.src = currentMediaUrl.value
+    } catch (error) {
+      console.error('加载图片失败:', error)
+      isMediaLoading.value = false
+    }
+  } else if (isVideo(file)) {
+    isViewingVideo.value = true
+    try {
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+      isMediaLoading.value = false
+    } catch (error) {
+      console.error('加载视频失败:', error)
+      isMediaLoading.value = false
+    }
+  }
+}
+
+// 关闭媒体查看器
+function closeMediaViewer() {
+  isViewingImage.value = false
+  isViewingVideo.value = false
+  currentMediaFile.value = null
+  currentMediaUrl.value = ''
+  isMediaLoading.value = false
+  currentMediaIndex.value = -1
+  imageFiles.value = []
+  
+  // 重置滑动动画
+  mediaSlideOffset.value = 0
+  mediaSlideOpacity.value = 1
+}
+
+// 更新图片文件列表
+function updateImageFilesList() {
+  imageFiles.value = images.value.filter(f => isImage(f) || isVideo(f))
+}
+
+// 切换到前一张图片
+async function prevMedia() {
+  if (!hasPrevMedia.value) return
+  
+  const prevIndex = currentMediaIndex.value - 1
+  const prevFile = imageFiles.value[prevIndex]
+  
+  if (prevFile) {
+    await loadMediaFile(prevFile)
+  }
+}
+
+// 切换到后一张图片
+async function nextMedia() {
+  if (!hasNextMedia.value) return
+  
+  const nextIndex = currentMediaIndex.value + 1
+  const nextFile = imageFiles.value[nextIndex]
+  
+  if (nextFile) {
+    await loadMediaFile(nextFile)
+  }
+}
+
+// 加载媒体文件
+async function loadMediaFile(file) {
+  currentMediaFile.value = file
+  isMediaLoading.value = true
+  
+  if (isImage(file)) {
+    isViewingImage.value = true
+    isViewingVideo.value = false
+    try {
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+      
+      // 图片加载完成后隐藏加载动画
+      const img = new Image()
+      img.onload = () => {
+        isMediaLoading.value = false
+      }
+      img.onerror = () => {
+        isMediaLoading.value = false
+      }
+      img.src = currentMediaUrl.value
+    } catch (error) {
+      console.error('加载图片失败:', error)
+      isMediaLoading.value = false
+    }
+  } else if (isVideo(file)) {
+    isViewingVideo.value = true
+    isViewingImage.value = false
+    try {
+      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+      isMediaLoading.value = false
+    } catch (error) {
+      console.error('加载视频失败:', error)
+      isMediaLoading.value = false
+    }
+  }
+  
+  // 更新当前索引
+  const index = imageFiles.value.findIndex(f => f.path === file.path)
+  currentMediaIndex.value = index
 }
 
 // 刷新图库
@@ -305,6 +523,121 @@ function shareImage(image) {
   alert(`分享图片: ${image.name}`)
 }
 
+// 触摸事件处理函数
+function handleMediaTouchStart(event) {
+  if (!isMediaViewerActive.value) return
+
+  const touch = event.touches[0]
+  mediaTouchStartX.value = touch.clientX
+  mediaTouchStartY.value = touch.clientY
+  mediaTouchEndX.value = touch.clientX
+  mediaTouchEndY.value = touch.clientY
+
+  mediaSwipeAxis.value = null
+
+  // 所有预览类型都支持上下滑关闭手势
+  // 但如果是视频的控件区域，优先响应控件操作
+  const startedOnMediaElement = !!event.target.closest('img, video, .media-viewer-content')
+  const startedOnMediaControls = !!event.target.closest('video') && 
+    (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || 
+     event.target.hasAttribute('controls'))
+  
+  // 如果触摸开始于媒体控件，则不触发上下滑关闭
+  mediaSwipeStartedOnClosableArea.value = !startedOnMediaControls
+  
+  // 重置滑动动画
+  mediaSlideOffset.value = 0
+  mediaSlideOpacity.value = 1
+}
+
+function handleMediaTouchMove(event) {
+  if (!isMediaViewerActive.value) return
+
+  const touch = event.touches[0]
+  mediaTouchEndX.value = touch.clientX
+  mediaTouchEndY.value = touch.clientY
+
+  const deltaX = mediaTouchEndX.value - mediaTouchStartX.value
+  const deltaY = mediaTouchEndY.value - mediaTouchStartY.value
+
+  // 方向锁定（避免轻微抖动）
+  if (!mediaSwipeAxis.value) {
+    const absX = Math.abs(deltaX)
+    const absY = Math.abs(deltaY)
+    if (absX < 10 && absY < 10) return
+    mediaSwipeAxis.value = absX > absY ? 'x' : 'y'
+  }
+
+  // 纵向手势：阻止默认滚动，避免底层列表跟着滚
+  if (mediaSwipeAxis.value === 'y' && mediaSwipeStartedOnClosableArea.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    // 更新滑动动画效果
+    const slideRatio = Math.min(Math.abs(deltaY) / 200, 1) // 最大滑动200px
+    mediaSlideOffset.value = deltaY
+    mediaSlideOpacity.value = 1 - slideRatio * 0.5 // 最多变淡50%
+  }
+}
+
+function handleMediaTouchEnd() {
+  if (!isMediaViewerActive.value) return
+
+  const diffX = mediaTouchStartX.value - mediaTouchEndX.value
+  const diffY = mediaTouchStartY.value - mediaTouchEndY.value
+
+  // 保持原来的左右滑逻辑：仅在“图片 + 多张”时切换
+  if (isViewingImage.value && imageFiles.value.length > 1) {
+    // 水平滑动距离大于垂直滑动距离，且滑动距离大于50px
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        // 向左滑动，显示下一张
+        nextMedia()
+      } else {
+        // 向右滑动，显示上一张
+        prevMedia()
+      }
+    }
+  }
+
+  // 上下滑关闭预览：仅在纵向为主，且距离足够时触发
+  if (mediaSwipeStartedOnClosableArea.value) {
+    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 80) {
+      closeMediaViewer()
+    } else {
+      // 如果没有触发关闭，则添加滑动返回动画
+      mediaSlideOffset.value = 0
+      mediaSlideOpacity.value = 1
+    }
+  }
+
+  // 重置触摸位置
+  mediaTouchStartX.value = 0
+  mediaTouchEndX.value = 0
+  mediaTouchStartY.value = 0
+  mediaTouchEndY.value = 0
+  mediaSwipeAxis.value = null
+  mediaSwipeStartedOnClosableArea.value = false
+  // 滑动动画变量会在下次触摸开始时重置
+}
+
+// 鼠标移动显示/隐藏导航按钮
+function handleMediaMouseMove() {
+  // 在 Image.vue 中，我们暂时不需要鼠标移动功能
+}
+
+function handleMediaMouseLeave() {
+  // 在 Image.vue 中，我们暂时不需要鼠标离开功能
+}
+
+// 处理点击媒体查看器背景关闭预览
+function handleMediaBackgroundClick(event) {
+  // 如果点击的是背景区域（不是媒体内容或导航按钮），则关闭预览
+  if (event.target.classList.contains('media-viewer')) {
+    closeMediaViewer()
+  }
+}
+
 // 清理缩略图URL
 function cleanupThumbnailUrls() {
   Object.values(thumbnailCache.value).forEach(url => {
@@ -313,6 +646,12 @@ function cleanupThumbnailUrls() {
     }
   })
   thumbnailCache.value = {}
+}
+
+// 显示提示消息
+function showToastMessage(message, type = 'info', duration = 3000) {
+  // 在 Image.vue 中，我们暂时使用简单的 alert
+  alert(message)
 }
 
 onMounted(() => {
@@ -550,129 +889,176 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-/* 图片预览模态框 */
-.image-preview-modal {
+/* 媒体预览组件样式 */
+.media-viewer {
+  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(0,0,0,0.95);
   z-index: 1000;
-  display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.preview-content {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 800px;
-  max-height: 90vh;
-  position: relative;
-  display: flex;
   flex-direction: column;
 }
 
-.preview-close {
+.media-viewer.active {
+  display: flex;
+}
+
+.media-viewer-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.media-viewer-content img,
+.media-viewer-content video {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: transparent;
+  border-radius: 8px;
+}
+
+.media-viewer-close {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 32px;
+  cursor: pointer;
+  background: rgba(0,0,0,0.5);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.media-viewer-close:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+.media-viewer-nav {
+  position: absolute;
+  bottom: 20px;
+  color: white;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Android 原生 App 模式下，预览层整体和关闭按钮避开状态栏 */
+.android-native-app .media-viewer {
+  top: env(safe-area-inset-top, 0);
+  height: calc(100% - env(safe-area-inset-top, 0));
+}
+
+.android-native-app .media-viewer-close {
+  top: calc(20px + env(safe-area-inset-top, 0));
+}
+
+.nav-info {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-counter {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* 导航按钮样式 */
+.nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.5);
   border: none;
   color: white;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s, background 0.3s;
+  z-index: 1001;
 }
 
-.preview-close:hover {
+.nav-btn:hover {
   background: rgba(0, 0, 0, 0.8);
 }
 
-.preview-image-container {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  background: #f5f5f5;
-  min-height: 300px;
+.nav-btn.show-hover {
+  opacity: 1;
 }
 
-.preview-image-placeholder {
+.nav-prev {
+  left: 20px;
+}
+
+.nav-next {
+  right: 20px;
+}
+
+/* 移动端触摸提示 */
+@media (max-width: 768px) {
+  .nav-btn {
+    opacity: 0.7;
+  }
+  
+  .nav-btn:hover {
+    opacity: 1;
+  }
+}
+
+/* 媒体加载动画 */
+.media-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
-}
-
-.preview-icon {
-  font-size: 64px;
-  display: block;
-  margin-bottom: 20px;
-  opacity: 0.7;
-}
-
-.preview-text {
-  color: #666;
-  font-size: 16px;
-}
-
-.preview-info {
-  padding: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-
-.preview-info h3 {
-  margin: 0 0 15px 0;
-  color: #333;
-  font-size: 18px;
-}
-
-.preview-details {
-  margin-bottom: 20px;
-}
-
-.preview-details p {
-  margin: 8px 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.preview-details strong {
-  color: #333;
-  margin-right: 8px;
-}
-
-.preview-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.preview-action-btn {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
   color: white;
-  padding: 12px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
-.preview-action-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
+.media-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+.media-loading-text {
+  font-size: 14px;
+  opacity: 0.8;
 }
 
 /* 空状态样式 */
