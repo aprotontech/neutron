@@ -39,3 +39,7 @@ adb install -r -d /workspaces/neutron/ui/android/app/build/outputs/apk/debug/app
 
 # adb logcat | grep -i Capacitor 
 ```
+
+```shell
+INSTALL=1 SERVER_URL=http://192.168.1.111:5173 make android
+```

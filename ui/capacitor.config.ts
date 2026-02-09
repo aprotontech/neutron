@@ -49,6 +49,18 @@ const config: CapacitorConfig = {
     StatusBar: {
       overlaysWebView: false,
       style: 'DEFAULT',
+    },
+    CapacitorSQLite: {
+      iosDatabaseLocation: 'Library/CapacitorDatabase',
+      iosIsEncryption: true,
+      iosKeychainPrefix: 'capacitor-community-sqlite',
+      androidDatabaseLocation: 'databases',
+      androidIsEncryption: true,
+      androidBiometric: {
+        biometricAuth: false,
+        biometricTitle: "Biometric login",
+        biometricSubTitle: "Log in using your biometric"
+      }
     }
   }
 };

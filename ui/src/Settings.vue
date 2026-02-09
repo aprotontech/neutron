@@ -104,6 +104,15 @@
                 <button class="toggle-btn" disabled>开启</button>
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">下载文件</div>
+                <div class="setting-value">管理本地已下载的文件</div>
+              </div>
+              <div class="setting-action">
+                <button class="view-btn" @click="openDownloadFilesModal">查看</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -156,6 +165,101 @@
       </div>
     </div>
 
+    <!-- 下载文件管理弹窗 -->
+    <div v-if="showDownloadFilesModal" class="modal-overlay" @click.self="closeDownloadFilesModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">
+            <span class="modal-icon">📁</span>
+            下载文件管理
+          </h3>
+          <button class="modal-close-btn" @click="closeDownloadFilesModal">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <!-- 加载状态 -->
+          <div v-if="loadingFiles" class="loading-container">
+            <div class="loading-spinner"></div>
+            <p>正在加载文件列表...</p>
+          </div>
+          
+          <!-- 空状态 -->
+          <div v-else-if="!loadingFiles && downloadedFiles.length === 0" class="empty-container">
+            <div class="empty-icon">📂</div>
+            <p class="empty-text">暂无下载文件</p>
+            <p class="empty-subtext">您还没有下载任何文件</p>
+          </div>
+          
+          <!-- 文件列表 -->
+          <div v-else class="files-table-container">
+            <div class="table-header">
+              <div class="table-summary">
+                共 {{ downloadedFiles.length }} 个文件
+              </div>
+              <button class="refresh-btn" @click="loadDownloadedFiles" :disabled="loadingFiles">
+                <span class="refresh-icon">🔄</span>
+                刷新
+              </button>
+            </div>
+            
+            <div class="files-table-wrapper">
+              <table class="files-table">
+                <thead>
+                  <tr>
+                    <th>文件名</th>
+                    <th>下载状态</th>
+                    <th>下载时间</th>
+                    <th>本地状态</th>
+                    <th>本地路径</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="file in downloadedFiles" :key="file.id || file.file_path">
+                    <td class="file-name">
+                      <span class="file-icon">📄</span>
+                      {{ file.file_name || file.name || '未知文件' }}
+                    </td>
+                    <td>
+                      <span class="status-badge status-completed">已下载</span>
+                    </td>
+                    <td class="download-time">
+                      {{ formatDownloadTime(file.downloaded_at) }}
+                    </td>
+                    <td>
+                      <span class="status-badge" :class="getLocalStatusClass(file)">
+                        {{ getLocalStatusText(file) }}
+                      </span>
+                    </td>
+                    <td class="local-path">
+                      <span class="path-text" :title="file.local_path || file.localUrl">
+                        {{ truncatePath(file.local_path || file.localUrl) }}
+                      </span>
+                    </td>
+                    <td class="actions">
+                      <button class="action-btn view-btn" @click="viewFile(file)" title="查看文件">
+                        👁️
+                      </button>
+                      <button class="action-btn delete-btn" @click="deleteFile(file)" title="删除文件">
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button class="modal-btn secondary-btn" @click="closeDownloadFilesModal">关闭</button>
+          <button class="modal-btn primary-btn" @click="loadDownloadedFiles" :disabled="loadingFiles">
+            刷新列表
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 底部信息 -->
     <div class="settings-footer">
       <p>© 2024 Neutron 文件管理器. 保留所有权利.</p>
@@ -172,6 +276,7 @@ import UserAPI from './lib/user-api.js'
 import FileAPI from './lib/file-api.js'
 import CacheManager from './lib/cache-manager.js'
 import TransferClient from './lib/transfer.js'
+import { getLocalFileManager } from './lib/local-file-manager.js'
 
 const emit = defineEmits(['login-state-changed'])
 
@@ -225,20 +330,8 @@ async function clearCache() {
   try {
     // 创建FileAPI实例并清理缓存
     const fileAPI = new FileAPI()
-    fileAPI.clearMemoryCache()
-    
-    // 获取CacheManager实例
-    const cacheManager = CacheManager.getInstance()
-    
-    // 清理CacheManager的localStorage缓存
-    cacheManager.cleanupLocalStorage()
-    
-    // 清理CacheManager的文件系统缓存
-    await cacheManager.cleanupCache()
-    
-    // 清理CacheManager的内存缓存
-    cacheManager.clearMemoryCache()
-    
+    fileAPI.cleanAllCaches()
+        
     alert('缓存清理完成！已清理：内存缓存、localStorage缓存和文件系统缓存。')
   } catch (error) {
     console.error('清理缓存失败:', error)
@@ -314,6 +407,131 @@ async function initConnectionStatus() {
   await refreshConnectionStatus()
   // 设置定时刷新连接状态
   setInterval(refreshConnectionStatus, 30000) // 每30秒刷新一次
+}
+
+// 下载文件管理相关
+const showDownloadFilesModal = ref(false)
+const downloadedFiles = ref([])
+const loadingFiles = ref(false)
+
+// 打开下载文件管理弹窗
+async function openDownloadFilesModal() {
+  showDownloadFilesModal.value = true
+  await loadDownloadedFiles()
+}
+
+// 关闭下载文件管理弹窗
+function closeDownloadFilesModal() {
+  showDownloadFilesModal.value = false
+}
+
+// 加载已下载文件列表
+async function loadDownloadedFiles() {
+  try {
+    loadingFiles.value = true
+    
+    // 获取 LocalFileManager 实例
+    const fileManager = getLocalFileManager()
+    
+    // 调用 getAllFiles 方法
+    const files = await fileManager.getAllFiles()
+    
+    // 处理文件数据
+    downloadedFiles.value = files.map(file => ({
+      ...file,
+      // 检查本地文件是否存在
+      localExists: true // 这里可以添加实际的文件存在性检查
+    }))
+    
+    console.log('已加载下载文件列表:', downloadedFiles.value.length, '个文件')
+  } catch (error) {
+    console.error('加载下载文件列表失败:', error)
+    alert('加载文件列表失败: ' + error.message)
+  } finally {
+    loadingFiles.value = false
+  }
+}
+
+// 格式化下载时间
+function formatDownloadTime(timestamp) {
+  if (!timestamp) return '未知时间'
+  
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diffMs = now - date
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) {
+    // 今天
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  } else if (diffDays === 1) {
+    // 昨天
+    return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  } else if (diffDays < 7) {
+    // 一周内
+    return `${diffDays}天前`
+  } else {
+    // 更早
+    return date.toLocaleDateString('zh-CN')
+  }
+}
+
+// 获取本地状态文本
+function getLocalStatusText(file) {
+  if (file.localExists === false) {
+    return '文件丢失'
+  }
+  return '文件存在'
+}
+
+// 获取本地状态CSS类
+function getLocalStatusClass(file) {
+  if (file.localExists === false) {
+    return 'status-error'
+  }
+  return 'status-success'
+}
+
+// 截断路径显示
+function truncatePath(path) {
+  if (!path) return '未知路径'
+  
+  if (path.length > 40) {
+    return path.substring(0, 20) + '...' + path.substring(path.length - 20)
+  }
+  return path
+}
+
+// 查看文件
+function viewFile(file) {
+  if (file.local_path || file.localUrl) {
+    // 在实际应用中，这里可以打开文件预览或使用系统应用打开文件
+    alert(`查看文件: ${file.file_name}\n路径: ${file.local_path || file.localUrl}`)
+  } else {
+    alert('文件路径不可用')
+  }
+}
+
+// 删除文件
+async function deleteFile(file) {
+  if (!confirm(`确定要删除文件 "${file.file_name}" 吗？`)) {
+    return
+  }
+  
+  try {
+    const fileManager = getLocalFileManager()
+    const success = await fileManager.deleteLocalFile(file.file_path)
+    
+    if (success) {
+      alert('文件删除成功')
+      await loadDownloadedFiles() // 刷新列表
+    } else {
+      alert('文件删除失败')
+    }
+  } catch (error) {
+    console.error('删除文件失败:', error)
+    alert('删除文件失败: ' + error.message)
+  }
 }
 
 // 组件挂载时初始化
@@ -555,6 +773,12 @@ onMounted(() => {
   border-color: #ffa726 !important;
 }
 
+.view-btn {
+  background: #667eea;
+  color: white;
+  border-color: #667eea !important;
+}
+
 .toggle-btn, .select-btn {
   background: #4ecdc4;
   color: white;
@@ -671,6 +895,360 @@ onMounted(() => {
   font-size: 12px;
 }
 
+/* 下载文件管理弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-icon {
+  font-size: 20px;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.modal-close-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.modal-body {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-container p {
+  color: #666;
+  font-size: 14px;
+}
+
+/* 空状态 */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #ccc;
+  margin-bottom: 20px;
+}
+
+.empty-text {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.empty-subtext {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 文件列表表格 */
+.files-table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-summary {
+  font-size: 14px;
+  color: #666;
+}
+
+.refresh-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #43a047;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  font-size: 14px;
+}
+
+.files-table-wrapper {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.files-table thead {
+  background: #f8f9fa;
+}
+
+.files-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.files-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+
+.files-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.files-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.file-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.file-icon {
+  font-size: 16px;
+  color: #667eea;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.download-time {
+  color: #666;
+  font-size: 12px;
+}
+
+.local-path {
+  max-width: 200px;
+}
+
+.path-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #666;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #ddd;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.action-btn:hover {
+  background: #f5f5f5;
+}
+
+.view-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.delete-btn:hover {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+.modal-footer {
+  padding: 20px 25px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-btn {
+  padding: 10px 20px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.primary-btn {
+  background: #667eea;
+  color: white;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: #5a67d8;
+}
+
+.secondary-btn {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.secondary-btn:hover {
+  background: #e0e0e0;
+}
+
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   /* 紫色状态栏已移至App.vue中统一管理 */
@@ -697,6 +1275,38 @@ onMounted(() => {
     width: 200px;
     justify-content: center;
   }
+  
+  /* 弹窗响应式 */
+  .modal-content {
+    max-width: 95%;
+    max-height: 85vh;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 15px;
+  }
+  
+  .files-table {
+    font-size: 12px;
+  }
+  
+  .files-table th,
+  .files-table td {
+    padding: 8px 12px;
+  }
+  
+  .actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -717,6 +1327,30 @@ onMounted(() => {
   
   .action-icon {
     font-size: 14px;
+  }
+  
+  /* 弹窗响应式 */
+  .modal-content {
+    max-width: 100%;
+    max-height: 90vh;
+    margin: 10px;
+  }
+  
+  .files-table {
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .files-table th:nth-child(4),
+  .files-table td:nth-child(4),
+  .files-table th:nth-child(5),
+  .files-table td:nth-child(5) {
+    display: none;
+  }
+  
+  .modal-btn {
+    padding: 8px 16px;
+    font-size: 13px;
   }
 }
 </style>

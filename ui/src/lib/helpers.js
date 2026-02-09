@@ -1,6 +1,7 @@
 // Minimal helper exports converted from original helpers.js
 
 import { v4 as uuidv4 } from 'uuid';
+import md5 from 'md5';
 
 
 export class FileTypeDetector {
@@ -134,6 +135,12 @@ export class DateFormatter {
         const d = new Date(date);
         const pad = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+}
+
+export class Hash {
+    static md5sum(...params) {
+        return md5(JSON.stringify(params))
     }
 }
 

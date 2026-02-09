@@ -4,18 +4,21 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import md5 from 'md5';
+import SQLiteManager from './sqlite.js';
 
 export default class CacheManager {
     static instance = null;
 
     constructor() {
+        this.sqliteManager = SQLiteManager.getInstance();
         this.cacheDir = 'cache';
         this.maxCacheSize = 50 * 1024 * 1024; // 50MB max cache size
         this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
         this.memoryCache = new Map(); // 内存缓存，提高性能
         this.memoryCacheLimit = 100; // 内存缓存最大条目数
+
         this.initPromise = this.initCache();
     }
 
@@ -31,12 +34,6 @@ export default class CacheManager {
      */
     async initCache() {
         try {
-            // Check if running in Capacitor environment
-            if (!Capacitor.isNativePlatform()) {
-                console.log('CacheManager: Running in web environment, using browser cache');
-                return;
-            }
-
             // Create cache directory if it doesn't exist
             try {
                 await Filesystem.mkdir({
@@ -49,17 +46,6 @@ export default class CacheManager {
                 console.log('CacheManager: Cache directory already exists or error:', err.message);
             }
 
-            // Create metadata subdirectory
-            try {
-                await Filesystem.mkdir({
-                    path: `${this.cacheDir}/metadata`,
-                    directory: Directory.Data,
-                    recursive: true
-                });
-            } catch (err) {
-                console.log('CacheManager: Metadata directory already exists or error:', err.message);
-            }
-
             console.log('CacheManager: Cache initialized successfully');
         } catch (error) {
             console.error('CacheManager: Failed to initialize cache:', error);
@@ -67,20 +53,80 @@ export default class CacheManager {
     }
 
     /**
-     * Generate cache key for a file using MD5 hash
-     * @param {string} filePath - File path
-     * @param {string} cacheType - Cache type (e.g., 'thumbnail', 'content')
-     * @param {any} params - Additional parameters for cache key
-     * @returns {string} Cache key
+     * Get database connection
+     * @private
      */
-    generateCacheKey(filePath, cacheType, params = {}) {
-        const keyData = {
-            filePath,
-            cacheType,
-            ...params
-        };
-        const jsonString = JSON.stringify(keyData);
-        return md5(jsonString);
+    async _getDatabase() {
+        return await this.sqliteManager.getDatabase();
+    }
+
+    /**
+     * Save cache record to database
+     * @private
+     */
+    async _saveCacheRecord(cacheKey, filePath, cacheType, cacheFile, mimeType, fileSize) {
+        try {
+            const db = await this._getDatabase();
+            if (!db) return false;
+
+            const now = Date.now();
+            await db.run(`
+                INSERT OR REPLACE INTO cache_files 
+                (cachekey, filepath, cachetype, cachefile, mimetype, filesize, updated_at)
+                VALUES(?, ?, ?, ?, ?, ?, ?)
+            `, [cacheKey, filePath, cacheType, cacheFile, mimeType, fileSize, now]);
+
+            console.log(`CacheManager: Cache record saved to database: ${cacheKey}`);
+            return true;
+        } catch (error) {
+            console.error('CacheManager: Error saving cache record:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get cache record from database
+     * @private
+     */
+    async _getCacheRecord(cacheKey) {
+        try {
+            const db = await this._getDatabase();
+            if (!db) return null;
+
+            // 从数据库查询缓存记录
+            // 使用cachekey字段进行精确匹配
+            const result = await db.query(
+                `SELECT * FROM cache_files WHERE cachekey = ?`,
+                [cacheKey]
+            );
+
+            return result.values && result.values.length > 0 ? result.values[0] : null;
+        } catch (error) {
+            console.error('CacheManager: Error getting cache record:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Remove cache record from database
+     * @private
+     */
+    async _removeCacheRecord(cacheKey) {
+        try {
+            const db = await this._getDatabase();
+            if (!db) return false;
+
+            await db.run(
+                `DELETE FROM cache_files WHERE cachekey = ?`,
+                [cacheKey]
+            );
+
+            console.log(`CacheManager: Cache record removed from database: ${cacheKey}`);
+            return true;
+        } catch (error) {
+            console.error('CacheManager: Error removing cache record:', error);
+            return false;
+        }
     }
 
     /**
@@ -94,69 +140,20 @@ export default class CacheManager {
     }
 
     /**
-     * Get cache metadata file path
-     * @param {string} cacheKey - Cache key
-     * @returns {string} Metadata file path
+     * 获取当前缓存总大小
+     * @returns {Promise<number>} 缓存总大小（字节）
      */
-    getMetadataFilePath(cacheKey) {
-        return `${this.cacheDir}/metadata/${cacheKey}.meta`;
-    }
-
-    /**
-     * Check if cache exists and is valid
-     * @param {string} cacheKey - Cache key
-     * @returns {Promise<boolean>} True if cache exists and is valid
-     */
-    async hasValidCache(cacheKey) {
+    async getCacheSize() {
         try {
-            // 首先检查内存缓存
-            const memoryCacheData = this._getFromMemoryCache(cacheKey);
-            if (memoryCacheData !== null) {
-                return true;
-            }
+            // 从SQLite数据库获取缓存总大小
+            const db = await this._getDatabase();
+            if (!db) return 0;
 
-            if (!Capacitor.isNativePlatform()) {
-                // In web environment, check localStorage
-                const cacheData = localStorage.getItem(`cache_${cacheKey}`);
-                if (!cacheData) return false;
-
-                const { data, timestamp } = JSON.parse(cacheData);
-                const age = Date.now() - timestamp;
-                return age < this.cacheExpiry;
-            }
-
-            // In native environment, check filesystem
-            const metadataPath = this.getMetadataFilePath(cacheKey);
-
-            try {
-                const metadataContent = await Filesystem.readFile({
-                    path: metadataPath,
-                    directory: Directory.Data
-                });
-
-                const metadata = JSON.parse(metadataContent.data);
-                const age = Date.now() - metadata.timestamp;
-
-                // Check if cache is expired
-                if (age >= this.cacheExpiry) {
-                    await this.removeCache(cacheKey);
-                    return false;
-                }
-
-                // Check if cache file exists
-                const cachePath = this.getCacheFilePath(cacheKey, metadata.cacheType);
-                const stat = await Filesystem.stat({
-                    path: cachePath,
-                    directory: Directory.Data
-                });
-
-                return stat && stat.size > 0;
-            } catch (err) {
-                return false;
-            }
+            const result = await db.query('SELECT SUM(filesize) as total_size FROM cache_files');
+            return result.values?.[0]?.total_size || 0;
         } catch (error) {
-            console.error('CacheManager: Error checking cache:', error);
-            return false;
+            console.error('CacheManager: Error getting cache size:', error);
+            return 0;
         }
     }
 
@@ -178,39 +175,24 @@ export default class CacheManager {
                 };
             }
 
-            if (!Capacitor.isNativePlatform()) {
-                // In web environment, get from localStorage
-                const cacheData = localStorage.getItem(`cache_${cacheKey}`);
-                if (!cacheData) return null;
+            // In native environment, get from database and filesystem
+            try {
+                const cacheRecord = await this._getCacheRecord(cacheKey);
+                if (!cacheRecord) {
+                    return null;
+                }
 
-                const parsed = JSON.parse(cacheData);
-                const result = {
-                    data: parsed.data,
-                    metadata: {
-                        cacheType: parsed.cacheType,
-                        timestamp: parsed.timestamp,
-                        size: parsed.size
-                    }
+                const metadata = {
+                    cacheType: cacheRecord.cachetype,
+                    timestamp: cacheRecord.updated_at,
+                    size: cacheRecord.filesize,
+                    filePath: cacheRecord.filepath,
+                    mimeType: cacheRecord.mimetype
                 };
 
-                // 保存到内存缓存
-                this._saveToMemoryCache(cacheKey, parsed.data, result.metadata);
+                console.log("cache metadata", metadata)
 
-                return result;
-            }
-
-            // In native environment, get from filesystem
-            const metadataPath = this.getMetadataFilePath(cacheKey);
-
-            try {
-                const metadataContent = await Filesystem.readFile({
-                    path: metadataPath,
-                    directory: Directory.Data
-                });
-
-                const metadata = JSON.parse(metadataContent.data);
-                const cachePath = this.getCacheFilePath(cacheKey, metadata.cacheType);
-
+                const cachePath = cacheRecord.cachefile;
                 const cacheContent = await Filesystem.readFile({
                     path: cachePath,
                     directory: Directory.Data
@@ -251,6 +233,23 @@ export default class CacheManager {
                 ...extraMetadata
             };
 
+            // 检查是否已存在相同缓存键的条目
+            let oldSize = 0;
+
+            // Native环境：检查文件系统
+            try {
+                const existingMetadata = await this.getCache(cacheKey);
+                if (existingMetadata) {
+                    oldSize = existingMetadata.metadata.size || 0;
+                }
+            } catch (err) {
+                // 忽略错误
+            }
+
+
+            // 计算大小变化
+            const sizeDelta = metadata.size - oldSize;
+
             // 保存到内存缓存
             let dataForMemoryCache = data;
             if (data instanceof Blob) {
@@ -259,21 +258,8 @@ export default class CacheManager {
             }
             this._saveToMemoryCache(cacheKey, dataForMemoryCache, metadata);
 
-            if (!Capacitor.isNativePlatform()) {
-                // In web environment, save to localStorage
-                const cacheData = {
-                    data: data instanceof Blob ? dataForMemoryCache : data,
-                    cacheType,
-                    timestamp: metadata.timestamp,
-                    size: metadata.size
-                };
-
-                localStorage.setItem(`cache_${cacheKey}`, JSON.stringify(cacheData));
-                return true;
-            }
 
             // In native environment, save to filesystem
-            const metadataPath = this.getMetadataFilePath(cacheKey);
             const cachePath = this.getCacheFilePath(cacheKey, cacheType);
 
             // Ensure cacheType directory exists
@@ -287,30 +273,29 @@ export default class CacheManager {
                 // Directory might already exist
             }
 
-            // Save metadata
-            await Filesystem.writeFile({
-                path: metadataPath,
-                data: JSON.stringify(metadata),
-                directory: Directory.Data,
-                encoding: 'utf8'
-            });
-
             // Save cache data
             if (data instanceof Blob) {
                 await Filesystem.writeFile({
                     path: cachePath,
                     data: dataForMemoryCache,
                     directory: Directory.Data,
-                    encoding: 'base64'
+                    encoding: Encoding.Base64,
                 });
             } else {
                 await Filesystem.writeFile({
                     path: cachePath,
                     data: data,
                     directory: Directory.Data,
-                    encoding: 'utf8'
+                    encoding: Encoding.UTF8,
                 });
             }
+
+            // 保存缓存记录到数据库
+            // 从extraMetadata中提取filePath，如果没有则使用cacheKey作为filepath
+            const filePath = extraMetadata.filePath || cacheKey;
+            const mimeType = extraMetadata.mimeType || 'application/octet-stream';
+            await this._saveCacheRecord(cacheKey, filePath, cacheType, cachePath, mimeType, metadata.size);
+
 
             // Clean up old cache if needed
             await this.cleanupCache();
@@ -329,22 +314,36 @@ export default class CacheManager {
      */
     async removeCache(cacheKey) {
         try {
+            // 获取要删除的缓存大小
+            let removedSize = 0;
+
+            if (Capacitor.isNativePlatform()) {
+                // Native环境：从文件系统获取大小
+                try {
+                    const metadata = await this.getCache(cacheKey);
+                    if (metadata) {
+                        removedSize = metadata.metadata.size || 0;
+                    }
+                } catch (err) {
+                    // 缓存可能不存在
+                }
+            }
+
             // 从内存缓存中移除
-            this._removeFromMemoryCache(cacheKey);
+            this.memoryCache.delete(cacheKey);
 
             if (!Capacitor.isNativePlatform()) {
-                // In web environment, remove from localStorage
-                localStorage.removeItem(`cache_${cacheKey}`);
-                return true;
+                // Web环境下缓存已禁用
+                return false;
             }
 
             // In native environment, remove from filesystem
             try {
-                const metadata = await this.getCache(cacheKey);
-                if (metadata) {
-                    const cachePath = this.getCacheFilePath(cacheKey, metadata.metadata.cacheType);
+                // 从数据库获取缓存记录以获取cachefile路径
+                const cacheRecord = await this._getCacheRecord(cacheKey);
+                if (cacheRecord) {
                     await Filesystem.deleteFile({
-                        path: cachePath,
+                        path: cacheRecord.cachefile,
                         directory: Directory.Data
                     });
                 }
@@ -352,15 +351,8 @@ export default class CacheManager {
                 // Cache file might not exist
             }
 
-            try {
-                const metadataPath = this.getMetadataFilePath(cacheKey);
-                await Filesystem.deleteFile({
-                    path: metadataPath,
-                    directory: Directory.Data
-                });
-            } catch (err) {
-                // Metadata file might not exist
-            }
+            // 从数据库中删除缓存记录
+            await this._removeCacheRecord(cacheKey);
 
             return true;
         } catch (error) {
@@ -374,25 +366,13 @@ export default class CacheManager {
      */
     async cleanupCache() {
         try {
-            if (!Capacitor.isNativePlatform()) {
-                // In web environment, clean localStorage
-                this.cleanupLocalStorage();
-                return;
-            }
+            // In native environment, check total cache size
+            const totalSize = await this.getCacheSize();
 
-            // In native environment, clean filesystem cache
-            const cacheEntries = await this.getCacheEntries();
-
-            // Sort by timestamp (oldest first)
-            cacheEntries.sort((a, b) => a.metadata.timestamp - b.metadata.timestamp);
-
-            let totalSize = cacheEntries.reduce((sum, entry) => sum + entry.metadata.size, 0);
-
-            // Remove oldest entries until we're under the limit
-            while (totalSize > this.maxCacheSize && cacheEntries.length > 0) {
-                const oldest = cacheEntries.shift();
-                await this.removeCache(oldest.cacheKey);
-                totalSize -= oldest.metadata.size;
+            // If total size exceeds limit, delete entire cache directory and clear database
+            if (totalSize > this.maxCacheSize) {
+                console.log('CacheManager: Cache size exceeds limit, deleting entire cache');
+                await this.deleteEntireCache();
             }
         } catch (error) {
             console.error('CacheManager: Error cleaning up cache:', error);
@@ -400,104 +380,48 @@ export default class CacheManager {
     }
 
     /**
-     * Get all cache entries
-     * @returns {Promise<Array>} Array of cache entries
+     * Delete entire cache directory and recreate it
+     * @returns {Promise<boolean>} True if successful
      */
-    async getCacheEntries() {
+    async deleteEntireCache() {
         try {
-            if (!Capacitor.isNativePlatform()) {
-                // In web environment, get from localStorage
-                const entries = [];
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key.startsWith('cache_')) {
-                        try {
-                            const data = JSON.parse(localStorage.getItem(key));
-                            entries.push({
-                                cacheKey: key.replace('cache_', ''),
-                                metadata: {
-                                    cacheType: data.cacheType,
-                                    timestamp: data.timestamp,
-                                    size: data.size
-                                }
-                            });
-                        } catch (err) {
-                            // Skip invalid entries
-                        }
-                    }
+            // 从数据库中删除所有缓存记录
+            const db = await this._getDatabase();
+            if (db) {
+                try {
+                    await db.run(`DELETE FROM cache_files`);
+                    console.log('CacheManager: All cache records deleted from database');
+                } catch (err) {
+                    console.error('CacheManager: Error deleting cache records from database:', err);
                 }
-                return entries;
             }
 
-            // In native environment, get from filesystem
-            const entries = [];
-
+            // In native environment, delete entire cache directory
             try {
-                const result = await Filesystem.readdir({
-                    path: `${this.cacheDir}/metadata`,
-                    directory: Directory.Data
+                await Filesystem.rmdir({
+                    path: this.cacheDir,
+                    directory: Directory.Data,
+                    recursive: true
                 });
-
-                for (const file of result.files) {
-                    if (file.endsWith('.meta')) {
-                        const cacheKey = file.replace('.meta', '');
-                        try {
-                            const metadataContent = await Filesystem.readFile({
-                                path: `${this.cacheDir}/metadata/${file}`,
-                                directory: Directory.Data
-                            });
-
-                            const metadata = JSON.parse(metadataContent.data);
-                            entries.push({
-                                cacheKey,
-                                metadata
-                            });
-                        } catch (err) {
-                            // Skip invalid metadata files
-                        }
-                    }
-                }
+                console.log('CacheManager: Entire cache directory deleted');
             } catch (err) {
-                // Directory might not exist yet
+                // Directory might not exist
+                console.log('CacheManager: Cache directory might not exist:', err.message);
             }
 
-            return entries;
+            // Clear memory cache
+            this.memoryCache.clear();
+
+            // Recreate cache directory structure
+            await this.initCache();
+
+            return true;
         } catch (error) {
-            console.error('CacheManager: Error getting cache entries:', error);
-            return [];
+            console.error('CacheManager: Error deleting entire cache:', error);
+            return false;
         }
     }
 
-    /**
-     * Clean up localStorage cache
-     */
-    cleanupLocalStorage() {
-        try {
-            const now = Date.now();
-            const keysToRemove = [];
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('cache_')) {
-                    try {
-                        const data = JSON.parse(localStorage.getItem(key));
-                        const age = now - data.timestamp;
-
-                        if (age >= this.cacheExpiry) {
-                            keysToRemove.push(key);
-                        }
-                    } catch (err) {
-                        // Remove invalid entries
-                        keysToRemove.push(key);
-                    }
-                }
-            }
-
-            keysToRemove.forEach(key => localStorage.removeItem(key));
-        } catch (error) {
-            console.error('CacheManager: Error cleaning up localStorage:', error);
-        }
-    }
 
     /**
      * Convert blob to base64
@@ -583,35 +507,17 @@ export default class CacheManager {
     }
 
     /**
-     * Remove from memory cache
-     * @private
-     */
-    _removeFromMemoryCache(cacheKey) {
-        this.memoryCache.delete(cacheKey);
-    }
-
-    /**
-     * Clear memory cache
-     */
-    clearMemoryCache() {
-        this.memoryCache.clear();
-    }
-
-    /**
-     * Get memory cache stats
-     */
-    getMemoryCacheStats() {
-        return {
-            size: this.memoryCache.size,
-            limit: this.memoryCacheLimit,
-            entries: Array.from(this.memoryCache.keys())
-        };
-    }
-
-    /**
      * Wait for cache initialization
      */
     async ready() {
         await this.initPromise;
+    }
+
+    /**
+     * Clear all cache (both filesystem and memory)
+     * @returns {Promise<boolean>} True if successful
+     */
+    async clearAllCache() {
+        await this.deleteEntireCache();
     }
 }

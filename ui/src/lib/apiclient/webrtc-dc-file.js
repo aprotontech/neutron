@@ -131,7 +131,7 @@ export default class WebRTCDataChannelFileContent {
 
                     // 否则主动创建数据通道
                     try {
-                        const dc = this.pc.createDataChannel(label, { ordered: false, maxRetransmits: 3 });
+                        const dc = this.pc.createDataChannel(label, { ordered: true, maxRetransmits: 3 });
                         this._setupChannel(dc, 'application/octet-stream');
                     } catch (e) {
                         clearTimeout(timer);
