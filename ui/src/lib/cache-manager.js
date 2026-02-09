@@ -317,25 +317,17 @@ export default class CacheManager {
             // 获取要删除的缓存大小
             let removedSize = 0;
 
-            if (Capacitor.isNativePlatform()) {
-                // Native环境：从文件系统获取大小
-                try {
-                    const metadata = await this.getCache(cacheKey);
-                    if (metadata) {
-                        removedSize = metadata.metadata.size || 0;
-                    }
-                } catch (err) {
-                    // 缓存可能不存在
+            try {
+                const metadata = await this.getCache(cacheKey);
+                if (metadata) {
+                    removedSize = metadata.metadata.size || 0;
                 }
+            } catch (err) {
+                // 缓存可能不存在
             }
 
             // 从内存缓存中移除
             this.memoryCache.delete(cacheKey);
-
-            if (!Capacitor.isNativePlatform()) {
-                // Web环境下缓存已禁用
-                return false;
-            }
 
             // In native environment, remove from filesystem
             try {

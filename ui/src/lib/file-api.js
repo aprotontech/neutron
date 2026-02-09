@@ -141,13 +141,24 @@ export default class FileAPI {
     /**
      * Get file URL for direct access
      * @param {string} filePath - Full file path
-     * @returns {string} - File URL
+     * @returns {Promise<string>} - File URL
      */
     async getFileUrl(filePath) {
-        const mimeType = FileTypeDetector.getMIMEType(filePath);
         const dedupKey = Hash.md5sum('getFileUrl', filePath);
 
         return await this._executeWithDeduplication(dedupKey, async () => {
+            // Check if in native mode and file already exists locally
+            const isNative = Capacitor.isNativePlatform();
+            if (isNative && this.localFileManager) {
+                const localFile = await this.localFileManager.getLocalFile(filePath);
+                if (localFile && localFile.localUrl) {
+                    console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
+                    return localFile.localUrl;
+                }
+            }
+
+            // Fallback to remote URL
+            const mimeType = FileTypeDetector.getMIMEType(filePath);
             return TransferClient.get().getFileUrl(filePath, mimeType);
         });
     }

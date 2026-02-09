@@ -62,19 +62,19 @@ export default class LocalFileManager {
 
             // Actual download logic - write to cache directory
             const cacheResult = await this._writeFileWithProgress(filePath, fileInfo, fileContentStream, progressTracker);
-            console.log(JSON.stringify(cacheResult))
+            console.log("download temp result: ", JSON.stringify(cacheResult))
 
             // Move file from cache to downloads directory
             if (progressTracker.completed && cacheResult.cacheUri) {
                 console.log(`[LocalFileManager] Moving file from cache to downloads directory: ${filePath}`);
-                const finalUrl = await this._moveFileToDownloads(filePath, fileInfo, cacheResult);
+                const fileResult = await this._moveFileToDownloads(filePath, fileInfo, cacheResult);
 
-                progressTracker.localUrl = finalUrl;
-                console.log(`[LocalFileManager] File moved to downloads directory: ${finalUrl}`);
+                progressTracker.localUrl = fileResult.uri;
+                console.log(`[LocalFileManager] File moved to downloads directory: ${fileResult.uri}`);
 
                 // Save file info to database with final downloads path
                 console.log(`[LocalFileManager] Saving file record to database: ${filePath}`);
-                await this._saveFileRecord(filePath, fileInfo, finalUrl);
+                await this._saveFileRecord(filePath, fileInfo, fileResult);
 
                 // Clean up cache file (renamed, so no need to delete)
                 console.log(`[LocalFileManager] File renamed, no cache cleanup needed`);
@@ -173,7 +173,7 @@ export default class LocalFileManager {
                     });
 
                     // 写入缓存目录
-                    const result = await Filesystem.writeFile({
+                    await Filesystem.writeFile({
                         path: cacheDir.path + "/" + cacheFileName,
                         directory: cacheDir.directory,
                         recursive: true,
@@ -305,17 +305,27 @@ export default class LocalFileManager {
             console.log(`[LocalFileManager] Renaming from cache: ${cachePath} to downloads: ${finalPath}`);
 
             // Use Filesystem.rename to move the file
-            const result = await Filesystem.rename({
+            await Filesystem.rename({
                 from: cachePath,
                 to: finalPath,
                 toDirectory: downloadDir.directory,
                 directory: cacheResult.cacheDir.directory
             });
 
-            const fileUri = result ? result.uri : Capacitor.convertFileSrc(finalPath)
+            const result = await Filesystem.stat({
+                path: finalPath,
+                directory: downloadDir.directory,
+            })
 
-            console.log(`[LocalFileManager] File renamed successfully to: ${fileUri}`);
-            return fileUri;
+            console.log(`[LocalFileManager] File renamed successfully to: ${result.uri}`);
+
+            // Return object with all file information
+            return {
+                uri: result.uri,
+                directory: downloadDir.directory,
+                path: finalPath,
+                filename: finalFilename
+            };
 
         } catch (error) {
             console.error('[LocalFileManager] Failed to rename file:', error);
@@ -445,28 +455,33 @@ export default class LocalFileManager {
      * Save file record to database
      * @private
      */
-    async _saveFileRecord(filePath, fileInfo, localUrl) {
+    async _saveFileRecord(filePath, fileInfo, fileResult) {
         try {
             const db = await this._ensureDatabase();
             if (!db) return false;
 
             const now = Date.now();
+            const localPath = fileResult.path
+            const localDirectory = fileResult.directory ? String(fileResult.directory) : null;
+            const localUri = fileResult.uri || null;
 
             await db.run(`
                 INSERT OR REPLACE INTO ${this.tableName}
-                            (file_path, file_name, local_path, file_size, mime_type, downloaded_at, last_accessed, is_valid)
-                            VALUES(?, ?, ?, ?, ?, ?, ?, 1)
+                            (file_path, file_name, local_path, local_directory, local_uri, file_size, mime_type, downloaded_at, last_accessed, is_valid)
+                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             `, [
                 filePath,
                 fileInfo.name,
-                localUrl,
+                localPath,
+                localDirectory,
+                localUri,
                 fileInfo.size,
                 fileInfo.mimeType,
                 now,
                 now
             ]);
 
-            console.log(`[LocalFileManager] File record saved to database: ${filePath}, local: ${localUrl}`);
+            console.log(`[LocalFileManager] File record saved to database: ${filePath}, local: ${localUrl}, directory: ${localDirectory}, uri: ${localUri}`);
             return true;
         } catch (error) {
             console.error('[LocalFileManager] Failed to save file record:', error);
@@ -498,9 +513,9 @@ export default class LocalFileManager {
                 console.log(`[LocalFileManager] Found file record: ${record.file_name}, local: ${record.local_path}`);
 
                 // Check if file still exists in filesystem
-                const fileExists = await this._checkFileExists(record.local_path);
+                const fileUri = await this._checkFileExists(record.local_directory, record.local_path);
 
-                if (fileExists) {
+                if (fileUri) {
                     console.log(`[LocalFileManager] File exists in filesystem: ${record.local_path}`);
                     // Update last accessed time
                     const db = await this._ensureDatabase();
@@ -512,7 +527,7 @@ export default class LocalFileManager {
 
 
                     return {
-                        localUrl: record.local_path,
+                        localUrl: fileUri,
                         fileInfo: {
                             name: record.file_name,
                             size: record.file_size,
@@ -544,31 +559,22 @@ export default class LocalFileManager {
      * Check if file exists in filesystem
      * @private
      */
-    async _checkFileExists(localPath) {
-        console.log(`[LocalFileManager] Checking file existence: ${localPath}`);
+    async _checkFileExists(local_directory, localPath) {
+        console.log(`[LocalFileManager] Checking file existence: directory=${local_directory}, path=${localPath}`);
 
-        // 准备所有要尝试的 Filesystem.stat 参数
-        const statOptionsList = this._prepareFilesystemOptions(localPath);
+        try {
+            const result = await Filesystem.stat({
+                path: localPath,
+                directory: local_directory,
+            });
 
-        // 按顺序尝试所有参数组合
-        for (let i = 0; i < statOptionsList.length; i++) {
-            const options = statOptionsList[i];
-            try {
-                console.log(`[LocalFileManager] Trying stat option ${i + 1}:`, options);
-                const result = await Filesystem.stat(options);
-
-                if (result.type === 'file') {
-                    console.log(`[LocalFileManager] File found using option ${i + 1}`);
-                    return true;
-                }
-            } catch (error) {
-                // 当前参数失败，继续尝试下一个
-                console.log(`[LocalFileManager] Stat option ${i + 1} failed: ${error.message}`);
-                continue;
+            if (result.type === 'file') {
+                return result.uri;
             }
+        } catch (error) {
+            console.log(`[LocalFileManager] Stat ${localPath} failed: ${error.message}`);
         }
 
-        console.log(`[LocalFileManager] File not found using any option: ${localPath}`);
         return false;
     }
 

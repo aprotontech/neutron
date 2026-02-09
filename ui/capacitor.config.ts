@@ -12,8 +12,6 @@ const androidKeystoreAliasPassword = process.env.ANDROID_KEY_PASSWORD || '';
 
 const serverURL= process.env.SERVER_URL || 'https://www.huxiaolong.cn'
 
-
-
 const config: CapacitorConfig = {
   appId: 'tech.aproton.neutron',
   appName: 'aprotontech',
@@ -25,11 +23,11 @@ const config: CapacitorConfig = {
       keystorePassword: androidKeystorePassword,
       keystoreAlias: androidKeystoreAlias,
       keystoreAliasPassword: androidKeystoreAliasPassword,
-      releaseType: 'APK'
+      releaseType: 'APK',
     },
 
     allowMixedContent: true,
-    webContentsDebuggingEnabled: true
+    webContentsDebuggingEnabled: true,
   },
   
   // server: {
@@ -39,7 +37,10 @@ const config: CapacitorConfig = {
    server: {
     url: serverURL,
     //url: 'http://192.168.1.111:5173',
-    cleartext: true 
+    cleartext: true,
+    allowNavigation: [
+      'file://*',
+    ]
   },
 
   plugins: {

@@ -75,6 +75,8 @@ export default class SQLiteManager {
                         file_path TEXT UNIQUE NOT NULL,
                         file_name TEXT NOT NULL,
                         local_path TEXT NOT NULL,
+                        local_directory TEXT,
+                        local_uri TEXT,
                         file_size INTEGER NOT NULL,
                         mime_type TEXT,
                         downloaded_at INTEGER NOT NULL,
