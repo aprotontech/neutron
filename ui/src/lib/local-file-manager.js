@@ -356,19 +356,33 @@ export default class LocalFileManager {
 
         const needCleanup = !recheck && this.cacheingDir === null
 
-        const result = await this._ensureDirectoryExists("/.caching");
-        if (result != null) {
-            this.cacheingDir = result;
-            console.log(`[LocalFileManager] Caching directory set: ${result.directory}, path: ${result.path}`);
+        // 只使用 Directory.Data 目录
+        const options = {
+            path: "caches/downloads",
+            directory: Directory.Data,
+            recursive: true
+        };
 
-            if (needCleanup) {
-                await this._cleanCachingDirectory();
+        try {
+            await Filesystem.mkdir(options);
+            console.log(`[LocalFileManager] Caching directory created: ${options.directory}, path: ${options.path}`);
+        } catch (error) {
+            if (error.message.includes('already exists')) {
+                console.log(`[LocalFileManager] Caching directory already exists: ${options.directory}, path: ${options.path}`);
+            } else {
+                console.error(`[LocalFileManager] Failed to create caching directory:`, error);
+                throw new Error(`Failed to create caching directory: ${error.message}`);
             }
-
-            return this.cacheingDir;
         }
 
-        throw new Error("No writable directory found for caching files");
+        this.cacheingDir = options;
+        console.log(`[LocalFileManager] Caching directory set: ${this.cacheingDir.directory}, path: ${this.cacheingDir.path}`);
+
+        if (needCleanup) {
+            await this._cleanCachingDirectory();
+        }
+
+        return this.cacheingDir;
     }
 
     /**
@@ -426,7 +440,7 @@ export default class LocalFileManager {
                 recursive: true
             },
             {
-                path: "downloads" + subFolder,
+                path: "neutron" + subFolder,
                 directory: Directory.Data,
                 recursive: true
             }

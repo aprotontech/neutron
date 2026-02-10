@@ -128,13 +128,17 @@ export default class FileAPI {
      * @param {number} maxSize - Max thumbnail size
      * @returns {Promise<Blob>} - Thumbnail image
      */
-    async getFileThumbnail(filePath, maxSize = 200) {
+    async getFileThumbnailUrl(filePath, maxSize = 200) {
         const hashKey = Hash.md5sum(filePath, 'thumbnail', maxSize);
 
         return await this._executeWithDeduplication(hashKey, async () => {
-            return await this.cacheFile('thumbnail', hashKey, async () => {
+            const blob = await this.cacheFile('thumbnail', hashKey, async () => {
                 return TransferClient.get().getFileThumbnail(filePath, maxSize);
             });
+
+            if (blob) {
+                return URL.createObjectURL(blob)
+            }
         });
     }
 
@@ -159,6 +163,9 @@ export default class FileAPI {
 
             // Fallback to remote URL
             const mimeType = FileTypeDetector.getMIMEType(filePath);
+
+
+
             return TransferClient.get().getFileUrl(filePath, mimeType);
         });
     }
