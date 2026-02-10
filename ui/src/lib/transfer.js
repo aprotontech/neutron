@@ -18,7 +18,7 @@ export default class TransferClient {
                     RuntimeVariables.getToken(),
                     function () {
                         RuntimeVariables.cleanup()
-                        window.location.href = '/login.html';
+                        window.location.href = '/';
                     }
                 );
                 break;

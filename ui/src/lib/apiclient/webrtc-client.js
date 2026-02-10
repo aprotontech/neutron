@@ -24,6 +24,7 @@ export default class WebRTCClient extends BaseClient {
         this.auth_failed_callback = auth_failed_callback
 
         wsaddr += '?token=' + encodeURIComponent(this.token);
+        console.log("websocket server: ", wsaddr)
 
         this.signalingSocket = new WebSocket(wsaddr);
 
@@ -44,7 +45,7 @@ export default class WebRTCClient extends BaseClient {
 
         // Handle common auth failure cases on socket errors/close
         this.signalingSocket.onerror = (ev) => {
-            console.error('Signaling socket error', ev);
+            console.error('Signaling socket error', JSON.stringify(ev), ev.error, ev.message);
             // If socket never opened, likely auth rejection during handshake
             if (!this._socketOpened) {
                 // Give the server a brief moment to send a close reason, then redirect
@@ -53,7 +54,7 @@ export default class WebRTCClient extends BaseClient {
         };
 
         this.signalingSocket.onclose = (ev) => {
-            console.warn('Signaling socket closed', ev);
+            console.warn('Signaling socket closed', JSON.stringify(ev), ev.error, ev.message);
             // Heuristics: if server indicated 401 in reason or closed before open, redirect
             const reason = (ev && ev.reason) ? String(ev.reason) : '';
             if (ev && (ev.code === 401 || reason.indexOf('401') !== -1 || /unauthor/i.test(reason) || !this._socketOpened)) {

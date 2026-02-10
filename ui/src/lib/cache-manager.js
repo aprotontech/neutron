@@ -43,7 +43,13 @@ export default class CacheManager {
                 });
             } catch (err) {
                 // Directory might already exist
-                console.log('CacheManager: Cache directory already exists or error:', err.message);
+                const result = await Filesystem.stat({
+                    path: this.cacheDir,
+                    directory: Directory.Data,
+                });
+                if (!result) {
+                    console.log('CacheManager: Cache directory already exists or error:', err.message);
+                }
             }
 
             console.log('CacheManager: Cache initialized successfully');

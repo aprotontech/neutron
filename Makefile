@@ -1,6 +1,17 @@
 
+ENV ?= development
+
+VITE_NEUTRON_HTTP_API ?= http://192.168.1.115:8080
+VITE_NEUTRON_WEBSOCKET_ADDR ?= ws://192.168.1.115:8080/ws
 
 all: neutron
+
+
+
+ifeq ($(ENV), production)
+	VITE_NEUTRON_HTTP_API = https://www.huxiaolong.cn
+	VITE_NEUTRON_WEBSOCKET_ADDR = wss://www.huxiaolong.cn/ws
+endif
 
 neutron:
 	@echo "building ./cmd/neutron/ --> ./build/bin/neutron"
@@ -16,7 +27,9 @@ local-test: neutron
 	@cd ./build && ./bin/neutron server start
 
 html:
-	@cd ui && npm run build
+	@cd ui && rm -rf  www && VITE_NEUTRON_HTTP_API=$(VITE_NEUTRON_HTTP_API) \
+		VITE_NEUTRON_WEBSOCKET_ADDR=$(VITE_NEUTRON_WEBSOCKET_ADDR) \
+		npm run build
 
 remote: neutron html
 	@bash ./test/remote/update.sh

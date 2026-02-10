@@ -527,7 +527,7 @@ export default class LocalFileManager {
 
 
                     return {
-                        localUrl: fileUri,
+                        localUrl: Capacitor.convertFileSrc(fileUri),
                         fileInfo: {
                             name: record.file_name,
                             size: record.file_size,

@@ -2,6 +2,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import md5 from 'md5';
+import { Capacitor } from '@capacitor/core';
 
 
 export class FileTypeDetector {
@@ -144,7 +145,6 @@ export class Hash {
     }
 }
 
-
 export class RuntimeVariables {
 
     static _instance = null
@@ -217,17 +217,21 @@ export class RuntimeVariables {
         this.token = localStorage.getItem('token') || ""
 
         this.clientID = localStorage.getItem('clientId') || uuidv4();
-        this.httpApiPrefix = ""
 
-        const host = window.location.host
-        const protocol = window.location.protocol;
-        let wsaddr = '';
-        if (protocol === 'https:') {
-            wsaddr = 'wss://' + host + '/ws';
+        if (Capacitor.isNativePlatform()) {
+            this.httpApiPrefix = import.meta.env.VITE_NEUTRON_HTTP_API
+            this.websocketAddress = import.meta.env.VITE_NEUTRON_WEBSOCKET_ADDR
         } else {
-            wsaddr = 'ws://' + host + '/ws';
+            const host = window.location.host
+            const protocol = window.location.protocol
+            let wsaddr = '';
+            if (protocol === 'https:') {
+                wsaddr = 'wss://' + host + '/ws';
+            } else {
+                wsaddr = 'ws://' + host + '/ws';
+            }
+            this.websocketAddress = wsaddr
         }
-        this.websocketAddress = wsaddr
     }
 
     _saveData() {
