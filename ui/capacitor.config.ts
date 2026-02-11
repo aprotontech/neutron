@@ -10,7 +10,7 @@ const androidKeystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD || '';
 const androidKeystoreAlias = process.env.ANDROID_KEY_ALIAS || 'aproton';
 const androidKeystoreAliasPassword = process.env.ANDROID_KEY_PASSWORD || '';
 
-
+const debugWebsiteURL =  process.env.DEBUG_WEBSITE_URL || ''
 
 const config: CapacitorConfig = {
   appId: 'tech.aproton.neutron',
@@ -32,6 +32,7 @@ const config: CapacitorConfig = {
   },
   
    server: {
+    url: isDebug ? debugWebsiteURL : undefined,
     cleartext: true,
     androidScheme: 'http',
     allowNavigation: [

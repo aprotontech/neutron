@@ -41,5 +41,6 @@ adb install -r -d /workspaces/neutron/ui/android/app/build/outputs/apk/debug/app
 ```
 
 ```shell
+export DEBUG_WEBSITE_URL=192.168.1.111:5173
 INSTALL=1 make android
 ```

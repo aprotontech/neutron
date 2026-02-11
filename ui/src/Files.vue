@@ -71,7 +71,12 @@
                     <span class="menu-item-icon">{{ viewMode === 'list' ? '□' : '≡' }}</span>
                     <span class="menu-item-text">{{ viewMode === 'list' ? '显示缩略图' : '显示列表' }}</span>
                   </button>
-                  <button class="menu-item disabled">
+                  <button 
+                    class="menu-item" 
+                    :class="{ disabled: !selectedFile || selectedFile.isDir }"
+                    @click="handleMobileDownload"
+                    :disabled="!selectedFile || selectedFile.isDir"
+                  >
                     <span class="menu-item-icon">⬇️</span>
                     <span class="menu-item-text">下载</span>
                   </button>
@@ -193,50 +198,6 @@
           </div>
           <div class="toast-content" v-html="formatToastMessage(toastMessage)"></div>
           <button class="toast-close" @click="hideToast">×</button>
-        </div>
-      </div>
-
-      <!-- 上下文菜单 -->
-      <div 
-        v-if="showContextMenu" 
-        class="context-menu" 
-        :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
-        @click.stop
-      >
-        <div class="context-menu-header">
-          <div class="context-menu-title">{{ contextMenuFile?.name }}</div>
-          <button class="context-menu-close" @click="hideContextMenu">✕</button>
-        </div>
-        <div class="context-menu-items">
-          <button 
-            class="context-menu-item" 
-            @click="downloadCurrentFile"
-            :disabled="contextMenuFile?.isDir"
-          >
-            <span class="context-menu-icon">⬇️</span>
-            <span class="context-menu-text">下载</span>
-          </button>
-          <button 
-            class="context-menu-item disabled" 
-            disabled
-          >
-            <span class="context-menu-icon">📋</span>
-            <span class="context-menu-text">复制</span>
-          </button>
-          <button 
-            class="context-menu-item disabled" 
-            disabled
-          >
-            <span class="context-menu-icon">✏️</span>
-            <span class="context-menu-text">重命名</span>
-          </button>
-          <button 
-            class="context-menu-item disabled" 
-            disabled
-          >
-            <span class="context-menu-icon">🗑️</span>
-            <span class="context-menu-text">删除</span>
-          </button>
         </div>
       </div>
 
@@ -393,11 +354,6 @@ const isMobile = ref(false)
 const isAndroidApp = ref(false)
 const contentContainer = ref(null)
 let contentTouchStartListener = null
-
-// 长按菜单相关
-const showContextMenu = ref(false)
-const contextMenuPosition = ref({ x: 0, y: 0 })
-const contextMenuFile = ref(null)
 
 const isMediaViewerActive = computed(() => {
   return isViewingImage.value || isViewingVideo.value || isViewingAudio.value || isViewingText.value
@@ -980,23 +936,16 @@ function handlePopState(event) {
 function handleFileTouchStart(file, event) {
   fileTouchStartTime.value = Date.now()
   touchedFile.value = file
-  fileTouchTimer.value = setTimeout(() => {
-    // 长按文件（超过500ms）显示文件操作菜单
-    showContextMenuForFile(file, event)
-  }, 500)
+  // 移除长按显示菜单功能，改为只记录触摸开始时间
+  // 长按功能已移除，改为使用右上角菜单按钮
 }
 
 function handleFileTouchEnd(file, event) {
-  clearTimeout(fileTouchTimer.value)
   const touchDuration = Date.now() - fileTouchStartTime.value
   const currentTime = Date.now()
   
-  // 如果是长按（超过500ms），不处理短按逻辑
-  if (touchDuration >= 500) {
-    // 长按已经显示了菜单，不需要其他处理
-    touchedFile.value = null
-    return
-  }
+  // 移除长按判断逻辑，不再显示菜单
+  // 长按功能已移除，改为使用右上角菜单按钮
   
   // 检测双击
   if (lastTappedFile.value === file && (currentTime - lastTapTime.value) < 500) {
@@ -1042,56 +991,9 @@ function handleFileClick(file, event) {
   }
 }
 
-// 上下文菜单相关函数
-function showContextMenuForFile(file, event) {
-  // 阻止默认行为
-  if (event) {
-    event.preventDefault()
-    event.stopPropagation()
-  }
-  
-  // 设置菜单位置
-  let x, y
-  if (event && event.touches && event.touches[0]) {
-    // 触摸事件
-    x = event.touches[0].clientX
-    y = event.touches[0].clientY
-  } else if (event) {
-    // 鼠标事件
-    x = event.clientX
-    y = event.clientY
-  } else {
-    // 默认位置
-    x = window.innerWidth / 2
-    y = window.innerHeight / 2
-  }
-  
-  // 确保菜单在可视区域内
-  const menuWidth = 200
-  const menuHeight = 150
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10
-  }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10
-  }
-  
-  contextMenuPosition.value = { x, y }
-  contextMenuFile.value = file
-  showContextMenu.value = true
-  
-  // 选中文件
-  selectFile(file)
-}
-
-function hideContextMenu() {
-  showContextMenu.value = false
-  contextMenuFile.value = null
-}
-
 async function downloadCurrentFile() {
-  // 优先使用contextMenuFile，如果没有则使用selectedFile
-  const file = contextMenuFile.value || selectedFile.value
+  // 使用选中的文件
+  const file = selectedFile.value
   if (!file) return
   
   const filePath = file.path || (currentPath.value + (currentPath.value.endsWith('/') ? '' : '/') + file.name)
@@ -1111,19 +1013,33 @@ async function downloadCurrentFile() {
   } catch (error) {
     console.error('Download error:', error)
     showToastMessage('下载失败: ' + error.message, 'error')
-  } finally {
-    hideContextMenu()
   }
+}
+
+// 移动设备右上角菜单下载处理
+async function handleMobileDownload() {
+  // 隐藏右侧菜单
+  hideRightMenu()
+  
+  // 检查是否有选中的文件
+  if (!selectedFile.value) {
+    showToastMessage('请先选择一个文件', 'warning')
+    return
+  }
+  
+  // 检查选中的是否是文件夹
+  if (selectedFile.value.isDir) {
+    showToastMessage('不能下载文件夹', 'warning')
+    return
+  }
+  
+  // 调用下载函数
+  await downloadCurrentFile()
 }
 
 // 点击其他地方关闭菜单
 function handleDocumentClick(event) {
-  if (showContextMenu.value) {
-    const menuElement = document.querySelector('.context-menu')
-    if (menuElement && !menuElement.contains(event.target)) {
-      hideContextMenu()
-    }
-  }
+  // 上下文菜单已移除，此函数现在为空
 }
 
 // 处理鼠标滚轮事件
@@ -1290,53 +1206,6 @@ function toggleViewMode() {
   hideRightMenu()
 }
 
-// 获取用户名
-function getUserName() {
-  try {
-    // 从 RuntimeVariables 获取用户名
-    return window.RuntimeVariables?.getUserName() || '用户'
-  } catch (e) {
-    return '用户'
-  }
-}
-
-// 清理缓存
-async function cleanCache() {
-  showUserMenu.value = false
-  showRightMenu.value = false
-  
-  try {
-    // 清理文件API的缓存
-    fileAPI.clearMemoryCache()
-    
-    // 获取CacheManager实例
-    const cacheManager = CacheManager.getInstance()
-    
-    // 清理CacheManager的localStorage缓存
-    cacheManager.cleanupLocalStorage()
-    
-    // 清理CacheManager的文件系统缓存
-    await cacheManager.cleanupCache()
-    
-    // 清理CacheManager的内存缓存
-    cacheManager.clearMemoryCache()
-    
-    alert('缓存清理完成！已清理：内存缓存、localStorage缓存和文件系统缓存。')
-  } catch (error) {
-    console.error('清理缓存失败:', error)
-    alert('清理缓存失败: ' + error.message)
-  }
-}
-
-function logout() {
-  
-  showUserMenu.value = false
-  UserAPI.logout().then(() => {
-    console.log("用户已登出")
-    emit('login-state-changed')
-  })
-}
-
 onMounted(() => {
   // 初始化移动端视图判断
   handleResize()
@@ -1347,6 +1216,24 @@ onMounted(() => {
   // 判断是否为 Android 原生 App（Capacitor 环境）
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
     isAndroidApp.value = true
+  }
+  
+  // 在移动模式下禁用浏览器原生的右键菜单
+  if (typeof window !== 'undefined') {
+    const disableContextMenu = (e) => {
+      // 只在移动模式下禁用右键菜单
+      if (isMobile.value) {
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+      }
+    }
+    
+    // 为整个文档添加contextmenu事件监听器
+    document.addEventListener('contextmenu', disableContextMenu)
+    
+    // 存储监听器引用以便清理
+    window._disableContextMenuListener = disableContextMenu
   }
   
   // 添加文档点击事件监听器，用于关闭上下文菜单
@@ -1435,6 +1322,12 @@ onUnmounted(() => {
   
   // 移除文档点击事件监听器
   document.removeEventListener('click', handleDocumentClick)
+  
+  // 移除移动模式右键菜单禁用监听器
+  if (typeof window !== 'undefined' && window._disableContextMenuListener) {
+    document.removeEventListener('contextmenu', window._disableContextMenuListener)
+    delete window._disableContextMenuListener
+  }
 })
 
 // 预览打开时锁住背景滚动，避免手势带动列表滚动
@@ -2794,116 +2687,4 @@ audio {
   }
 }
 
-/* 上下文菜单样式 */
-.context-menu {
-  position: fixed;
-  z-index: 3000;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  min-width: 200px;
-  max-width: 300px;
-  animation: contextMenuFadeIn 0.2s ease;
-  overflow: hidden;
-}
-
-.context-menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.context-menu-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
-}
-
-.context-menu-close {
-  background: none;
-  border: none;
-  font-size: 16px;
-  color: #666;
-  cursor: pointer;
-  padding: 4px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.context-menu-close:hover {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-.context-menu-items {
-  padding: 8px 0;
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 16px;
-  background: none;
-  border: none;
-  text-align: left;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.context-menu-item:hover:not(:disabled) {
-  background: #f0f0f0;
-}
-
-.context-menu-item:disabled {
-  color: #999;
-  cursor: not-allowed;
-}
-
-.context-menu-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-}
-
-.context-menu-text {
-  flex: 1;
-}
-
-@keyframes contextMenuFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* 移动端上下文菜单适配 */
-@media (max-width: 768px) {
-  .context-menu {
-    min-width: 180px;
-    max-width: 250px;
-  }
-  
-  .context-menu-title {
-    max-width: 140px;
-  }
-}
 </style>
