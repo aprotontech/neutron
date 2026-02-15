@@ -18,8 +18,14 @@ import (
 
 type FileFolderInfo map[string]interface{}
 
+type FileDataChannelInfo struct {
+	path   string
+	offset int64
+	size   int64
+}
+
 type FileSystemMock struct {
-	dcFileMap map[string]string
+	dcFileMap map[string]*FileDataChannelInfo
 
 	metadataRepo *MetadataRepository
 
@@ -70,12 +76,41 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 		return nil, os.ErrInvalid
 	}
 
-	fsm.dcFileMap[dcName] = path.Join(config.GlobalConfig.Home, filePath)
+	offset, ok := req.(map[string]interface{})["label"].(int64)
+	if !ok {
+		return nil, os.ErrInvalid
+	}
+
+	size, ok := req.(map[string]interface{})["size"].(int64)
+	if !ok {
+		size = -1
+	}
+
+	abspath := path.Join(config.GlobalConfig.Home, filePath)
+
 	log.Infof("Prepared file receive: %s on data channel %s", filePath, dcName)
 
-	fi, err := os.Stat(fsm.dcFileMap[dcName])
+	fi, err := os.Stat(abspath)
 	if err != nil {
 		return nil, err
+	}
+
+	if offset < 0 {
+		return nil, os.ErrInvalid
+	}
+
+	if offset > fi.Size() {
+		return nil, errors.New("offset max than file size")
+	}
+
+	if size == -1 || offset+size > fi.Size() {
+		size = fi.Size() - offset
+	}
+
+	fsm.dcFileMap[dcName] = &FileDataChannelInfo{
+		path:   abspath,
+		offset: offset,
+		size:   size,
 	}
 
 	data := map[string]any{

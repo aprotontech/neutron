@@ -212,12 +212,18 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 
 		dataChannel.OnOpen(func() {
 			log.Infof("Data channel '%s' open", dataChannel.Label())
-			if fpath, ok := s.dcm.dcFileMap[dataChannel.Label()]; ok {
-				data, err := os.ReadFile(fpath)
+			if dcInfo, ok := s.dcm.dcFileMap[dataChannel.Label()]; ok {
+				data, err := os.ReadFile(dcInfo.path)
 				if err != nil {
-					log.Warnf("Read file %s error: %v", fpath, err)
+					log.Warnf("Read file %s error: %v", dcInfo.path, err)
 					dataChannel.Close()
 				} else {
+					if dcInfo.offset > 0 {
+						data = data[dcInfo.offset:]
+					}
+					if dcInfo.size > 0 {
+						data = data[:dcInfo.size]
+					}
 					chunkSize := 16 * 1000
 					for len(data) > 0 {
 						sendSize := chunkSize
@@ -229,12 +235,12 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 						data = data[sendSize:]
 
 						if err := dataChannel.Send(chunk); err != nil {
-							log.Warnf("Send file %s data error: %v", fpath, err)
+							log.Warnf("Send file %s data error: %v", dcInfo.path, err)
 							dataChannel.Close()
 						}
 					}
 				}
-				log.Infof("Sent file %s data on data channel %s, size=%d", fpath, dataChannel.Label(), len(data))
+				log.Infof("Sent file %s data on data channel %s, size=%d", dcInfo.path, dataChannel.Label(), len(data))
 			}
 		})
 

@@ -467,7 +467,7 @@ export default class LocalFileManager {
 
             await db.run(`
                 INSERT OR REPLACE INTO ${this.tableName}
-                            (file_path, file_name, local_path, local_directory, local_uri, file_size, mime_type, downloaded_at, last_accessed, is_valid)
+                            (file_path, file_name, local_path, local_directory, local_uri, total_parition, parition, file_size, mime_type, downloaded_at, last_accessed, is_valid)
                             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             `, [
                 filePath,
@@ -475,6 +475,8 @@ export default class LocalFileManager {
                 localPath,
                 localDirectory,
                 localUri,
+                1,
+                0,
                 fileInfo.size,
                 fileInfo.mimeType,
                 now,
@@ -501,8 +503,8 @@ export default class LocalFileManager {
 
             const result = await db.query(
                 `SELECT * FROM ${this.tableName} 
-                 WHERE file_path = ? AND is_valid = 1 
-                 ORDER BY downloaded_at DESC LIMIT 1`,
+                 WHERE file_path = ? AND is_valid = 1 AND total_parition = 1
+                 ORDER BY downloaded_at DESC`,
                 [filePath]
             );
 
