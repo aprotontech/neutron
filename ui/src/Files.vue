@@ -259,7 +259,6 @@ import { ref, onMounted, defineEmits, watch, onUnmounted, computed } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import UserAPI from './lib/user-api'
 import FileAPI from './lib/file-api'
-import CacheManager from './lib/cache-manager'
 import { FileTypeDetector, FileSizeFormatter, DateFormatter } from './lib/helpers'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
@@ -1177,8 +1176,13 @@ function hideToast() {
 
 // 格式化提示消息，添加下载链接
 function formatToastMessage(message) {
-  // 如果消息包含"下载"字样，添加下载按钮
-  if (message.includes('下载') && selectedFile.value) {
+  // 如果消息包含"下载"字样但不包含"成功"，且不是下载开始提示，添加下载按钮
+  // 下载成功和下载失败的消息不应该显示下载按钮
+  if (message.includes('下载') && 
+      !message.includes('成功') && 
+      !message.includes('失败') && 
+      !message.includes('开始下载') && 
+      selectedFile.value) {
     return `${message}<br><button class="download-btn" data-action="download">立即下载</button>`
   }
   return message

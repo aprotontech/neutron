@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install To Android Device",
+            "type": "shell",
+            "command": "DEBUG_WEBSITE_URL=http://192.168.1.110:5173 INSTALL=1 make android",
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

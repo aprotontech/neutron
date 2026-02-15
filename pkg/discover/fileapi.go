@@ -33,6 +33,29 @@ type FileSystemMock struct {
 	peerConnection *webrtc.PeerConnection
 }
 
+// getInt64FromMap 从map中提取int64值，支持int、int64和float64类型
+func getInt64FromMap(m map[string]interface{}, key string, defaultValue interface{}) (int64, error) {
+	val, ok := m[key]
+	if !ok || val == nil {
+		if defaultValue != nil {
+			return int64(defaultValue.(int)), nil
+		}
+		return 0, os.ErrInvalid
+	}
+
+	switch v := val.(type) {
+	case int:
+		return int64(v), nil
+	case int64:
+		return v, nil
+	case float64:
+		return int64(v), nil
+	default:
+		log.Warnf("%s is invalid type: %T", key, v)
+		return 0, os.ErrInvalid
+	}
+}
+
 func getFileList(fsm *FileSystemMock, req any) (any, error) {
 	folder, ok := req.(map[string]interface{})["path"].(string)
 	if !ok {
@@ -65,25 +88,56 @@ func getFileList(fsm *FileSystemMock, req any) (any, error) {
 	return result, nil
 }
 
+func getFileInfo(fsm *FileSystemMock, req any) (any, error) {
+	fpath, ok := req.(map[string]interface{})["path"].(string)
+	if !ok {
+		return nil, os.ErrInvalid
+	}
+
+	info, err := os.Stat(path.Join(config.GlobalConfig.Home, fpath))
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := FileFolderInfo{
+		"name":     info.Name(),
+		"isDir":    info.IsDir(),
+		"size":     info.Size(),
+		"modTime":  info.ModTime().Format("2006-01-02 15:04:05"),
+		"path":     fpath,
+		"mimeType": "",
+	}
+
+	return result, nil
+}
+
 func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
-	filePath, ok := req.(map[string]interface{})["path"].(string)
+	reqMap, ok := req.(map[string]interface{})
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
-	dcName, ok := req.(map[string]interface{})["label"].(string)
+	filePath, ok := reqMap["path"].(string)
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
-	offset, ok := req.(map[string]interface{})["label"].(int64)
+	dcName, ok := reqMap["label"].(string)
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
-	size, ok := req.(map[string]interface{})["size"].(int64)
-	if !ok {
-		size = -1
+	// 使用通用函数提取offset（必需参数）
+	offset, err := getInt64FromMap(reqMap, "offset", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// 使用通用函数提取size（可选参数，默认值-1）
+	size, err := getInt64FromMap(reqMap, "size", -1)
+	if err != nil {
+		return nil, err
 	}
 
 	abspath := path.Join(config.GlobalConfig.Home, filePath)
@@ -120,13 +174,20 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 }
 
 func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
-	filePath, ok := req.(map[string]interface{})["path"].(string)
+	reqMap, ok := req.(map[string]interface{})
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
-	size, ok := req.(map[string]interface{})["size"].(int)
+	filePath, ok := reqMap["path"].(string)
 	if !ok {
+		return nil, os.ErrInvalid
+	}
+
+	// 使用通用函数提取size（可选参数，默认值200）
+	size, err := getInt64FromMap(reqMap, "size", 200)
+	if err != nil {
+		// 即使类型无效，我们也使用默认值继续执行
 		size = 200
 	}
 
@@ -138,7 +199,7 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}
 
 	// Use SHA1 of the original path as the cache filename
-	h := md5.Sum([]byte(filePath + ":" + strconv.Itoa(size)))
+	h := md5.Sum([]byte(filePath + ":" + strconv.Itoa(int(size))))
 	hashStr := hex.EncodeToString(h[:])
 	cacheDir := config.GlobalConfig.Cache.CacheDir
 	if cacheDir == "" {
@@ -171,7 +232,7 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 				return
 			}
 
-			thumb := imaging.Thumbnail(img, size, size, imaging.Lanczos)
+			thumb := imaging.Thumbnail(img, int(size), int(size), imaging.Lanczos)
 			if err := imaging.Save(thumb, cachePath, imaging.JPEGQuality(85)); err != nil {
 				log.Warnf("Failed to save thumbnail %s: %v", cachePath, err)
 				return
@@ -213,17 +274,21 @@ func getImageVideos(fsm *FileSystemMock, req any) (any, error) {
 		types[i] = v.(string)
 	}
 
-	offset, ok := info["offset"].(int)
-	if !ok {
+	// 使用通用函数提取offset（可选参数，默认值0）
+	offset, err := getInt64FromMap(info, "offset", 0)
+	if err != nil {
+		// 即使类型无效，我们也使用默认值继续执行
 		offset = 0
 	}
 
-	count, ok := info["count"].(int)
-	if !ok {
+	// 使用通用函数提取count（可选参数，默认值100）
+	count, err := getInt64FromMap(info, "count", 100)
+	if err != nil {
+		// 即使类型无效，我们也使用默认值继续执行
 		count = 100
 	}
 
-	imgs, total, err := fsm.metadataRepo.ListFiles(types, offset, count)
+	imgs, total, err := fsm.metadataRepo.ListFiles(types, int(offset), int(count))
 	if err != nil {
 		return nil, err
 	}

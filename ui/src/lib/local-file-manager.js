@@ -66,18 +66,14 @@ export default class LocalFileManager {
 
             // Move file from cache to downloads directory
             if (progressTracker.completed && cacheResult.cacheUri) {
-                console.log(`[LocalFileManager] Moving file from cache to downloads directory: ${filePath}`);
-                const fileResult = await this._moveFileToDownloads(filePath, fileInfo, cacheResult);
-
-                progressTracker.localUrl = fileResult.uri;
-                console.log(`[LocalFileManager] File moved to downloads directory: ${fileResult.uri}`);
-
                 // Save file info to database with final downloads path
-                console.log(`[LocalFileManager] Saving file record to database: ${filePath}`);
-                await this._saveFileRecord(filePath, fileInfo, fileResult);
-
-                // Clean up cache file (renamed, so no need to delete)
-                console.log(`[LocalFileManager] File renamed, no cache cleanup needed`);
+                console.log(`[LocalFileManager] Saving file record to database: ${filePath},  ${cacheResult.cacheUri}`);
+                await this._saveFileRecord(filePath, fileInfo, {
+                    path: cacheResult.cacheFilePath,
+                    directory: cacheResult.cacheDir.directory,
+                    uri: cacheResult.cacheUri,
+                });
+                progressTracker.localUrl = Capacitor.convertFileSrc(cacheResult.cacheUri)
             } else {
                 throw new Error("Download failed")
             }
@@ -93,6 +89,53 @@ export default class LocalFileManager {
                 fileInfo: null,
                 localUrl: null
             };
+        }
+    }
+
+    async copyToDownloadFolder(filePath) {
+        console.log(`[LocalFileManager] Copying file from cache to downloads directory: ${filePath}`);
+
+        try {
+            // Get downloads directory
+            const downloadDir = await this._ensureDownloadDirectory(false);
+            if (!downloadDir) {
+                throw new Error('Failed to get downloads directory');
+            }
+
+            const cacheResult = await this.getLocalFile(filePath)
+
+            // Generate final filename
+            const finalFilename = this._generateDownloadFilename(cacheResult.fileInfo.name);
+            const finalPath = downloadDir.path + "/" + finalFilename;
+
+            console.log(`[LocalFileManager] Copy from cache:${cacheResult.localCache.directory}, ${cacheResult.localCache.path} to downloads: ${finalPath}`);
+
+            // Use Filesystem.rename to move the file
+            await Filesystem.copy({
+                from: cacheResult.localCache.path,
+                directory: cacheResult.localCache.directory,
+                to: finalPath,
+                toDirectory: downloadDir.directory,
+            });
+
+            const result = await Filesystem.stat({
+                path: finalPath,
+                directory: downloadDir.directory,
+            })
+
+            console.log(`[LocalFileManager] File renamed successfully to: ${result.uri}`);
+
+            // Return object with all file information
+            return {
+                uri: result.uri,
+                directory: downloadDir.directory,
+                path: finalPath,
+                filename: finalFilename
+            };
+
+        } catch (error) {
+            console.error('[LocalFileManager] Failed to rename file:', error);
+            throw error;
         }
     }
 
@@ -206,6 +249,12 @@ export default class LocalFileManager {
                 throw new Error('Failed to save file to cache directory');
             }
 
+
+            const cacheFileStat = await Filesystem.stat({
+                path: cacheFilePath,
+                directory: cacheDir.directory,
+            });
+
             // 检查文件大小是否匹配
             if (totalSize !== fileInfo.size) {
                 console.error(`[LocalFileManager] File size mismatch! Expected: ${fileInfo.size} bytes, Received: ${totalSize} bytes`);
@@ -239,8 +288,9 @@ export default class LocalFileManager {
 
             // 返回缓存文件信息
             return {
-                cacheUri: Capacitor.convertFileSrc(cacheFilePath),
+                cacheUri: cacheFileStat.uri,
                 cacheFileName: cacheFileName,
+                cacheFilePath: cacheFilePath,
                 cacheDir: cacheDir,
                 fileSize: totalSize,
                 md5: finalMd5
@@ -283,55 +333,6 @@ export default class LocalFileManager {
         }
     }
 
-    /**
-     * Move file from cache to downloads directory
-     * @private
-     */
-    async _moveFileToDownloads(filePath, fileInfo, cacheResult) {
-        try {
-            console.log(`[LocalFileManager] Moving file to downloads: ${filePath}`);
-
-            // Get downloads directory
-            const downloadDir = await this._ensureDownloadDirectory(false);
-            if (!downloadDir) {
-                throw new Error('Failed to get downloads directory');
-            }
-
-            // Generate final filename
-            const finalFilename = this._generateDownloadFilename(fileInfo.name);
-            const cachePath = cacheResult.cacheDir.path + "/" + cacheResult.cacheFileName;
-            const finalPath = downloadDir.path + "/" + finalFilename;
-
-            console.log(`[LocalFileManager] Renaming from cache: ${cachePath} to downloads: ${finalPath}`);
-
-            // Use Filesystem.rename to move the file
-            await Filesystem.rename({
-                from: cachePath,
-                to: finalPath,
-                toDirectory: downloadDir.directory,
-                directory: cacheResult.cacheDir.directory
-            });
-
-            const result = await Filesystem.stat({
-                path: finalPath,
-                directory: downloadDir.directory,
-            })
-
-            console.log(`[LocalFileManager] File renamed successfully to: ${result.uri}`);
-
-            // Return object with all file information
-            return {
-                uri: result.uri,
-                directory: downloadDir.directory,
-                path: finalPath,
-                filename: finalFilename
-            };
-
-        } catch (error) {
-            console.error('[LocalFileManager] Failed to rename file:', error);
-            throw error;
-        }
-    }
 
     /**
      * Generate safe filename for downloads
@@ -482,7 +483,7 @@ export default class LocalFileManager {
             await db.run(`
                 INSERT OR REPLACE INTO ${this.tableName}
                             (file_path, file_name, local_path, local_directory, local_uri, total_parition, parition, file_size, mime_type, downloaded_at, last_accessed, is_valid)
-                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             `, [
                 filePath,
                 fileInfo.name,
@@ -497,7 +498,7 @@ export default class LocalFileManager {
                 now
             ]);
 
-            console.log(`[LocalFileManager] File record saved to database: ${filePath}, local: ${localUrl}, directory: ${localDirectory}, uri: ${localUri}`);
+            console.log(`[LocalFileManager] File record saved to database: ${filePath}, local: ${localPath}, directory: ${localDirectory}, uri: ${localUri}`);
             return true;
         } catch (error) {
             console.error('[LocalFileManager] Failed to save file record:', error);
@@ -544,6 +545,10 @@ export default class LocalFileManager {
 
                     return {
                         localUrl: Capacitor.convertFileSrc(fileUri),
+                        localCache: {
+                            path: record.local_path,
+                            directory: record.local_directory,
+                        },
                         fileInfo: {
                             name: record.file_name,
                             size: record.file_size,

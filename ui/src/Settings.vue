@@ -274,7 +274,6 @@ import { Capacitor } from '@capacitor/core'
 import { RuntimeVariables } from './lib/helpers.js'
 import UserAPI from './lib/user-api.js'
 import FileAPI from './lib/file-api.js'
-import CacheManager from './lib/cache-manager.js'
 import TransferClient from './lib/transfer.js'
 import { getLocalFileManager } from './lib/local-file-manager.js'
 

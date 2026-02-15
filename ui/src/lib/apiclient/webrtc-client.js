@@ -273,11 +273,7 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileInfo(filePath) {
-        // Request file info via WebRTC data channel
-        console.log('Requesting file info via WebRTC:', filePath);
-
-        // In production, send request and wait for response
-        throw new Error('Not implemented in demo mode');
+        return await this.rpc.sendRpc('getFileInfo', { path: filePath });
     }
 
     async getImageRepo(offset, count) {

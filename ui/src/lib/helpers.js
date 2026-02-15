@@ -218,7 +218,7 @@ export class RuntimeVariables {
 
         this.clientID = localStorage.getItem('clientId') || uuidv4();
 
-        if (Capacitor.isNativePlatform()) {
+        if (Capacitor.isNativePlatform() && window.location.host === 'localhost') {
             this.httpApiPrefix = import.meta.env.VITE_NEUTRON_HTTP_API
             this.websocketAddress = import.meta.env.VITE_NEUTRON_WEBSOCKET_ADDR
         } else {

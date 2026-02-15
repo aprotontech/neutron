@@ -294,9 +294,8 @@ async function loadThumbnail(image, index) {
   images.value[index].loadingThumbnail = true
   
   try {
-    const blob = await fileAPI.getFileThumbnail(image.path, 200)
-    if (blob) {
-      const thumbnailUrl = URL.createObjectURL(blob)
+    const thumbnailUrl = await fileAPI.getFileThumbnailUrl(image.path, 200)
+    if (thumbnailUrl) {
       images.value[index].thumbnailUrl = thumbnailUrl
       thumbnailCache.value[image.path] = thumbnailUrl
     }

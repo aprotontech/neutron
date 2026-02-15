@@ -1,7 +1,7 @@
 
 import TransferClient from './transfer.js';
 import { FileTypeDetector, Hash } from './helpers.js';
-import CacheManager from './cache-manager.js';
+import CacheManager from './thumbnail-manager.js';
 import { Capacitor } from '@capacitor/core';
 import { getLocalFileManager } from './local-file-manager.js';
 
@@ -70,7 +70,7 @@ export default class FileAPI {
      * @param {Function} requestFn - Function to execute if cache miss
      * @returns {Promise<any>} Cached or fresh data
      */
-    async cacheFile(cacheType, cacheKey, requestFn) {
+    async cacheThumbnail(cacheType, cacheKey, requestFn) {
         if (!this.cacheManager) {
             return await requestFn()
         }
@@ -112,6 +112,32 @@ export default class FileAPI {
         }
     }
 
+    async cacheFileContent(filePath, fileInfo, requestFn) {
+        const localFile = await this.localFileManager.getLocalFile(filePath);
+        if (localFile && localFile.localUrl) {
+            console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
+            return localFile;
+        }
+
+        if (!fileInfo) {
+            fileInfo = await TransferClient.get().getFileInfo(filePath);
+            console.log("file info", JSON.stringify(fileInfo))
+        }
+
+        const mimeType = FileTypeDetector.getMIMEType(filePath);
+
+        // Fallback to re-download URL
+        const stream = await TransferClient.get().getFileContent(filePath, mimeType, true);
+
+        const result = await this.localFileManager.writeFile(filePath, fileInfo, stream);
+        if (result && result.localUrl) {
+            console.log("result URL: ", result.localUrl)
+            return result
+        }
+
+        return result
+    }
+
     /**
      * List files in a directory
      * @param {string} path - Directory path
@@ -132,7 +158,7 @@ export default class FileAPI {
         const hashKey = Hash.md5sum(filePath, 'thumbnail', maxSize);
 
         return await this._executeWithDeduplication(hashKey, async () => {
-            const blob = await this.cacheFile('thumbnail', hashKey, async () => {
+            const blob = await this.cacheThumbnail('thumbnail', hashKey, async () => {
                 return TransferClient.get().getFileThumbnail(filePath, maxSize);
             });
 
@@ -147,26 +173,23 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {Promise<string>} - File URL
      */
-    async getFileUrl(filePath) {
+    async getFileUrl(filePath, fileInfo = null) {
         const dedupKey = Hash.md5sum('getFileUrl', filePath);
 
         return await this._executeWithDeduplication(dedupKey, async () => {
             // Check if in native mode and file already exists locally
             const isNative = Capacitor.isNativePlatform();
-            if (isNative && this.localFileManager) {
-                const localFile = await this.localFileManager.getLocalFile(filePath);
-                if (localFile && localFile.localUrl) {
-                    console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
-                    return localFile.localUrl;
-                }
-            }
-
-            // Fallback to remote URL
             const mimeType = FileTypeDetector.getMIMEType(filePath);
+            if (isNative && this.localFileManager) {
+                const result = await this.cacheFileContent(filePath, fileInfo)
 
-
-
-            return TransferClient.get().getFileUrl(filePath, mimeType);
+                if (result && result.localUrl) {
+                    console.log("result URL: ", result.localUrl)
+                    return result.localUrl
+                }
+            } else {
+                return TransferClient.get().getFileUrl(filePath, mimeType);
+            }
         });
     }
 
@@ -214,26 +237,20 @@ export default class FileAPI {
                     return await this.downloadFileBrowser(filePath, fileName);
                 }
 
-
                 console.log(`Downloading file in native mode: ${fileName} (${fileSize} bytes)`);
 
-                if (!overwrite) {
-                    const localFile = await this.localFileManager.getLocalFile(filePath)
-                    if (localFile != null) {
-                        return true
-                    }
+                const cacheFileResult = await this.cacheFileContent(filePath, fileInfo);
+
+                if (!cacheFileResult) {
+                    throw new Error(cacheFileResult.error || '下载失败');
                 }
 
-                // Get file content WITHOUT streaming for native mode
-                const mimeType = FileTypeDetector.getMIMEType(filePath);
-                const stream = await TransferClient.get().getFileContent(filePath, mimeType, true);
+                const result = await this.localFileManager.copyToDownloadFolder(filePath)
 
-                const result = await this.localFileManager.writeFile(filePath, fileInfo, stream)
-
-                if (result.completed) {
+                if (result.uri) {
                     return true;
                 } else {
-                    throw new Error(result.error || '下载失败');
+
                 }
             } catch (error) {
                 console.error('Download failed:', error);

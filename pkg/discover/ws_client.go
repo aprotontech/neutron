@@ -60,9 +60,10 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 			"getThumbnail":       getThumbnail,
 			"playVideo":          playVideo,
 			"getImageVideos":     getImageVideos,
+			"getFileInfo":        getFileInfo,
 		},
 		dcm: &FileSystemMock{
-			dcFileMap:    map[string]string{},
+			dcFileMap:    map[string]*FileDataChannelInfo{},
 			metadataRepo: metadataRepo,
 		},
 	}
