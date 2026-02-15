@@ -13,7 +13,7 @@ export default class CacheManager {
 
     constructor() {
         this.sqliteManager = SQLiteManager.getInstance();
-        this.cacheDir = 'cache';
+        this.cacheDir = 'caches';
         this.maxCacheSize = 50 * 1024 * 1024; // 50MB max cache size
         this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
         this.memoryCache = new Map(); // 内存缓存，提高性能
@@ -163,22 +163,43 @@ export default class CacheManager {
         }
     }
 
-    /**
-     * Get cache data
-     * @param {string} cacheKey - Cache key
-     * @returns {Promise<{data: any, metadata: any}>} Cache data and metadata
-     */
-    async getCache(cacheKey) {
+    async getCacheUri(cacheKey) {
+        try {
+            const cache = await this.getCacheMetadata(cacheKey)
+            if (cache !== null) {
+                if (cache.uri) {
+                    return cache.uri
+                }
+
+                if (cache.data) {
+                    cache.uri = URL.createObjectURL(cache.data)
+                    return cache.uri
+                }
+
+                if (cache.metadata !== null && cache.metadata.cachefile) {
+                    const result = await Filesystem.stat({
+                        path: cache.metadata.cachefile,
+                        directory: Directory.Data
+                    })
+                    if (result) {
+                        cache.uri = Capacitor.convertFileSrc(result.uri)
+                        return cache.uri
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('CacheManager: Error getting cache:', error);
+        }
+
+        return null;
+    }
+
+    async getCacheMetadata(cacheKey) {
         try {
             // 首先检查内存缓存
-            const memoryCacheData = this._getFromMemoryCache(cacheKey);
-            if (memoryCacheData !== null) {
-                // 从内存缓存中获取元数据
-                const cached = this.memoryCache.get(cacheKey);
-                return {
-                    data: memoryCacheData,
-                    metadata: cached.metadata
-                };
+            const memoryCache = this._getFromMemoryCache(cacheKey);
+            if (memoryCache !== null) {
+                return memoryCache
             }
 
             // In native environment, get from database and filesystem
@@ -193,26 +214,17 @@ export default class CacheManager {
                     timestamp: cacheRecord.updated_at,
                     size: cacheRecord.filesize,
                     filePath: cacheRecord.filepath,
-                    mimeType: cacheRecord.mimetype
+                    mimeType: cacheRecord.mimetype,
+                    cachefile: cacheRecord.cachefile,
                 };
 
                 console.log("cache metadata", metadata)
 
-                const cachePath = cacheRecord.cachefile;
-                const cacheContent = await Filesystem.readFile({
-                    path: cachePath,
-                    directory: Directory.Data
-                });
-
-                const result = {
-                    data: cacheContent.data,
-                    metadata
+                return {
+                    metadata: metadata,
+                    data: null,
+                    uri: null,
                 };
-
-                // 保存到内存缓存
-                this._saveToMemoryCache(cacheKey, cacheContent.data, metadata);
-
-                return result;
             } catch (err) {
                 return null;
             }
@@ -220,6 +232,7 @@ export default class CacheManager {
             console.error('CacheManager: Error getting cache:', error);
             return null;
         }
+
     }
 
     /**
@@ -465,7 +478,7 @@ export default class CacheManager {
         if (cached) {
             const age = Date.now() - cached.timestamp;
             if (age < this.cacheExpiry) {
-                return cached.data;
+                return cached;
             } else {
                 // 内存缓存已过期
                 this.memoryCache.delete(cacheKey);
@@ -493,6 +506,11 @@ export default class CacheManager {
             }
 
             if (oldestKey) {
+                // 清理 ObjectURL 如果存在
+                const oldestValue = this.memoryCache.get(oldestKey);
+                if (oldestValue && oldestValue.uri) {
+                    URL.revokeObjectURL(oldestValue.uri);
+                }
                 this.memoryCache.delete(oldestKey);
             }
         }
@@ -500,7 +518,8 @@ export default class CacheManager {
         this.memoryCache.set(cacheKey, {
             data,
             timestamp: Date.now(),
-            metadata
+            metadata,
+            uri: null // 默认 uri 为空，只有需要的时候才会创建
         });
     }
 

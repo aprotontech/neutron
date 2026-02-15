@@ -1067,10 +1067,8 @@ function getFileUrl(file) { return fileAPI.getFileUrl(file.path) }
 async function loadThumbnail(file) {
   if (!file.thumbUrl && isImage(file)) {
     try {
-      const blob = await fileAPI.getFileThumbnail(file.path)
-      if (blob) {
-        // 使用URL.createObjectURL创建对象URL
-        const objectUrl = URL.createObjectURL(blob)
+      const objectUrl = await fileAPI.getFileThumbnailUrl(file.path)
+      if (objectUrl) {
         // 更新文件的thumbUrl属性
         const fileIndex = files.value.findIndex(f => f.path === file.path)
         if (fileIndex !== -1) {
