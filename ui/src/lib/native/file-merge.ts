@@ -18,7 +18,6 @@ export class FileMergeService {
      */
     static async mergeFiles(inputFiles: string[], outputPath: string) {
         try {
-            console.log("mergeFiles:", JSON.stringify(inputFiles), ", output=", outputPath)
             for (let i = 0; i < inputFiles.length; i ++ ) {
                 if (inputFiles[i].startsWith('file:///')) {
                     inputFiles[i] = inputFiles[i].substring('file://'.length);

@@ -222,7 +222,7 @@ export default class LocalFileManager {
             const placeholders = recordIds.map(() => '?').join(',')
             await db.run(
                 `UPDATE ${this.tableName} SET is_valid = 0 WHERE id IN (${placeholders})`,
-                [recordIds]
+                recordIds
             );
 
             // 2. 插入合并后文件的 record
