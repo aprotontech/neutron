@@ -102,7 +102,7 @@ export default class WebRTCDataChannelThumbnail {
             };
 
             if (event.data instanceof Blob) {
-                event.data.arrayBuffer().then(handle).catch(err => console.error(err));
+                event.data.arrayBuffer().then(handle).catch(err => console.error("thumb error", err));
             } else {
                 handle(event.data);
             }

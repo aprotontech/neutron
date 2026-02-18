@@ -9,7 +9,7 @@ export default class BaseClient {
         throw new Error('Not implemented');
     }
 
-    async getFileContent(filePath, stream) {
+    async getFileContent(filePath, mimeType, stream = false, offset = 0, size = null, timeoutMs = -1, idleTimeout = 10000) {
         throw new Error('Not implemented');
     }
 

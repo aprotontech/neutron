@@ -168,7 +168,7 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 	}
 
 	data := map[string]any{
-		"size": fi.Size(),
+		"size": size,
 	}
 	return data, nil
 }

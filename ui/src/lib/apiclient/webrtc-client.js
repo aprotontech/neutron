@@ -108,7 +108,7 @@ export default class WebRTCClient extends BaseClient {
             }
 
             this.signalingSocket.onmessage = async (message) => {
-                console.log(message.data)
+                console.log("got message", message.data)
                 var m = JSON.parse(message.data)
                 if (m.type == "answer") {
                     await this.pc.setRemoteDescription(new RTCSessionDescription({
@@ -202,7 +202,7 @@ export default class WebRTCClient extends BaseClient {
         }
     }
 
-    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, timeoutMs = -1, idleTimeout = 10000, offset = 0, size = null) {
+    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, offset = 0, size = null, timeoutMs = -1, idleTimeout = 10000) {
         console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
         const id = uuidv4();
         const label = mimeType.replaceAll('/', '-') + '-' + id;
@@ -213,9 +213,10 @@ export default class WebRTCClient extends BaseClient {
         try {
             // Ask remote peer to prepare and send the file on the given label
             const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label, "offset": offset, "size": size });
-            console.log("Requested file receive via WebRTC:", filePath, resp);
+            console.log("Requested file receive via WebRTC:", filePath, JSON.stringify(resp));
 
             const fileSize = resp["size"] || null;
+            console.log("recv size: ", fileSize)
 
             if (stream) {
                 // Return ReadableStream for streaming

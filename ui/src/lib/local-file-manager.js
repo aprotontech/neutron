@@ -3,6 +3,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { v4 as uuidv4 } from 'uuid';
 import SparkMD5 from 'spark-md5';
 import SQLiteManager from './sqlite.js';
+import { FileMergeService } from './native/file-merge.ts';
 
 /**
  * Local File Manager for Capacitor Native Mode
@@ -33,7 +34,7 @@ export default class LocalFileManager {
      * @param {string} filePath - Remote file path
      * @returns {Promise<Object>} - Write progress object
      */
-    async writeFile(filePath, fileInfo, fileContentStream) {
+    async writeFile(filePath, fileInfo, fileContentStream, partition = 0, total_partitions = 1) {
         try {
             await this._ensureDatabase();
 
@@ -72,7 +73,7 @@ export default class LocalFileManager {
                     path: cacheResult.cacheFilePath,
                     directory: cacheResult.cacheDir.directory,
                     uri: cacheResult.cacheUri,
-                });
+                }, partition, total_partitions);
                 progressTracker.localUrl = Capacitor.convertFileSrc(cacheResult.cacheUri)
             } else {
                 throw new Error("Download failed")
@@ -89,6 +90,177 @@ export default class LocalFileManager {
                 fileInfo: null,
                 localUrl: null
             };
+        }
+    }
+
+    async mergeFiles(filePath, fileInfo) {
+        try {
+            // Query database
+            const db = await this._ensureDatabase();
+
+            const result = await db.query(
+                `SELECT * FROM ${this.tableName} 
+                 WHERE file_path = ? AND is_valid = 1
+                 ORDER BY parition`,
+                [filePath]
+            );
+
+            console.log(`[LocalFileManager] Database query for file: ${filePath}, found ${result.values ? result.values.length : 0} records`);
+
+            if (!result.values || result.values.length === 0) {
+                console.log(`[LocalFileManager] No valid partition records found for file: ${filePath}`);
+                return false;
+            }
+
+            // 检查所有分片是否完整
+            const records = result.values;
+            const firstRecord = records[0];
+            const totalPartitions = firstRecord.total_parition;
+
+            // 检查记录数量是否与 total_parition 相同
+            if (records.length !== totalPartitions) {
+                console.log(`[LocalFileManager] Incomplete partitions: expected ${totalPartitions}, found ${records.length}`);
+                return false;
+            }
+
+            // 检查 partition 是否从 0 到 totalPartitions-1
+            const partitionSet = new Set();
+            for (const record of records) {
+                // 检查每个记录的 total_parition 是否一致
+                if (record.total_parition !== totalPartitions) {
+                    console.log(`[LocalFileManager] Inconsistent total_parition: expected ${totalPartitions}, found ${record.total_parition}`);
+                    return false;
+                }
+
+                partitionSet.add(record.parition);
+            }
+
+            // 检查是否包含所有分区
+            for (let i = 0; i < totalPartitions; i++) {
+                if (!partitionSet.has(i)) {
+                    console.log(`[LocalFileManager] Missing partition ${i}`);
+                    return false;
+                }
+            }
+
+            console.log(`[LocalFileManager] All ${totalPartitions} partitions found for file: ${filePath}`);
+
+            // 准备文件合并
+            const inputFiles = [];
+            for (const record of records) {
+                // 检查文件是否存在
+                const fileUri = await this._checkFileExists(record.local_directory, record.local_path);
+                if (!fileUri) {
+                    console.log(`[LocalFileManager] Partition file not found: ${record.local_path}`);
+                    return false;
+                }
+
+                // 获取文件路径
+                const fileStat = await Filesystem.stat({
+                    path: record.local_path,
+                    directory: record.local_directory
+                });
+
+                // 使用文件的 URI 作为合并输入
+                inputFiles.push(fileStat.uri);
+            }
+
+            // 生成输出文件路径
+            const cacheDir = await this._ensureCachingDirectory(false);
+            const outputFileName = uuidv4();
+            const outputPath = cacheDir.path + "/" + outputFileName;
+
+            // 创建空文件以获取 URI
+            await Filesystem.writeFile({
+                path: outputPath,
+                directory: cacheDir.directory,
+                data: '',
+                encoding: Encoding.UTF8
+            });
+
+            // 获取输出文件的 URI
+            const outputFileStat = await Filesystem.stat({
+                path: outputPath,
+                directory: cacheDir.directory
+            });
+
+            console.log(`[LocalFileManager] Merging ${inputFiles.length} files to: ${outputPath}, uri: ${outputFileStat.uri}`);
+
+            // 调用 FileMergeService 合并文件
+            let mergeResult;
+            try {
+                mergeResult = await FileMergeService.mergeFiles(inputFiles, outputFileStat.uri);
+
+                if (!mergeResult.success) {
+                    console.error(`[LocalFileManager] File merge failed: ${mergeResult.error || 'Unknown error'}`);
+                    // 清理创建的空文件
+                    await this._cleanupCacheFile(cacheDir, outputFileName);
+                    return false;
+                }
+            } catch (mergeError) {
+                console.error(`[LocalFileManager] File merge error:`, mergeError);
+                // 清理创建的空文件
+                await this._cleanupCacheFile(cacheDir, outputFileName);
+                return false;
+            }
+
+            console.log(`[LocalFileManager] Files merged successfully: ${outputPath}`);
+
+            // 检查合并后的文件
+            const mergedFileStat = await Filesystem.stat({
+                path: outputPath,
+                directory: cacheDir.directory
+            });
+
+            // 更新数据库（不使用事务，因为 Capacitor SQLite 不支持 db.transaction）
+            // 1. 将原来的分片 record 标记为 is_valid=0
+            let recordIds = []
+            for (const record of records) {
+                recordIds.push(record.id)
+            }
+
+            const placeholders = recordIds.map(() => '?').join(',')
+            await db.run(
+                `UPDATE ${this.tableName} SET is_valid = 0 WHERE id IN (${placeholders})`,
+                [recordIds]
+            );
+
+            // 2. 插入合并后文件的 record
+            const now = Date.now();
+            await db.run(
+                `INSERT INTO ${this.tableName} 
+                 (file_path, file_name, local_path, local_directory, local_uri, total_parition, parition, file_size, mime_type, downloaded_at, last_accessed, is_valid)
+                 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                [
+                    filePath,
+                    fileInfo.name,
+                    outputPath,
+                    cacheDir.directory,
+                    mergedFileStat.uri,
+                    1, // total_parition = 1 表示完整文件
+                    0, // parition = 0 表示完整文件
+                    mergedFileStat.size,
+                    fileInfo.mimeType,
+                    now,
+                    now
+                ]
+            );
+
+            console.log(`[LocalFileManager] Database updated successfully for merged file: ${filePath}`);
+
+            // 最后删除 is_valid=0 的所有 record（不需要在原先的事务中）
+            await db.run(
+                `DELETE FROM ${this.tableName} WHERE file_path = ? AND is_valid = 0`,
+                [filePath]
+            );
+
+            console.log(`[LocalFileManager] Invalid records cleaned up for file: ${filePath}`);
+
+            return true;
+
+        } catch (error) {
+            console.error(`[LocalFileManager] mergeFiles failed for ${filePath}:`, error);
+            return false;
         }
     }
 
@@ -189,7 +361,7 @@ export default class LocalFileManager {
                     const chunkSize = value.length || value.byteLength || 0;
                     totalSize += chunkSize;
 
-                    console.log(`[LocalFileManager] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize} bytes`);
+                    console.log(`[LocalFileManager] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
 
                     // 更新MD5计算
                     if (value instanceof ArrayBuffer) {
@@ -470,7 +642,7 @@ export default class LocalFileManager {
      * Save file record to database
      * @private
      */
-    async _saveFileRecord(filePath, fileInfo, fileResult) {
+    async _saveFileRecord(filePath, fileInfo, fileResult, parition, total_partitions) {
         try {
             const db = await this._ensureDatabase();
             if (!db) return false;
@@ -490,8 +662,8 @@ export default class LocalFileManager {
                 localPath,
                 localDirectory,
                 localUri,
-                1,
-                0,
+                total_partitions,
+                parition,
                 fileInfo.size,
                 fileInfo.mimeType,
                 now,
@@ -511,14 +683,14 @@ export default class LocalFileManager {
      * @param {string} filePath - Remote file path
      * @returns {Promise<string|null>} - Local URL or null if not found
      */
-    async getLocalFile(filePath) {
+    async getLocalFile(filePath, partition = 0, total_parition = 1) {
         try {
             // Query database
             const db = await this._ensureDatabase();
 
             const result = await db.query(
                 `SELECT * FROM ${this.tableName} 
-                 WHERE file_path = ? AND is_valid = 1 AND total_parition = 1
+                 WHERE file_path = ? AND is_valid = 1 AND parition = ${partition} AND total_parition = ${total_parition}
                  ORDER BY downloaded_at DESC`,
                 [filePath]
             );

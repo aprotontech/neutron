@@ -225,7 +225,7 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					if dcInfo.size > 0 {
 						data = data[:dcInfo.size]
 					}
-					chunkSize := 16 * 1000
+					chunkSize := 16 * 1024
 					for len(data) > 0 {
 						sendSize := chunkSize
 						if len(data) < chunkSize {
@@ -241,7 +241,8 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 						}
 					}
 				}
-				log.Infof("Sent file %s data on data channel %s, size=%d", dcInfo.path, dataChannel.Label(), len(data))
+				log.Infof("Sent file %s data on data channel %s, offset=%d, size=%d",
+					dcInfo.path, dataChannel.Label(), dcInfo.offset, dcInfo.size)
 			}
 		})
 

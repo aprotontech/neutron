@@ -37,7 +37,7 @@ adb pair 192.168.1.77:41939
 adb connect 192.168.1.77:40375
 adb install -r -d /workspaces/neutron/ui/android/app/build/outputs/apk/debug/app-debug.apk
 
-# adb logcat | grep -i Capacitor 
+# adb logcat | grep -i Capacitor | grep 192.168
 ```
 
 ```shell

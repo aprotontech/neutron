@@ -4,6 +4,7 @@ import { FileTypeDetector, Hash } from './helpers.js';
 import CacheManager from './thumbnail-manager.js';
 import { Capacitor } from '@capacitor/core';
 import { getLocalFileManager } from './local-file-manager.js';
+import { Config } from './config.js';
 
 // 全局Blob检查
 const BlobAvailable = typeof Blob !== 'undefined';
@@ -112,7 +113,9 @@ export default class FileAPI {
         }
     }
 
-    async cacheFileContent(filePath, fileInfo, requestFn) {
+    async cacheFileContent(filePath, fileInfo) {
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
         const localFile = await this.localFileManager.getLocalFile(filePath);
         if (localFile && localFile.localUrl) {
             console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
@@ -125,11 +128,50 @@ export default class FileAPI {
         }
 
         const mimeType = FileTypeDetector.getMIMEType(filePath);
+        const totalFileSize = fileInfo.size;
 
-        // Fallback to re-download URL
-        const stream = await TransferClient.get().getFileContent(filePath, mimeType, true);
+        let result = null
+        if (fileInfo.size > Config.getNativeSplitPartitionDownloadSize()) {
+            const num_partitions = Math.ceil(fileInfo.size / Config.getNativeDownloadPartitionSize())
+            for (let i = 0; i < num_partitions; i++) {
+                const localCachedResult = await this.localFileManager.getLocalFile(filePath, i, num_partitions);
+                if (localCachedResult) {
+                    continue
+                }
 
-        const result = await this.localFileManager.writeFile(filePath, fileInfo, stream);
+                const partitionSize = Math.min(Config.getNativeDownloadPartitionSize(), totalFileSize - i * Config.getNativeDownloadPartitionSize())
+
+                let downloadPartitionResult = null
+                for (let j = 0; j < Config.getMaxRetryDownloadPartitionCount(); j++) {
+                    const stream = await TransferClient.get().getFileContent(filePath, mimeType, true,
+                        i * Config.getNativeDownloadPartitionSize(),
+                        partitionSize
+                    );
+
+                    fileInfo.size = partitionSize
+
+                    downloadPartitionResult = await this.localFileManager.writeFile(filePath, fileInfo, stream, i, num_partitions);
+                    if (downloadPartitionResult && downloadPartitionResult.localUrl) {
+                        break
+                    }
+                    await sleep(1000 * (j + 1));
+                }
+                if (downloadPartitionResult) {
+                    console.log(`finished partition ${i}`)
+                } else {
+                    throw new Error("download chunk failed")
+                }
+
+            }
+
+            result = this.localFileManager.mergeFiles(filePath, fileInfo)
+        } else {
+            // Fallback to re-download URL
+            const stream = await TransferClient.get().getFileContent(filePath, mimeType, true);
+
+            result = await this.localFileManager.writeFile(filePath, fileInfo, stream, 0, 1);
+        }
+
         if (result && result.localUrl) {
             console.log("result URL: ", result.localUrl)
             return result
@@ -193,6 +235,27 @@ export default class FileAPI {
         });
     }
 
+    async getFileLocalCachedUrl(filePath) {
+        console.log("getFileLocalCachedUrl", filePath)
+        const localFile = await this.localFileManager.getLocalFile(filePath);
+        if (localFile && localFile.localUrl) {
+            console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
+            return localFile.localUrl;
+        }
+
+        const db = await this.localFileManager._ensureDatabase();
+        const result = await db.query(
+            `SELECT * FROM ${this.localFileManager.tableName} 
+                 WHERE file_path = ? AND is_valid = 1
+                 ORDER BY downloaded_at DESC`,
+            [filePath]
+        );
+
+        console.log("records: ", JSON.stringify(result.values))
+
+        return null
+    }
+
     /**
      * Get file info
      * @param {string} filePath - Full file path
@@ -223,21 +286,23 @@ export default class FileAPI {
 
                 // Check if in browser mode and file is too large (>5MB)
                 const isNative = Capacitor.isNativePlatform();
-                if (!isNative && fileSize > 5 * 1024 * 1024) {
-                    throw new Error('文件太大（超过5MB），浏览器模式不支持下载大文件，请使用移动设备应用下载');
-                }
-
-                // 移动设备文件大小限制提示
-                if (isNative && fileSize > 500 * 1024 * 1024) {
-                    throw new Error(`文件太大（${(fileSize / 1024 / 1024).toFixed(1)}MB），移动设备模式限制为500MB以下`);
-                }
-
                 if (!isNative) {
+                    if (fileSize > Config.getBrowserMaxDownloadFileSize()) {
+                        const fsize = FileSizeFormatter.format(Config.getBrowserMaxDownloadFileSize())
+                        throw new Error(`文件太大（超过${fsize}），浏览器模式不支持下载大文件，请使用移动设备应用下载`);
+                    }
                     // Browser mode: trigger browser download
                     return await this.downloadFileBrowser(filePath, fileName);
                 }
 
-                console.log(`Downloading file in native mode: ${fileName} (${fileSize} bytes)`);
+                // 移动设备文件大小限制提示
+                if (isNative && fileSize > Config.getNativeMaxDownloadFileSize()) {
+                    const fsize = FileSizeFormatter.format(fileSize)
+                    const lsize = FileSizeFormatter.format(Config.getNativeMaxDownloadFileSize())
+                    throw new Error(`文件太大（${fsize}），移动设备模式限制为${lsize}以下`);
+                }
+
+                console.log(`Downloading file in native mode: ${fileName}(${fileSize} bytes)`);
 
                 const cacheFileResult = await this.cacheFileContent(filePath, fileInfo);
 
@@ -361,7 +426,7 @@ export default class FileAPI {
      * @returns {Promise<Object>} - Object with total count and items array
      */
     async getImageRepo(offset, count) {
-        console.log(`Requesting image repo: offset=${offset}, count=${count}`);
+        console.log(`Requesting image repo: offset = ${offset}, count = ${count}`);
         const dedupKey = Hash.md5sum('getImageRepo', offset, count);
 
         return await this._executeWithDeduplication(dedupKey, async () => {
@@ -390,6 +455,10 @@ export default class FileAPI {
     async cleanAllCaches() {
         if (this.cacheManager) {
             this.cacheManager.deleteEntireCache()
+        }
+
+        if (this.localFileManager) {
+            this.localFileManager.clearAllFiles()
         }
 
     }

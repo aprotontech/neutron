@@ -128,6 +128,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
+import { Config } from './lib/config.js'
 
 // Android原生App检测
 const isAndroidApp = ref(false)
@@ -366,10 +367,21 @@ async function openMediaViewer(file) {
   currentMediaUrl.value = ''
   
   // 检查文件大小限制（5MB）
-  if (file.size && file.size > 5 * 1024 * 1024) {
-    showToastMessage('文件内容过大，暂时不支持预览，请下载后再预览。', 'warning')
-    isMediaLoading.value = false
-    return
+  if (file.size && file.size > Config.getMaxPreviewFileSize()) {
+    // 显示确认对话框，让用户选择是否继续查看
+    const maxSizeMB = Config.getMaxPreviewFileSize() / (1024 * 1024)
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+    const confirmMessage = `文件内容过大（${fileSizeMB}MB > ${maxSizeMB}MB），是否确认要进行查看？\n\n注意：大文件可能会导致加载缓慢或性能问题。`
+    
+    if (!confirm(confirmMessage)) {
+      // 用户点击取消
+      showToastMessage('已取消查看大文件。', 'info')
+      isMediaLoading.value = false
+      return
+    }
+    
+    // 用户点击确认，继续查看
+    showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
   }
   
   // 更新图片文件列表

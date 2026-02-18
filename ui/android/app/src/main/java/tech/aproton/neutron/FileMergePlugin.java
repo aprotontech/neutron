@@ -7,6 +7,8 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import android.util.Log;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -18,6 +20,15 @@ import java.nio.channels.FileChannel;
 
 @CapacitorPlugin(name = "FileMerge")
 public class FileMergePlugin extends Plugin {
+
+     public FileMergePlugin() {
+        Log.d("FileMergePlugin", "FileMergePlugin instance created!");
+    }
+
+    @Override
+    public void load() {
+        Log.d("FileMergePlugin", "FileMergePlugin instance created!");
+    }
 
     @PluginMethod
     public void mergeFiles(PluginCall call) {
@@ -52,6 +63,13 @@ public class FileMergePlugin extends Plugin {
         } catch (IOException e) {
             call.reject("文件操作失败: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void version(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("version", "0.0.1");
+        call.resolve(ret);
     }
 
     private boolean mergeFilesInternal(String[] inputFiles, String outputPath) 

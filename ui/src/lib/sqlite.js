@@ -72,7 +72,7 @@ export default class SQLiteManager {
                 await this.db.execute(`
                     CREATE TABLE IF NOT EXISTS ${this.TABLES.DOWNLOADED_FILES} (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        file_path TEXT UNIQUE NOT NULL,
+                        file_path TEXT NOT NULL,
                         file_name TEXT NOT NULL,
                         local_path TEXT NOT NULL,
                         local_directory TEXT,
@@ -83,7 +83,8 @@ export default class SQLiteManager {
                         mime_type TEXT,
                         downloaded_at INTEGER NOT NULL,
                         last_accessed INTEGER NOT NULL,
-                        is_valid INTEGER DEFAULT 1
+                        is_valid INTEGER DEFAULT 1,
+                        UNIQUE(file_path, parition, total_parition)
                     )
                 `);
 
