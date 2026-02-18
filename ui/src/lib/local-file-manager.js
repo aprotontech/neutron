@@ -256,7 +256,20 @@ export default class LocalFileManager {
 
             console.log(`[LocalFileManager] Invalid records cleaned up for file: ${filePath}`);
 
-            return true;
+            return {
+                localUrl: Capacitor.convertFileSrc(mergedFileStat.uri),
+                localCache: {
+                    path: outputPath,
+                    directory: cacheDir.directory,
+                },
+                fileInfo: {
+                    name: fileInfo.name,
+                    size: fileInfo.size,
+                    mimeType: fileInfo.mimeType,
+                    downloadedAt: now,
+                    lastAccessed: now
+                }
+            };;
 
         } catch (error) {
             console.error(`[LocalFileManager] mergeFiles failed for ${filePath}:`, error);
