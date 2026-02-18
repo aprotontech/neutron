@@ -89,10 +89,13 @@
             <div class="setting-item">
               <div class="setting-info">
                 <div class="setting-label">缓存大小</div>
-                <div class="setting-value">256 MB</div>
+                <div class="setting-value">
+                  <span v-if="loadingCacheSize">加载中...</span>
+                  <span v-else>{{ cacheSizeFormatted }}</span>
+                </div>
               </div>
               <div class="setting-action">
-                <button class="clear-btn" @click="clearCache">清理</button>
+                <button class="clear-btn" @click="clearCache" :disabled="loadingCacheSize">清理</button>
               </div>
             </div>
             <div class="setting-item disabled">
@@ -271,7 +274,7 @@
 <script setup>
 import { ref, computed, onMounted, defineEmits } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { RuntimeVariables } from './lib/helpers.js'
+import { RuntimeVariables, FileSizeFormatter } from './lib/helpers.js'
 import UserAPI from './lib/user-api.js'
 import FileAPI from './lib/file-api.js'
 import TransferClient from './lib/transfer.js'
@@ -290,19 +293,15 @@ const isAndroidApp = ref(false)
 const connectionStatus = ref('unknown')
 const transportType = ref('webrtc') // 默认使用webrtc
 
+// 缓存大小
+const cacheSize = ref(0)
+const cacheSizeFormatted = ref('0 B')
+const loadingCacheSize = ref(false)
+
 // 初始化用户状态
 function initUserState() {
   username.value = RuntimeVariables.getUserName()
   isLoggedIn.value = UserAPI.isLogined()
-}
-
-// 编辑用户名
-function editUsername() {
-  const newUsername = prompt('请输入新的用户名：', username.value)
-  if (newUsername !== null && newUsername.trim() !== '') {
-    // 这里可以添加更新用户名的API调用
-    alert('用户名修改功能正在开发中')
-  }
 }
 
 // 退出登录
@@ -318,24 +317,6 @@ async function logout() {
 // 去登录
 function goToLogin() {
   emit('login-state-changed')
-}
-
-// 清理缓存
-async function clearCache() {
-  if (!confirm('确定要清理缓存吗？')) {
-    return
-  }
-  
-  try {
-    // 创建FileAPI实例并清理缓存
-    const fileAPI = new FileAPI()
-    fileAPI.cleanAllCaches()
-        
-    alert('缓存清理完成！已清理：内存缓存、localStorage缓存和文件系统缓存。')
-  } catch (error) {
-    console.error('清理缓存失败:', error)
-    alert('清理缓存失败: ' + error.message)
-  }
 }
 
 // 显示关于信息
@@ -533,6 +514,44 @@ async function deleteFile(file) {
   }
 }
 
+// 获取缓存大小
+async function getCacheSize() {
+  try {
+    loadingCacheSize.value = true
+    const fileAPI = new FileAPI()
+    const size = await fileAPI.getCacheSize()
+    cacheSize.value = size
+    cacheSizeFormatted.value = FileSizeFormatter.format(size)
+    console.log('缓存大小:', cacheSizeFormatted.value, '(', size, 'bytes)')
+  } catch (error) {
+    console.error('获取缓存大小失败:', error)
+    cacheSizeFormatted.value = '获取失败'
+  } finally {
+    loadingCacheSize.value = false
+  }
+}
+
+// 清理缓存
+async function clearCache() {
+  if (!confirm('确定要清理缓存吗？')) {
+    return
+  }
+  
+  try {
+    // 创建FileAPI实例并清理缓存
+    const fileAPI = new FileAPI()
+    fileAPI.cleanAllCaches()
+    
+    // 清理后重新获取缓存大小
+    await getCacheSize()
+        
+    alert('缓存清理完成！已清理：内存缓存、localStorage缓存和文件系统缓存。')
+  } catch (error) {
+    console.error('清理缓存失败:', error)
+    alert('清理缓存失败: ' + error.message)
+  }
+}
+
 // 组件挂载时初始化
 onMounted(() => {
   initUserState()
@@ -542,6 +561,9 @@ onMounted(() => {
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
     isAndroidApp.value = true
   }
+  
+  // 初始化缓存大小
+  getCacheSize()
 })
 </script>
 

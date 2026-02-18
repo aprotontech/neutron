@@ -396,30 +396,6 @@ export default class FileAPI {
     }
 
     /**
-     * Get cache statistics
-     * @returns {Promise<Object>} Cache statistics
-     */
-    async getCacheStats() {
-        if (!this.cacheManager) {
-            return null
-        }
-        try {
-            const entries = await this.cacheManager.getCacheEntries();
-            const memoryStats = this.cacheManager.getMemoryCacheStats();
-
-            return {
-                totalEntries: entries.length,
-                memoryCache: memoryStats,
-                maxCacheSize: this.cacheManager.maxCacheSize,
-                cacheExpiry: this.cacheManager.cacheExpiry
-            };
-        } catch (error) {
-            console.error('Error getting cache stats:', error);
-            return null;
-        }
-    }
-
-    /**
      * Get image repository with pagination
      * @param {number} offset - Starting offset
      * @param {number} count - Number of items to retrieve
@@ -432,6 +408,22 @@ export default class FileAPI {
         return await this._executeWithDeduplication(dedupKey, async () => {
             return TransferClient.get().getImageRepo(offset, count);
         });
+    }
+
+    async getCacheSize() {
+        let totalSize = 0;
+        if (this.cacheManager) {
+            totalSize += await this.cacheManager.getCacheSize();
+        }
+
+        if (this.localFileManager) {
+            const storageUsage = await this.localFileManager.getStorageUsage();
+            if (storageUsage && typeof storageUsage.used === 'number') {
+                totalSize += storageUsage.used;
+            }
+        }
+
+        return totalSize;
     }
 
     /**

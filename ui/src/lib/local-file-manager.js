@@ -935,38 +935,15 @@ export default class LocalFileManager {
             const used = result.values && result.values.length > 0 ? result.values[0].total_size || 0 : 0;
             const fileCount = result.values && result.values.length > 0 ? result.values[0].file_count || 0 : 0;
 
-            console.log(`[LocalFileManager] Storage usage: ${used} bytes used by ${fileCount} files`);
-
-            // Get file list
-            const filesResult = await db.query(
-                `SELECT file_name, file_size, downloaded_at 
-                 FROM ${this.tableName} 
-                 WHERE is_valid = 1 
-                 ORDER BY downloaded_at DESC`
-            );
-
-            const files = filesResult.values || [];
-
-            // Get device storage info (simplified - you might need platform-specific APIs)
-            // For now, we'll use a reasonable estimate
-            const total = 10 * 1024 * 1024 * 1024; // 10GB estimate
-            const free = total - used;
-
             return {
-                total,
                 used,
-                free,
                 fileCount,
-                files
             };
         } catch (error) {
             console.error('Failed to get storage usage:', error);
             return {
-                total: 0,
                 used: 0,
-                free: 0,
                 fileCount: 0,
-                files: []
             };
         }
     }
