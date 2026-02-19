@@ -14,14 +14,13 @@ export class FileTypeDetector {
         'image/webp': ['.webp'],
         'image/svg+xml': ['.svg'],
 
-        'video/mp4': ['.mp4'],
+        'video/mp4': ['.mp4', '.m4v'],
         'video/webm': ['.webm'],
         'video/quicktime': ['.mov'],
         'video/x-msvideo': ['.avi'],
         'video/x-matroska': ['.mkv'],
         'video/x-flv': ['.flv'],
         'video/x-ms-wmv': ['.wmv'],
-        'video/mp4': ['.m4v'],  // .m4v 通常使用 video/mp4 MIME类型
         'video/mpeg': ['.mpg', '.mpeg'],
 
         'audio/mpeg': ['.mp3', '.mpeg'],
