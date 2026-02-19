@@ -6,15 +6,17 @@ TODO:
 
 - 修复ThumbURL的BUG
 - 修复缓存文件列表删除文件的BUG
-- 展示真实的缓存文件的总大小 [DONE]
 - 修复预览大文件时的，文件下载提示框
+- 支持最多N个文件同时正在预览/下载
+- 支持APP下载 [DONE]
+- 展示真实的缓存文件的总大小 [DONE]
 - 支持下载图片/视频/文件到手机，长按提示菜单下载 [DONE]
   - 增加下载菜单 [DONE]
   - 实现下载功能；放到download目录 [DONG]
   - 可以查看当前正在下载中的文件及其进度  [CANCEL]
   - 修复下载提示消息 [DONE]
   - 常看已经下载的文件列表 [DONE]
-- 支持视频的缩略图
+- 支持视频的缩略图 [DONE]
 - 图片列表本地使用 sqlite 进行cache
 - 文件列表本地使用 sqlite 进行cache
 - 取消预览的时候自动停止下载？ 
@@ -76,12 +78,14 @@ TODO:
 - 代码优化
   - 优化golang消息的field字段获取逻辑，支持struct解析
   - Javascript中的所有配置，迁移到一个独立的Config文件，并且部分参数可以在设置页面可以设置
+  - 支持应用在线更新
 
 - 安全问题
   - storageserver和discover之间使用公私钥
   - storageserver和client之间的token传递需要使用公私钥加密
   - storageserver和client之间的webrtc通讯需要使用token进行验证
   - 解决文件扫描时，sqlite操作的SQL安全问题，改成ORM语句
+  - 支持多次登录错误后，增加图形验证码校验
 
 
 - 支持图片内容识别和搜索

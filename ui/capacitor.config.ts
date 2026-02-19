@@ -16,13 +16,12 @@ const config: CapacitorConfig = {
   webDir: 'www',
   
   android: {
-    buildOptions: isDebug ? undefined :  {
+    buildOptions: {
       keystorePath: androidKeystorePath,
       keystorePassword: androidKeystorePassword,
       keystoreAlias: androidKeystoreAlias,
       keystoreAliasPassword: androidKeystoreAliasPassword,
       releaseType: 'APK',
-       
     },
 
     allowMixedContent: true,

@@ -119,6 +119,37 @@
           </div>
         </div>
 
+        <!-- App设置 -->
+        <div class="settings-section">
+          <h3 class="section-title">
+            <span class="section-icon">📱</span>
+            App
+          </h3>
+          <div class="section-content">
+            <!-- Native模式下的版本信息和更新按钮 -->
+            <div v-if="isNativeMode" class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">版本信息</div>
+                <div class="setting-value">{{ appVersion }}</div>
+              </div>
+              <div class="setting-action">
+                <button class="update-btn" disabled>更新</button>
+              </div>
+            </div>
+            
+            <!-- 非Native模式下的APP下载按钮 -->
+            <div v-else class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">APP下载</div>
+                <div class="setting-value">下载Android应用安装包</div>
+              </div>
+              <div class="setting-action">
+                <button class="download-btn" @click="downloadApp">下载</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 关于 -->
         <div class="settings-section">
           <h3 class="section-title">
@@ -297,6 +328,10 @@ const transportType = ref('webrtc') // 默认使用webrtc
 const cacheSize = ref(0)
 const cacheSizeFormatted = ref('0 B')
 const loadingCacheSize = ref(false)
+
+// App相关
+const isNativeMode = ref(false)
+const appVersion = ref('1.0.0')
 
 // 初始化用户状态
 function initUserState() {
@@ -514,6 +549,40 @@ async function deleteFile(file) {
   }
 }
 
+// 下载APK应用
+async function downloadApp() {
+  if (!confirm('确定要下载Android应用安装包吗？文件大小约为30MB。')) {
+    return
+  }
+  
+  try {
+    // 创建下载链接
+    let downloadUrl = '/app-debug.apk'
+    if (window.location.protocol === 'https') {
+      downloadUrl = '/app-release.apk'
+    }
+    
+    // 创建隐藏的a标签进行下载
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = 'neutron-app.apk'
+    link.style.display = 'none'
+    
+    // 添加到文档并触发点击
+    document.body.appendChild(link)
+    link.click()
+    
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link)
+    }, 100)
+    
+  } catch (error) {
+    console.error('下载APK失败:', error)
+    alert('下载失败: ' + error.message)
+  }
+}
+
 // 获取缓存大小
 async function getCacheSize() {
   try {
@@ -560,6 +629,7 @@ onMounted(() => {
   // 判断是否为 Android 原生 App（Capacitor 环境）
   if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
     isAndroidApp.value = true
+    isNativeMode.value = true
   }
   
   // 初始化缓存大小
@@ -804,6 +874,20 @@ onMounted(() => {
   background: #4ecdc4;
   color: white;
   border-color: #4ecdc4 !important;
+}
+
+.update-btn {
+  background: #9c27b0;
+  color: white;
+  border-color: #9c27b0 !important;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.download-btn {
+  background: #ff9800;
+  color: white;
+  border-color: #ff9800 !important;
 }
 
 .reconnect-btn {

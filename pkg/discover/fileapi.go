@@ -9,10 +9,10 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/disintegration/imaging"
 	webrtc "github.com/pion/webrtc/v4"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
+	"github.com/aproton/neutron/pkg/media"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
@@ -219,28 +219,17 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	}
 
 	go func() {
-		// If not cached, generate thumbnail using imaging
+		// If not cached, generate thumbnail
 		if _, err := os.Stat(cachePath); err != nil {
-			file, err := os.Open(srcPath)
-			if err != nil {
-				return
-			}
-			defer file.Close()
-
-			img, err := imaging.Decode(file, imaging.AutoOrientation(true))
-			if err != nil {
-				return
-			}
-
-			thumb := imaging.Thumbnail(img, int(size), int(size), imaging.Lanczos)
-			if err := imaging.Save(thumb, cachePath, imaging.JPEGQuality(85)); err != nil {
-				log.Warnf("Failed to save thumbnail %s: %v", cachePath, err)
+			if err := media.Thumbnail(srcPath, cachePath, int(size)); err != nil {
+				log.Warnf("generate thumbnail failed: %v", err)
 				return
 			}
 		}
 
 		data, err := os.ReadFile(cachePath)
 		if err != nil {
+			log.Warnf("not found thumbnail cache path %s", cachePath)
 			return
 		}
 

@@ -3,6 +3,7 @@ package discover
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -167,13 +168,53 @@ func (mr *MetadataRepository) initSQLiteDatabase() error {
 
 func (mr *MetadataRepository) isScanCompleted() bool {
 	markerFile := filepath.Join(filepath.Dir(mr.config.Sqlite), ".metadata_scan_completed")
-	_, err := os.Stat(markerFile)
-	return err == nil
+
+	// 检查标记文件是否存在
+	data, err := os.ReadFile(markerFile)
+	if err != nil {
+		return false
+	}
+
+	// 解析标记文件内容
+	var marker struct {
+		Home      string `json:"home"`
+		Timestamp string `json:"timestamp"`
+	}
+
+	if err := json.Unmarshal(data, &marker); err != nil {
+		// 如果是旧格式，重新扫描
+		return false
+	}
+
+	// 检查 Home 目录是否匹配
+	return marker.Home == mr.home
 }
 
 func (mr *MetadataRepository) markScanCompleted() error {
 	markerFile := filepath.Join(filepath.Dir(mr.config.Sqlite), ".metadata_scan_completed")
-	return os.WriteFile(markerFile, []byte(time.Now().Format(time.RFC3339)), 0644)
+
+	// 获取规范化的 Home 目录路径（处理符号链接）
+	homePath, err := filepath.EvalSymlinks(mr.home)
+	if err != nil {
+		// 如果无法解析符号链接，使用原始路径
+		homePath = mr.home
+	}
+
+	// 创建包含 Home 目录和时间的标记数据
+	markerData := struct {
+		Home      string `json:"home"`
+		Timestamp string `json:"timestamp"`
+	}{
+		Home:      homePath,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	data, err := json.Marshal(markerData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal marker data: %v", err)
+	}
+
+	return os.WriteFile(markerFile, data, 0644)
 }
 
 func (mr *MetadataRepository) scanFiles(ctx context.Context) error {

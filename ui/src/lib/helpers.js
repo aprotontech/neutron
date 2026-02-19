@@ -20,6 +20,9 @@ export class FileTypeDetector {
         'video/x-msvideo': ['.avi'],
         'video/x-matroska': ['.mkv'],
         'video/x-flv': ['.flv'],
+        'video/x-ms-wmv': ['.wmv'],
+        'video/mp4': ['.m4v'],  // .m4v 通常使用 video/mp4 MIME类型
+        'video/mpeg': ['.mpg', '.mpeg'],
 
         'audio/mpeg': ['.mp3', '.mpeg'],
         'audio/wav': ['.wav'],

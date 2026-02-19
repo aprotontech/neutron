@@ -172,7 +172,7 @@
           <div v-else class="thumbnail-grid">
             <div v-for="file in files" :key="file.name" class="thumbnail-item" :class="{ selected: selectedFile === file }" @click="handleFileClick(file, $event)" @dblclick="openFile(file)" @touchstart="handleFileTouchStart(file, $event)" @touchend="handleFileTouchEnd(file, $event)" ref="thumbnailItems">
               <div class="thumbnail-preview" :ref="el => registerThumbnailElement(el, file)">
-                <img v-if="isImage(file) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
+                <img v-if="(isImage(file) || isVideo(file)) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
                 <div v-else-if="isVideo(file)" class="thumbnail-icon">🎬</div>
                 <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div> 
               </div>
@@ -1075,14 +1075,14 @@ function getFileIcon(file) {
 }
 function formatSize(b) { return FileSizeFormatter.format(b) }
 function formatDate(d) { return DateFormatter.format(d) }
-function getFileUrl(file) { return fileAPI.getFileUrl(file.path) }
 
 // 缩略图懒加载函数
 async function loadThumbnail(file) {
-  if (!file.thumbUrl && isImage(file)) {
+  if (!file.thumbUrl && (isImage(file)|| isVideo(file))) {
     try {
       const objectUrl = await fileAPI.getFileThumbnailUrl(file.path)
       if (objectUrl) {
+        console.log(file.path, ' thumbnail ', objectUrl)
         // 更新文件的thumbUrl属性
         const fileIndex = files.value.findIndex(f => f.path === file.path)
         if (fileIndex !== -1) {
