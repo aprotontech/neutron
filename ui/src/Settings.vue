@@ -557,10 +557,7 @@ async function downloadApp() {
   
   try {
     // 创建下载链接
-    let downloadUrl = '/app-debug.apk'
-    if (window.location.protocol === 'https') {
-      downloadUrl = '/app-release.apk'
-    }
+    const downloadUrl = '/neutron-app.apk'
     
     // 创建隐藏的a标签进行下载
     const link = document.createElement('a')

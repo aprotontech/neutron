@@ -71,24 +71,23 @@ export default class FileAPI {
      * @param {Function} requestFn - Function to execute if cache miss
      * @returns {Promise<any>} Cached or fresh data
      */
-    async cacheThumbnail(cacheType, cacheKey, requestFn) {
+    async cacheThumbnailUrl(cacheType, cacheKey, requestFn) {
         if (!this.cacheManager) {
-            return await requestFn()
+            console.log("try to get thumbnail of ", cacheKey)
+            const data = await requestFn();
+            if (data) {
+                return URL.createObjectURL(data)
+            }
+            return null
         }
         try {
             // Check if we have valid cache
-            const cacheData = await this.cacheManager.getCache(cacheKey);
+            const cacheLocalUri = await this.cacheManager.getCacheUri(cacheKey);
 
-            if (cacheData && cacheData.data) {
+            if (cacheLocalUri) {
                 console.log(`Cache hit for ${cacheType}: ${cacheKey}`);
 
-                // Convert base64 back to blob if needed
-                if (cacheType === 'thumbnail') {
-                    const mimeType = cacheData.metadata.mimeType || 'image/jpeg';
-                    return this.cacheManager.base64ToBlob(cacheData.data, mimeType);
-                }
-                return cacheData.data;
-
+                return cacheLocalUri;
             }
 
             // Cache miss, execute request function
@@ -103,9 +102,10 @@ export default class FileAPI {
 
                 await this.cacheManager.saveCache(cacheKey, cacheType, freshData, extraMetadata);
                 console.log(`Saved to cache: ${cacheType}: ${cacheKey}`);
+                return URL.createObjectURL(freshData)
             }
 
-            return freshData;
+            return null;
         } catch (error) {
             console.error(`Cache error for ${cacheType}: ${cacheKey}:`, error);
             // Fallback to direct request
@@ -200,13 +200,9 @@ export default class FileAPI {
         const hashKey = Hash.md5sum(filePath, 'thumbnail', maxSize);
 
         return await this._executeWithDeduplication(hashKey, async () => {
-            const blob = await this.cacheThumbnail('thumbnail', hashKey, async () => {
+            return await this.cacheThumbnailUrl('thumbnail', hashKey, async () => {
                 return TransferClient.get().getFileThumbnail(filePath, maxSize);
             });
-
-            if (blob) {
-                return URL.createObjectURL(blob)
-            }
         });
     }
 

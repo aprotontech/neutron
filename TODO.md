@@ -4,12 +4,13 @@ TODO:
 
 
 
-- 修复ThumbURL的BUG
+
 - 修复缓存文件列表删除文件的BUG
 - 修复预览大文件时的，文件下载提示框
 - 支持最多N个文件同时正在预览/下载
 - 支持APP下载 [DONE]
 - 展示真实的缓存文件的总大小 [DONE]
+- 修复ThumbURL的BUG [DONE]
 - 支持下载图片/视频/文件到手机，长按提示菜单下载 [DONE]
   - 增加下载菜单 [DONE]
   - 实现下载功能；放到download目录 [DONG]
