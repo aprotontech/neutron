@@ -1,34 +1,50 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
-
+    <!-- 顶部工具栏（移动设备显示） -->
+    <div class="gallery-tools mobile-only" @click.stop>
+      <div class="dropdown">
+        <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
+        <div class="menu" v-if="menuOpen">
+          <button class="menu-item disabled">按最近添加排序</button>
+          <button class="menu-item disabled">按拍摄日期排序</button>
+          <button class="menu-item" @click="setFilter('images')">
+            <span class="menu-check" aria-hidden="true">{{ filterType === 'images' ? '✓' : '' }}</span>
+            只显示图片
+          </button>
+          <button class="menu-item" @click="setFilter('videos')">
+            <span class="menu-check" aria-hidden="true">{{ filterType === 'videos' ? '✓' : '' }}</span>
+            只显示视频
+          </button>
+        </div>
+      </div>
+    </div>
     <!-- 图库内容 -->
-    <div class="gallery-content" @scroll="handleScroll">
-      <!-- 只使用缩略图模式 -->
-      <div class="image-grid">
-        <div 
-          v-for="(image, index) in images" 
-          :key="image.id" 
-          class="image-grid-item"
-          @click="openImagePreview(image)"
-        >
+    <div class="gallery-content" ref="scrollContainer">
+      <!-- 图片网格 -->
+          <div class="image-grid">
+            <div 
+              v-for="(image, index) in images" 
+              :key="image.id" 
+              class="image-grid-item"
+              :ref="el => observeEl(el, index)"
+              @click="handleImageClick(image)"
+              v-show="matchesFilter(image)"
+            >
           <div class="image-thumbnail">
-            <div v-if="image.thumbnailUrl" class="image-real">
-              <img 
-                :src="image.thumbnailUrl" 
-                :alt="image.name"
-                loading="lazy"
-                @load="image.loaded = true"
-              />
-            </div>
+            <img 
+              v-if="image.thumbnailUrl" 
+              :src="image.thumbnailUrl" 
+              :alt="image.name"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              @load="image.loaded = true"
+            />
             <div v-else class="image-placeholder">
               <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
               <div v-if="image.loadingThumbnail" class="thumbnail-loading">
                 <div class="loading-spinner"></div>
               </div>
-            </div>
-            <div class="image-overlay">
-              <span class="image-name">{{ image.name }}</span>
-              <span class="image-type">{{ image.type }}</span>
             </div>
           </div>
         </div>
@@ -43,26 +59,25 @@
       <div v-if="!hasMore && images.length > 0" class="no-more">
         没有更多图片了
       </div>
+
+      <!-- spacer 用于根据 total 预填充滚动条 -->
+      <div :style="{ height: spacerHeight + 'px' }"></div>
     </div>
 
-    <!-- 媒体预览组件 -->
+    <!-- iOS风格媒体预览组件 -->
     <div 
       class="media-viewer" 
-      :class="{ active: isViewingImage || isViewingVideo }"
-      @click="handleMediaBackgroundClick"
-      @touchstart="handleMediaTouchStart"
-      @touchmove="handleMediaTouchMove"
-      @touchend="handleMediaTouchEnd"
-      @mousemove="handleMediaMouseMove"
-      @mouseleave="handleMediaMouseLeave"
+      :class="{ active: isViewingMedia }"
+      @touchstart="mediaTouchStart"
+      @touchmove="mediaTouchMove"
+      @touchend="mediaTouchEnd"
+      @click="handleBackgroundClick"
     >
-      <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
-      
       <div 
         class="media-viewer-content" 
         :style="{ 
-          transform: `translateY(${mediaSlideOffset}px)`,
-          opacity: mediaSlideOpacity
+          transform: `translateY(${slideOffset}px)`,
+          opacity: slideOpacity
         }"
       >
         <div v-if="isMediaLoading" class="media-loading">
@@ -71,14 +86,14 @@
         </div>
         
         <img 
-          v-if="isViewingImage && !isMediaLoading" 
+          v-if="currentMediaFile?.type === '图片' && !isMediaLoading" 
           :src="currentMediaUrl" 
           :alt="currentMediaFile?.name" 
           @click.stop
         />
         
         <video 
-          v-else-if="isViewingVideo && !isMediaLoading" 
+          v-else-if="currentMediaFile?.type === '视频' && !isMediaLoading" 
           :src="currentMediaUrl" 
           controls 
           autoplay
@@ -86,29 +101,11 @@
         ></video>
       </div>
       
+      <!-- 预览导航信息 -->
       <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">
-        <span class="nav-info">{{ currentMediaFile.name }}</span>
         <span class="nav-counter" v-if="imageFiles.length > 1">
           {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
         </span>
-        
-        <!-- 导航按钮 -->
-        <button 
-          v-if="hasPrevMedia" 
-          class="nav-btn nav-prev" 
-          @click="prevMedia"
-          @click.stop
-        >
-          ←
-        </button>
-        <button 
-          v-if="hasNextMedia" 
-          class="nav-btn nav-next" 
-          @click="nextMedia"
-          @click.stop
-        >
-          →
-        </button>
       </div>
     </div>
 
@@ -125,585 +122,400 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
-import { Config } from './lib/config.js'
+import { FileTypeDetector } from './lib/helpers.js'
 
-// Android原生App检测
+// --- 简化后的实现，专注于：分页列表、IntersectionObserver 缩略图预加载、预览下滑关闭 ---
+
 const isAndroidApp = ref(false)
-
-// FileAPI实例
 const fileAPI = new FileAPI()
 
-// 图片数据
+const scrollContainer = ref(null)
 const images = ref([])
 const totalImages = ref(0)
 const loading = ref(false)
 const hasMore = ref(true)
 const currentOffset = ref(0)
-const pageSize = 20 // 每页加载数量
+const pageSize = 30
 
-// 预览相关状态
-const previewImage = ref(null)
+const intersectionObserver = ref(null)
+const observedElements = new Map()
 
-// 媒体预览相关状态
-const isViewingImage = ref(false)
-const isViewingVideo = ref(false)
+// menu / filter state (mobile)
+const menuOpen = ref(false)
+const filterType = ref('all') // 'all' | 'images' | 'videos'
+
+function toggleMenu() { menuOpen.value = !menuOpen.value }
+function setFilter(val) {
+  if (filterType.value === val) filterType.value = 'all'
+  else filterType.value = val
+  menuOpen.value = false
+}
+
+function matchesFilter(image) {
+  if (!filterType.value || filterType.value === 'all') return true
+  if (filterType.value === 'images') return image.type === '图片'
+  if (filterType.value === 'videos') return image.type === '视频'
+  return true
+}
+
+// Preview state
+const isViewingMedia = ref(false)
 const currentMediaFile = ref(null)
 const currentMediaUrl = ref('')
 const isMediaLoading = ref(false)
-
-// 图片导航相关
 const imageFiles = ref([])
 const currentMediaIndex = ref(-1)
 
-// 媒体预览手势相关（上下滑关闭、左右滑切图）
-const mediaTouchStartX = ref(0)
-const mediaTouchEndX = ref(0)
-const mediaTouchStartY = ref(0)
-const mediaTouchEndY = ref(0)
-const mediaSwipeAxis = ref(null) // 'x' | 'y' | null
-const mediaSwipeStartedOnClosableArea = ref(false)
-const mediaSlideOffset = ref(0) // 滑动偏移量，用于动画效果
-const mediaSlideOpacity = ref(1) // 滑动时的透明度，用于动画效果
+// touch state for swipe-down-to-close
+const touchStartY = ref(0)
+const touchStartX = ref(0)
+const slideOffset = ref(0)
+const slideOpacity = ref(1)
+const itemTouchStartX = ref(0)
+const itemTouchStartY = ref(0)
+const itemIsDragging = ref(false)
+const lastTouchHandledAt = ref(0)
 
-// 可见图片索引
-const visibleImageIndices = ref(new Set())
+// layout estimation for scrollbar prefill
+const itemHeight = 100 // 与样式中一致（调整为更紧凑的 iOS 风格）
+const columns = ref(1)
 
-// 缩略图缓存
-const thumbnailCache = ref({})
-
-// 计算是否有前一张/后一张图片
-const hasPrevMedia = computed(() => {
-  return currentMediaIndex.value > 0 && imageFiles.value.length > 1
+const spacerHeight = computed(() => {
+  const remaining = Math.max(0, (totalImages.value || 0) - images.value.length)
+  const cols = Math.max(1, columns.value)
+  const rows = Math.ceil(remaining / cols)
+  return rows * itemHeight
 })
 
-const hasNextMedia = computed(() => {
-  return currentMediaIndex.value < imageFiles.value.length - 1 && imageFiles.value.length > 1
-})
-
-const isMediaViewerActive = computed(() => {
-  return isViewingImage.value || isViewingVideo.value
-})
-
-// 计算当前可视区域可以显示的图片数量
-function calculateVisibleCount() {
-  const grid = document.querySelector('.image-grid')
-  if (!grid) return pageSize
-  
-  const gridRect = grid.getBoundingClientRect()
-  const itemHeight = 120 // 图片项高度
-  const itemWidth = 120 // 图片项宽度
-  
-  const cols = Math.floor(gridRect.width / itemWidth)
-  const rows = Math.ceil(gridRect.height / itemHeight)
-  
-  return Math.max(pageSize, cols * rows * 2) // 加载比可视区域多一倍的图片
+function getFileType(filename) {
+  if (FileTypeDetector.isImage(filename)) return '图片'
+  if (FileTypeDetector.isVideo(filename)) return '视频'
+  return '文件'
 }
 
-// 加载图片列表
-async function loadImages(offset = 0, count = null) {
+function updateColumns() {
+  if (!scrollContainer.value) return
+  const width = scrollContainer.value.clientWidth || window.innerWidth
+  const colWidth = 120 // min item width from CSS
+  columns.value = Math.max(1, Math.floor(width / colWidth))
+}
+
+function initObserver() {
+  if (intersectionObserver.value) intersectionObserver.value.disconnect()
+
+  intersectionObserver.value = new IntersectionObserver(handleIntersection, {
+    root: scrollContainer.value,
+    rootMargin: '200px',
+    threshold: 0.1
+  })
+}
+
+function handleIntersection(entries) {
+  entries.forEach(entry => {
+    const el = entry.target
+    const idx = parseInt(el.dataset.index, 10)
+    if (!Number.isFinite(idx)) return
+
+    if (entry.isIntersecting) {
+      // load thumbnail for visible items
+      const img = images.value[idx]
+      if (img && !img.thumbnailUrl && !img.loadingThumbnail) {
+        loadThumbnail(img, idx)
+      }
+
+      // if last item visible, load next page
+      if (idx === images.value.length - 1 && !loading.value && hasMore.value) {
+        loadImages(currentOffset.value)
+      }
+    }
+  })
+}
+
+function observeEl(el, idx) {
+  if (!el) return
+  el.dataset.index = String(idx)
+  // always cache element; observer may be initialized later
+  observedElements.set(idx, el)
+  if (intersectionObserver.value) {
+    intersectionObserver.value.observe(el)
+  }
+}
+
+async function loadImages(offset = 0) {
   if (loading.value) return
-  
   loading.value = true
   try {
-    const loadCount = count || calculateVisibleCount()
-    console.log(`Loading images: offset=${offset}, count=${loadCount}`)
-    
-    const result = await fileAPI.getImageRepo(offset, loadCount)
-    console.log('Image repo result:', result)
-    
-    if (offset === 0) {
-      images.value = []
-      thumbnailCache.value = {}
-    }
-    
-    if (result && result.items) {
-      // 转换服务器返回的数据格式
-      const newImages = result.items.map((item, index) => {
-        const path = typeof item === 'string' ? item : (item.path || item)
-        const name = path.split('/').pop() || '未命名文件'
-        return {
-          id: offset + index,
-          path: path,
-          name: name,
-          size: '未知大小',
-          date: '未知日期',
-          type: getFileType(name),
-          thumbnailUrl: null,
-          loadingThumbnail: false
-        }
-      })
-      
-      images.value = [...images.value, ...newImages]
-      totalImages.value = result.total || 0
-      currentOffset.value = offset + newImages.length
-      hasMore.value = newImages.length > 0 && currentOffset.value < totalImages.value
-      
-      // 加载可见图片的缩略图
-      loadVisibleThumbnails()
-    }
-  } catch (error) {
-    console.error('Failed to load images:', error)
+    const res = await fileAPI.getImageRepo(offset, pageSize)
+    if (!res) return
+
+    const items = res.items || []
+    const mapped = items.map((it, i) => {
+      const path = typeof it === 'string' ? it : (it.path || it)
+      const name = (path || '').split('/').pop() || '未命名'
+      return {
+        id: offset + i,
+        path,
+        name,
+        type: getFileType(name),
+        thumbnailUrl: null,
+        loadingThumbnail: false
+      }
+    })
+
+    if (offset === 0) images.value = mapped
+    else images.value = images.value.concat(mapped)
+
+    totalImages.value = res.total || totalImages.value || 0
+    currentOffset.value = images.value.length
+    hasMore.value = currentOffset.value < totalImages.value
+
+    // ensure observer is ready after DOM updated
+    await nextTick()
+    if (!intersectionObserver.value) initObserver()
+    // attach observer to rendered nodes
+    attachObservers()
+  } catch (e) {
+    console.error('loadImages error', e)
   } finally {
     loading.value = false
   }
 }
 
-// 获取文件类型
-function getFileType(filename) {
-  const ext = filename.split('.').pop().toLowerCase()
-  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg']
-  const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm']
-  
-  if (imageExts.includes(ext)) return '图片'
-  if (videoExts.includes(ext)) return '视频'
-  return '文件'
+function attachObservers() {
+  const container = scrollContainer.value
+  if (!container || !intersectionObserver.value) return
+  const nodes = container.querySelectorAll('.image-grid-item')
+  nodes.forEach((n, i) => {
+    n.dataset.index = String(i)
+    intersectionObserver.value.observe(n)
+    observedElements.set(i, n)
+  })
 }
 
-// 判断文件类型
-function isImage(file) {
-  return !file.isDir && getFileType(file.name) === '图片'
-}
-
-function isVideo(file) {
-  return !file.isDir && getFileType(file.name) === '视频'
-}
-
-// 加载可见图片的缩略图
-async function loadVisibleThumbnails() {
-  const visibleIndices = Array.from(visibleImageIndices.value)
-  
-  for (const index of visibleIndices) {
-    if (index >= images.value.length) continue
-    
-    const image = images.value[index]
-    if (!image.thumbnailUrl && !image.loadingThumbnail && !thumbnailCache.value[image.path]) {
-      await loadThumbnail(image, index)
-    }
+async function loadThumbnail(item, idx) {
+  if (!item || item.loadingThumbnail || item.thumbnailUrl) return
+  images.value[idx].loadingThumbnail = true
+  try {
+    const url = await fileAPI.getFileThumbnailUrl(item.path, 200)
+    if (url) images.value[idx].thumbnailUrl = url
+  } catch (e) {
+    // ignore thumbnail load failures
+  } finally {
+    images.value[idx].loadingThumbnail = false
   }
 }
 
-// 加载单个缩略图
-async function loadThumbnail(image, index) {
-  if (thumbnailCache.value[image.path]) {
-    images.value[index].thumbnailUrl = thumbnailCache.value[image.path]
+function handleImageClick(file) {
+  // prevent duplicate click fired after touchend handled the tap
+  const now = Date.now()
+  if (lastTouchHandledAt.value && (now - lastTouchHandledAt.value) < 600) {
+    // recent touch already handled the tap
+    lastTouchHandledAt.value = 0
     return
   }
-  
-  images.value[index].loadingThumbnail = true
-  
-  try {
-    const thumbnailUrl = await fileAPI.getFileThumbnailUrl(image.path, 200)
-    if (thumbnailUrl) {
-      images.value[index].thumbnailUrl = thumbnailUrl
-      thumbnailCache.value[image.path] = thumbnailUrl
-    }
-  } catch (error) {
-    console.error(`Failed to load thumbnail for ${image.path}:`, error)
-  } finally {
-    images.value[index].loadingThumbnail = false
-  }
+  openMediaViewer(file)
 }
 
-// 处理滚动事件
-function handleScroll() {
-  const grid = document.querySelector('.image-grid')
-  if (!grid) return
-  
-  const items = grid.querySelectorAll('.image-grid-item')
-  const gridRect = grid.getBoundingClientRect()
-  
-  visibleImageIndices.value.clear()
-  
-  items.forEach((item, index) => {
-    const itemRect = item.getBoundingClientRect()
-    
-    // 检查是否在可视区域内
-    if (
-      itemRect.bottom >= gridRect.top &&
-      itemRect.top <= gridRect.bottom &&
-      itemRect.right >= gridRect.left &&
-      itemRect.left <= gridRect.right
-    ) {
-      visibleImageIndices.value.add(index)
-    }
-  })
-  
-  // 加载可见图片的缩略图
-  loadVisibleThumbnails()
-  
-  // 检查是否需要加载更多图片
-  if (!loading.value && hasMore.value) {
-    const lastItem = items[items.length - 1]
-    if (lastItem) {
-      const lastItemRect = lastItem.getBoundingClientRect()
-      if (lastItemRect.bottom <= gridRect.bottom + 100) {
-        loadImages(currentOffset.value)
-      }
-    }
-  }
-}
-
-// 打开图片预览
-function openImagePreview(image) {
-  openMediaViewer(image)
-}
-
-// 关闭图片预览
-function closePreview() {
-  closeMediaViewer()
-}
-
-// 打开媒体查看器
 async function openMediaViewer(file) {
   currentMediaFile.value = file
   isMediaLoading.value = true
-  
-  // 重置所有查看状态
-  isViewingImage.value = false
-  isViewingVideo.value = false
-  currentMediaUrl.value = ''
-  
-  // 检查文件大小限制（5MB）
-  if (file.size && file.size > Config.getMaxPreviewFileSize()) {
-    // 显示确认对话框，让用户选择是否继续查看
-    const maxSizeMB = Config.getMaxPreviewFileSize() / (1024 * 1024)
-    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
-    const confirmMessage = `文件内容过大（${fileSizeMB}MB > ${maxSizeMB}MB），是否确认要进行查看？\n\n注意：大文件可能会导致加载缓慢或性能问题。`
-    
-    if (!confirm(confirmMessage)) {
-      // 用户点击取消
-      showToastMessage('已取消查看大文件。', 'info')
-      isMediaLoading.value = false
-      return
-    }
-    
-    // 用户点击确认，继续查看
-    showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
-  }
-  
-  // 更新图片文件列表
-  updateImageFilesList()
-  
-  // 查找当前文件在图片列表中的位置
-  const index = imageFiles.value.findIndex(f => f.path === file.path)
-  currentMediaIndex.value = index
-  
-  if (isImage(file)) {
-    isViewingImage.value = true
-    try {
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-      
-      // 图片加载完成后隐藏加载动画
+  isViewingMedia.value = true
+  imageFiles.value = images.value.filter(f => f.type === '图片' || f.type === '视频')
+  currentMediaIndex.value = imageFiles.value.findIndex(f => f.path === file.path)
+  try {
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    if (file.type === '图片') {
       const img = new Image()
-      img.onload = () => {
-        isMediaLoading.value = false
-      }
-      img.onerror = () => {
-        isMediaLoading.value = false
-      }
+      img.onload = () => { isMediaLoading.value = false }
+      img.onerror = () => { isMediaLoading.value = false }
       img.src = currentMediaUrl.value
-    } catch (error) {
-      console.error('加载图片失败:', error)
+    } else {
       isMediaLoading.value = false
     }
-  } else if (isVideo(file)) {
-    isViewingVideo.value = true
-    try {
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-      isMediaLoading.value = false
-    } catch (error) {
-      console.error('加载视频失败:', error)
-      isMediaLoading.value = false
-    }
+  } catch (e) {
+    console.error('openMediaViewer error', e)
+    isMediaLoading.value = false
   }
 }
 
-// 关闭媒体查看器
 function closeMediaViewer() {
-  isViewingImage.value = false
-  isViewingVideo.value = false
+  isViewingMedia.value = false
   currentMediaFile.value = null
   currentMediaUrl.value = ''
   isMediaLoading.value = false
   currentMediaIndex.value = -1
-  imageFiles.value = []
-  
-  // 重置滑动动画
-  mediaSlideOffset.value = 0
-  mediaSlideOpacity.value = 1
+  slideOffset.value = 0
+  slideOpacity.value = 1
 }
 
-// 更新图片文件列表
-function updateImageFilesList() {
-  imageFiles.value = images.value.filter(f => isImage(f) || isVideo(f))
+// touch handlers for swipe down to close
+function mediaTouchStart(e) {
+  if (!isViewingMedia.value) return
+  const t = e.touches[0]
+  touchStartY.value = t.clientY
+  touchStartX.value = t.clientX
 }
 
-// 切换到前一张图片
-async function prevMedia() {
-  if (!hasPrevMedia.value) return
-  
-  const prevIndex = currentMediaIndex.value - 1
-  const prevFile = imageFiles.value[prevIndex]
-  
-  if (prevFile) {
-    await loadMediaFile(prevFile)
+function mediaTouchMove(e) {
+  if (!isViewingMedia.value) return
+  const t = e.touches[0]
+  const dy = t.clientY - touchStartY.value
+  const dx = Math.abs(t.clientX - touchStartX.value)
+  if (Math.abs(dy) > dx) {
+    e.preventDefault()
+    slideOffset.value = dy
+    const ratio = Math.min(Math.abs(dy) / 300, 1)
+    slideOpacity.value = 1 - ratio * 0.6
   }
 }
 
-// 切换到后一张图片
-async function nextMedia() {
-  if (!hasNextMedia.value) return
-  
-  const nextIndex = currentMediaIndex.value + 1
-  const nextFile = imageFiles.value[nextIndex]
-  
-  if (nextFile) {
-    await loadMediaFile(nextFile)
+function mediaTouchEnd() {
+  if (!isViewingMedia.value) return
+  if (Math.abs(slideOffset.value) > 120) {
+    closeMediaViewer()
+  } else {
+    slideOffset.value = 0
+    slideOpacity.value = 1
   }
 }
 
-// 加载媒体文件
-async function loadMediaFile(file) {
-  currentMediaFile.value = file
-  isMediaLoading.value = true
-  
-  if (isImage(file)) {
-    isViewingImage.value = true
-    isViewingVideo.value = false
-    try {
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-      
-      // 图片加载完成后隐藏加载动画
-      const img = new Image()
-      img.onload = () => {
-        isMediaLoading.value = false
-      }
-      img.onerror = () => {
-        isMediaLoading.value = false
-      }
-      img.src = currentMediaUrl.value
-    } catch (error) {
-      console.error('加载图片失败:', error)
-      isMediaLoading.value = false
-    }
-  } else if (isVideo(file)) {
-    isViewingVideo.value = true
-    isViewingImage.value = false
-    try {
-      currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
-      isMediaLoading.value = false
-    } catch (error) {
-      console.error('加载视频失败:', error)
-      isMediaLoading.value = false
-    }
-  }
-  
-  // 更新当前索引
-  const index = imageFiles.value.findIndex(f => f.path === file.path)
-  currentMediaIndex.value = index
+function handleBackgroundClick(e) {
+  if (e.target.classList && e.target.classList.contains('media-viewer')) closeMediaViewer()
 }
 
-// 刷新图库
 function refreshGallery() {
-  console.log('Refreshing gallery...')
   currentOffset.value = 0
   hasMore.value = true
+  images.value = []
   loadImages(0)
-}
-
-// 下载图片
-async function downloadImage(image) {
-  console.log('下载图片:', image.name)
-  try {
-    alert(`开始下载: ${image.name}`)
-    await fileAPI.downloadFile(image.path, image)
-    alert(`下载成功: ${image.name}`)
-  } catch (error) {
-    console.error('下载失败:', error)
-    alert(`下载失败: ${error.message}`)
-  }
-}
-
-// 分享图片
-function shareImage(image) {
-  console.log('分享图片:', image.name)
-  // 这里可以添加实际的分享逻辑
-  alert(`分享图片: ${image.name}`)
-}
-
-// 触摸事件处理函数
-function handleMediaTouchStart(event) {
-  if (!isMediaViewerActive.value) return
-
-  const touch = event.touches[0]
-  mediaTouchStartX.value = touch.clientX
-  mediaTouchStartY.value = touch.clientY
-  mediaTouchEndX.value = touch.clientX
-  mediaTouchEndY.value = touch.clientY
-
-  mediaSwipeAxis.value = null
-
-  // 所有预览类型都支持上下滑关闭手势
-  // 但如果是视频的控件区域，优先响应控件操作
-  const startedOnMediaElement = !!event.target.closest('img, video, .media-viewer-content')
-  const startedOnMediaControls = !!event.target.closest('video') && 
-    (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || 
-     event.target.hasAttribute('controls'))
-  
-  // 如果触摸开始于媒体控件，则不触发上下滑关闭
-  mediaSwipeStartedOnClosableArea.value = !startedOnMediaControls
-  
-  // 重置滑动动画
-  mediaSlideOffset.value = 0
-  mediaSlideOpacity.value = 1
-}
-
-function handleMediaTouchMove(event) {
-  if (!isMediaViewerActive.value) return
-
-  const touch = event.touches[0]
-  mediaTouchEndX.value = touch.clientX
-  mediaTouchEndY.value = touch.clientY
-
-  const deltaX = mediaTouchEndX.value - mediaTouchStartX.value
-  const deltaY = mediaTouchEndY.value - mediaTouchStartY.value
-
-  // 方向锁定（避免轻微抖动）
-  if (!mediaSwipeAxis.value) {
-    const absX = Math.abs(deltaX)
-    const absY = Math.abs(deltaY)
-    if (absX < 10 && absY < 10) return
-    mediaSwipeAxis.value = absX > absY ? 'x' : 'y'
-  }
-
-  // 纵向手势：阻止默认滚动，避免底层列表跟着滚
-  if (mediaSwipeAxis.value === 'y' && mediaSwipeStartedOnClosableArea.value) {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    // 更新滑动动画效果
-    const slideRatio = Math.min(Math.abs(deltaY) / 200, 1) // 最大滑动200px
-    mediaSlideOffset.value = deltaY
-    mediaSlideOpacity.value = 1 - slideRatio * 0.5 // 最多变淡50%
-  }
-}
-
-function handleMediaTouchEnd() {
-  if (!isMediaViewerActive.value) return
-
-  const diffX = mediaTouchStartX.value - mediaTouchEndX.value
-  const diffY = mediaTouchStartY.value - mediaTouchEndY.value
-
-  // 保持原来的左右滑逻辑：仅在“图片 + 多张”时切换
-  if (isViewingImage.value && imageFiles.value.length > 1) {
-    // 水平滑动距离大于垂直滑动距离，且滑动距离大于50px
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-      if (diffX > 0) {
-        // 向左滑动，显示下一张
-        nextMedia()
-      } else {
-        // 向右滑动，显示上一张
-        prevMedia()
-      }
-    }
-  }
-
-  // 上下滑关闭预览：仅在纵向为主，且距离足够时触发
-  if (mediaSwipeStartedOnClosableArea.value) {
-    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 80) {
-      closeMediaViewer()
-    } else {
-      // 如果没有触发关闭，则添加滑动返回动画
-      mediaSlideOffset.value = 0
-      mediaSlideOpacity.value = 1
-    }
-  }
-
-  // 重置触摸位置
-  mediaTouchStartX.value = 0
-  mediaTouchEndX.value = 0
-  mediaTouchStartY.value = 0
-  mediaTouchEndY.value = 0
-  mediaSwipeAxis.value = null
-  mediaSwipeStartedOnClosableArea.value = false
-  // 滑动动画变量会在下次触摸开始时重置
-}
-
-// 鼠标移动显示/隐藏导航按钮
-function handleMediaMouseMove() {
-  // 在 Image.vue 中，我们暂时不需要鼠标移动功能
-}
-
-function handleMediaMouseLeave() {
-  // 在 Image.vue 中，我们暂时不需要鼠标离开功能
-}
-
-// 处理点击媒体查看器背景关闭预览
-function handleMediaBackgroundClick(event) {
-  // 如果点击的是背景区域（不是媒体内容或导航按钮），则关闭预览
-  if (event.target.classList.contains('media-viewer')) {
-    closeMediaViewer()
-  }
-}
-
-// 清理缩略图URL
-function cleanupThumbnailUrls() {
-  Object.values(thumbnailCache.value).forEach(url => {
-    if (url && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url)
-    }
-  })
-  thumbnailCache.value = {}
-}
-
-// 显示提示消息
-function showToastMessage(message, type = 'info', duration = 3000) {
-  // 在 Image.vue 中，我们暂时使用简单的 alert
-  alert(message)
 }
 
 onMounted(() => {
-  console.log('Image.vue 组件已加载')
-  
-  // 判断是否为 Android 原生 App（Capacitor 环境）
-  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-    isAndroidApp.value = true
+  // close menu when clicking outside
+  const onDocClick = () => { menuOpen.value = false }
+  document.addEventListener('click', onDocClick)
+  if (Capacitor.isNativePlatform && Capacitor.getPlatform && Capacitor.isNativePlatform()) {
+    if (Capacitor.getPlatform() === 'android') {
+      isAndroidApp.value = true
+      // Android Native模式专用修复
+      applyAndroidNativeFix()
+    }
   }
-  
-  // 初始加载图片
-  loadImages(0)
-  
-  // 添加滚动监听
-  const galleryContent = document.querySelector('.gallery-content')
-  if (galleryContent) {
-    galleryContent.addEventListener('scroll', handleScroll)
-  }
-  
-  // 初始计算可见区域
-  setTimeout(handleScroll, 100)
+
+  updateColumns()
+  window.addEventListener('resize', updateColumns)
+
+  // ensure template refs are populated before initializing observer
+  nextTick(() => {
+    initObserver()
+    // if any elements were collected earlier, observe them now
+    observedElements.forEach((el, idx) => {
+      try {
+        if (intersectionObserver.value && el) intersectionObserver.value.observe(el)
+      } catch (e) {
+        // ignore
+      }
+    })
+    loadImages(0)
+  })
+
+  // cleanup doc click listener on unmount
+  onUnmounted(() => {
+    document.removeEventListener('click', onDocClick)
+  })
 })
 
-onUnmounted(() => {
-  // 清理缩略图URL
-  cleanupThumbnailUrls()
+
+// Android Native模式专用修复
+function applyAndroidNativeFix() {
+  // 确保滚动容器有正确的高度
+  nextTick(() => {
+    if (scrollContainer.value) {
+      // 确保容器可以滚动
+      scrollContainer.value.style.webkitOverflowScrolling = 'touch'
+      scrollContainer.value.style.overflowY = 'auto'
+      scrollContainer.value.style.overflowX = 'hidden'
+      
+      // 添加触摸事件监听器以确保滚动工作
+      scrollContainer.value.addEventListener('touchstart', function(e) {
+        // 允许默认的滚动行为
+      }, { passive: true })
+      
+      scrollContainer.value.addEventListener('touchmove', function(e) {
+        // 允许默认的滚动行为
+      }, { passive: true })
+      
+      // 确保容器有正确的高度
+      const galleryEl = document.querySelector('.image-gallery')
+      if (galleryEl) {
+        galleryEl.style.height = '100vh'
+        galleryEl.style.display = 'flex'
+        galleryEl.style.flexDirection = 'column'
+      }
+      
+      // 强制重绘以确保样式生效
+      scrollContainer.value.style.display = 'none'
+      scrollContainer.value.offsetHeight // 触发重绘
+      scrollContainer.value.style.display = ''
+    }
+    
+    // 添加全局触摸事件监听器，确保滚动不被阻止
+    document.addEventListener('touchmove', function(e) {
+      // 允许所有触摸移动事件
+    }, { passive: true })
+  })
   
-  // 移除滚动监听
-  const galleryContent = document.querySelector('.gallery-content')
-  if (galleryContent) {
-    galleryContent.removeEventListener('scroll', handleScroll)
+  // 简化点击事件处理
+  const originalHandleImageClick = handleImageClick
+  handleImageClick = function(file) {
+    // 直接调用原始函数，不进行复杂的防抖检查
+    lastTouchHandledAt.value = 0
+    originalHandleImageClick.call(this, file)
   }
+  
+  // 确保body和html元素有正确的样式
+  nextTick(() => {
+    document.body.style.overflow = 'hidden'
+    document.body.style.height = '100%'
+    document.documentElement.style.overflow = 'hidden'
+    document.documentElement.style.height = '100%'
+  })
+}
+
+
+onUnmounted(() => {
+  if (intersectionObserver.value) intersectionObserver.value.disconnect()
+  window.removeEventListener('resize', updateColumns)
 })
 </script>
 
 <style scoped>
 .image-gallery {
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
+  /* 与Files.vue保持一致，确保Native模式下滚动正常 */
+  /* 移除overflow: hidden，允许内部容器滚动 */
+  position: relative;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  box-sizing: border-box;
+  /* 确保在Android WebView中正确工作 */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Native模式下特别优化 */
+.image-gallery.android-native-app {
+  /* App.vue 已处理状态栏安全区；移除根容器的额外 top padding
+     以避免内容与状态栏之间出现多余间隔。 */
+  padding-top: 0;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 /* 紫色状态栏已移至App.vue中统一管理 */
@@ -711,6 +523,10 @@ onUnmounted(() => {
 .gallery-tools {
   display: flex;
   gap: 10px;
+  position: absolute;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 8px) + 6px);
+  z-index: 1100;
 }
 
 .tool-btn {
@@ -739,17 +555,91 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
+/* mobile-only helper */
+.mobile-only { display: none }
+
+.dropdown { position: relative }
+.menu-btn {
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  font-size: 18px;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  z-index: 1200;
+}
+
+/* Native: ensure dropdown doesn't collide with safe-area on right edge */
+.image-gallery.android-native-app .dropdown .menu {
+  right: calc(env(safe-area-inset-right, 0px));
+}
+.menu-item {
+  padding: 12px 14px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+.menu-item:hover { background: #f5f5f5 }
+.menu-item.disabled { color: #999; cursor: default; pointer-events: none }
+
+@media (max-width: 768px) {
+  .mobile-only { display: block }
+}
+
+/* Native: reduce extra top gap between status bar and gallery content */
+.image-gallery.android-native-app .gallery-content {
+  /* 仅保留一个小的内边距，使内容与头部有视觉间隔，
+     不再重复应用 safe-area-inset（由 App.vue 处理）。 */
+  padding-top: 6px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.menu-check { display: inline-block; width: 20px; margin-right: 6px; color: #667eea; font-weight: 600 }
+
 .gallery-content {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+  touch-action: pan-y; /* 允许垂直触摸滚动 */
+  pointer-events: auto;
+  overscroll-behavior: contain; /* 防止滚动链 */
+  scroll-behavior: smooth; /* 平滑滚动 */
+  /* 确保触摸事件不会被阻止 */
+  -webkit-touch-callout: none; /* 禁用长按菜单 */
+  /* 移除will-change和contain，它们在某些情况下可能降低性能 */
+  /* Android WebView优化 */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* 确保滚动容器有正确的高度 */
+  min-height: 0; /* 重要：允许flex容器内的滚动 */
 }
 
 /* 网格视图样式 - iOS风格 */
 .image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 2px;
+  gap: 4px; /* 稍微增大间隙以符合 iOS 风格 */
+  /* 保留底部空间，避免被底部 Tab 遮挡（Tab 高度 65px） */
+  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
 }
 
 .image-grid-item {
@@ -757,20 +647,39 @@ onUnmounted(() => {
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
+  pointer-events: auto;
+  touch-action: pan-y;
+  /* 简化过渡效果，提高性能 */
+  transition: opacity 0.2s;
   -webkit-tap-highlight-color: transparent;
+  user-select: none; /* 防止文本选择干扰触摸 */
+  -webkit-user-drag: none; /* 防止拖动干扰 */
+  /* 移除transform和backface-visibility，简化渲染 */
 }
 
 .image-grid-item:hover,
 .image-grid-item:active {
-  opacity: 0.8;
-  transform: scale(0.98);
+  opacity: 0.9;
+  /* 移除transform缩放，提高性能 */
 }
 
 .image-thumbnail {
   position: relative;
   width: 100%;
-  height: 120px;
+  height: 100px; /* 调整为更紧凑的行高，匹配 itemHeight */
+  /* 优化渲染性能 */
+  contain: content;
+  will-change: transform; /* 仅在有动画时使用，这里移除 */
+}
+
+/* ensure image thumbnails fill the container and keep aspect ratio */
+.image-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: auto;
+  touch-action: pan-y;
 }
 
 .image-placeholder {
@@ -793,12 +702,10 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s;
+  /* 移除过渡效果，提高性能 */
 }
 
-.image-grid-item:hover .image-real img {
-  transform: scale(1.05);
-}
+/* 移除图片缩放效果，提高性能 */
 
 .image-icon {
   font-size: 32px;
@@ -979,6 +886,8 @@ onUnmounted(() => {
 .android-native-app .media-viewer {
   top: env(safe-area-inset-top, 0);
   height: calc(100% - env(safe-area-inset-top, 0));
+  /* Native模式下确保触摸事件正常 */
+  touch-action: pan-y;
 }
 
 .android-native-app .media-viewer-close {
@@ -1121,6 +1030,12 @@ onUnmounted(() => {
   
   .gallery-content {
     padding: 8px;
+    /* 移动设备上优化触摸滚动 */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    /* 移动设备上进一步优化 */
+    -webkit-tap-highlight-color: transparent;
   }
   
   .image-grid {
@@ -1148,6 +1063,12 @@ onUnmounted(() => {
   
   .gallery-content {
     padding: 4px;
+    /* 小屏幕设备上进一步优化触摸滚动 */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    /* 小屏幕设备上特别优化 */
+    -webkit-tap-highlight-color: transparent;
   }
   
   .image-grid {

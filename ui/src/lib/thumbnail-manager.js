@@ -218,7 +218,7 @@ export default class CacheManager {
                     cachefile: cacheRecord.cachefile,
                 };
 
-                console.log("cache metadata", metadata)
+                console.log("cache metadata", JSON.stringify(metadata))
 
                 return {
                     metadata: metadata,

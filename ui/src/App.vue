@@ -212,25 +212,21 @@ const disableBrowserMenus = () => {
   }, { capture: true });
   
   // 4. 禁用图片长按菜单
-  document.addEventListener('touchstart', (e) => {
-    // 如果是长按事件，阻止默认行为
-    if (e.touches && e.touches.length > 0) {
-      const target = e.target;
-      
-      // 检查是否应该允许自定义菜单
-      const shouldAllowCustomMenu = target.closest('.file-list-item') || 
-                                    target.closest('.thumbnail-item') ||
-                                    target.closest('.context-menu') ||
-                                    target.closest('[data-allow-context-menu]');
-      
-      // 如果是图片元素且不是文件项，阻止长按菜单
-      if (target.tagName === 'IMG' && !shouldAllowCustomMenu) {
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-    }
-  }, { passive: false, capture: true });
+  // document.addEventListener('touchstart', (e) => {
+  //   // 仅用于检测触摸目标；不要在 touchstart 上调用 preventDefault
+  //   // 因为这会在部分 WebView/Android 原生容器中阻塞滚动。
+  //   // 使用 CSS (-webkit-touch-callout / user-select) 来抑制长按菜单。
+  //   if (!(e.touches && e.touches.length > 0)) return;
+  //   const target = e.target;
+  //   const shouldAllowCustomMenu = target.closest('.file-list-item') || 
+  //                                 target.closest('.thumbnail-item') ||
+  //                                 target.closest('.context-menu') ||
+  //                                 target.closest('[data-allow-context-menu]');
+  //   if (target.tagName === 'IMG' && !shouldAllowCustomMenu) {
+  //     // 保留默认行为以允许从缩略图开始的滚动。
+  //     return;
+  //   }
+  // }, { passive: true, capture: true });
   
   // 5. 添加CSS样式禁用文本选择
   const style = document.createElement('style');
