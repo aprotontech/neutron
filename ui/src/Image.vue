@@ -1,25 +1,25 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
-    <!-- 顶部工具栏（移动设备显示） -->
-    <div class="gallery-tools mobile-only" @click.stop>
-      <div class="dropdown">
-        <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
-        <div class="menu" v-if="menuOpen">
-          <button class="menu-item disabled">按最近添加排序</button>
-          <button class="menu-item disabled">按拍摄日期排序</button>
-          <button class="menu-item" @click="setFilter('images')">
-            <span class="menu-check" aria-hidden="true">{{ filterType === 'images' ? '✓' : '' }}</span>
-            只显示图片
-          </button>
-          <button class="menu-item" @click="setFilter('videos')">
-            <span class="menu-check" aria-hidden="true">{{ filterType === 'videos' ? '✓' : '' }}</span>
-            只显示视频
-          </button>
-        </div>
-      </div>
-    </div>
     <!-- 图库内容 -->
     <div class="gallery-content" ref="scrollContainer">
+      <!-- 顶部工具栏（移动设备显示） -->
+      <div class="gallery-tools mobile-only" @click.stop>
+        <div class="dropdown">
+          <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
+          <div class="menu" v-if="menuOpen">
+            <button class="menu-item disabled">按最近添加排序</button>
+            <button class="menu-item disabled">按拍摄日期排序</button>
+            <button class="menu-item" @click="setFilter('images')">
+              <span class="menu-check" aria-hidden="true">{{ filterType === 'images' ? '✓' : '' }}</span>
+              只显示图片
+            </button>
+            <button class="menu-item" @click="setFilter('videos')">
+              <span class="menu-check" aria-hidden="true">{{ filterType === 'videos' ? '✓' : '' }}</span>
+              只显示视频
+            </button>
+          </div>
+        </div>
+      </div>
       <!-- 图片网格 -->
           <div class="image-grid">
             <div 
@@ -525,7 +525,7 @@ onUnmounted(() => {
   gap: 10px;
   position: absolute;
   right: 12px;
-  top: calc(env(safe-area-inset-top, 8px) + 6px);
+  top: 6px;
   z-index: 1100;
 }
 
@@ -616,6 +616,7 @@ onUnmounted(() => {
 .gallery-content {
   flex: 1;
   padding: 20px;
+  position: relative; /* make dropdown absolute positioning relative to content */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
   touch-action: pan-y; /* 允许垂直触摸滚动 */
