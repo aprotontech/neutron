@@ -552,11 +552,11 @@ async function openMediaViewer(file) {
   currentMediaUrl.value = ''
   currentTextContent.value = ''
   
-  // 检查文件大小限制（5MB）
-  if (file.size > Config.getMaxPreviewFileSize()) {
-    selectedFile.value = file // 设置选中的文件，以便下载按钮可以正常工作
+  if (!await fileAPI.getFileLocalCachedUrl(file.path)) {
+    // 检查文件大小限制（5MB）
+    if (file.size > Config.getMaxPreviewFileSize()) {
+      selectedFile.value = file // 设置选中的文件，以便下载按钮可以正常工作
 
-    if (!await fileAPI.getFileLocalCachedUrl(file.path)) {
       // 显示确认对话框，让用户选择是否继续查看
       const maxSizeMB = Config.getMaxPreviewFileSize() / (1024 * 1024)
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
@@ -564,14 +564,12 @@ async function openMediaViewer(file) {
       
       if (!confirm(confirmMessage)) {
         // 用户点击取消
-        showToastMessage('已取消查看大文件。', 'info')
         isMediaLoading.value = false
         return
       }
+      // 用户点击确认，继续查看
+      showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
     }
-    
-    // 用户点击确认，继续查看
-    showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
   }
   
   // 更新图片文件列表

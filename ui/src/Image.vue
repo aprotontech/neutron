@@ -980,6 +980,7 @@ onUnmounted(() => {
 .media-loading-text {
   font-size: 14px;
   opacity: 0.8;
+  white-space: nowrap;
 }
 
 /* 空状态样式 */

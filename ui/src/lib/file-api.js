@@ -34,6 +34,8 @@ export default class FileAPI {
 
         // Concurrent request cache for deduplication
         this._pendingRequests = new Map(); // key -> Promise
+        // Request queues for concurrency limiting: requestType -> { count, queue }
+        this._requestQueues = new Map();
     }
 
     /**
@@ -62,6 +64,50 @@ export default class FileAPI {
         this._pendingRequests.set(key, promise);
 
         return await promise;
+    }
+
+    /**
+     * Queue requests by type to limit concurrency.
+     * @param {string} requestType
+     * @param {number} maxConcurrency
+     * @param {Function} requestFn - async function returning the request result
+     */
+    async _queueRequest(requestType, maxConcurrency, requestFn) {
+        if (!this._requestQueues.has(requestType)) {
+            this._requestQueues.set(requestType, { count: 0, queue: [] });
+        }
+
+        const entry = this._requestQueues.get(requestType);
+
+        return new Promise((resolve, reject) => {
+            const run = async () => {
+                entry.count += 1;
+                try {
+                    const r = await requestFn();
+                    resolve(r);
+                } catch (err) {
+                    reject(err);
+                } finally {
+                    entry.count -= 1;
+                    // start next queued request if any
+                    const next = entry.queue.shift();
+                    if (next) {
+                        // schedule next tick to avoid deep recursion
+                        setTimeout(next, 0);
+                    }
+                    // cleanup empty queue entries to avoid unbounded Map growth
+                    if (entry.count === 0 && entry.queue.length === 0) {
+                        this._requestQueues.delete(requestType);
+                    }
+                }
+            };
+
+            if (entry.count < maxConcurrency) {
+                run();
+            } else {
+                entry.queue.push(run);
+            }
+        });
     }
 
     /**
@@ -201,7 +247,9 @@ export default class FileAPI {
 
         return await this._executeWithDeduplication(hashKey, async () => {
             return await this.cacheThumbnailUrl('thumbnail', hashKey, async () => {
-                return TransferClient.get().getFileThumbnail(filePath, maxSize);
+                return await this._queueRequest('getFileThumbnail', Config.getThumbnailRequestMaxConcurrency(), async () => {
+                    return TransferClient.get().getFileThumbnail(filePath, maxSize);
+                });
             });
         });
     }
@@ -226,13 +274,17 @@ export default class FileAPI {
                     return result.localUrl
                 }
             } else {
-                return TransferClient.get().getFileUrl(filePath, mimeType);
+                return await this._queueRequest('getFileUrl', Config.getFileRequestMaxConcurrency(), async () => {
+                    return TransferClient.get().getFileUrl(filePath, mimeType);
+                });
             }
         });
     }
 
     async getFileLocalCachedUrl(filePath) {
-        console.log("getFileLocalCachedUrl", filePath)
+        if (!this.localFileManager) {
+            return null;
+        }
         const localFile = await this.localFileManager.getLocalFile(filePath);
         if (localFile && localFile.localUrl) {
             console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);

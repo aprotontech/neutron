@@ -230,10 +230,6 @@
               <div class="table-summary">
                 共 {{ downloadedFiles.length }} 个文件
               </div>
-              <button class="refresh-btn" @click="loadDownloadedFiles" :disabled="loadingFiles">
-                <span class="refresh-icon">🔄</span>
-                刷新
-              </button>
             </div>
             
             <div class="files-table-wrapper">
@@ -241,7 +237,6 @@
                 <thead>
                   <tr>
                     <th>文件名</th>
-                    <th>下载状态</th>
                     <th>下载时间</th>
                     <th>本地状态</th>
                     <th>本地路径</th>
@@ -253,9 +248,6 @@
                     <td class="file-name">
                       <span class="file-icon">📄</span>
                       {{ file.file_name || file.name || '未知文件' }}
-                    </td>
-                    <td>
-                      <span class="status-badge status-completed">已下载</span>
                     </td>
                     <td class="download-time">
                       {{ formatDownloadTime(file.downloaded_at) }}
@@ -1186,17 +1178,29 @@ onMounted(() => {
 .files-table-wrapper {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1 1 auto;
 }
 
 .files-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .files-table thead {
   background: #f8f9fa;
+}
+
+.files-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 2;
 }
 
 .files-table th {
@@ -1208,7 +1212,7 @@ onMounted(() => {
 }
 
 .files-table td {
-  padding: 12px 16px;
+  padding: 8px 10px;
   border-bottom: 1px solid #f0f0f0;
   vertical-align: middle;
 }
@@ -1235,6 +1239,9 @@ onMounted(() => {
 }
 
 .status-badge {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: inline-block;
   padding: 4px 10px;
   border-radius: 12px;
@@ -1262,10 +1269,6 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.local-path {
-  max-width: 200px;
-}
-
 .path-text {
   display: block;
   white-space: nowrap;
@@ -1279,6 +1282,9 @@ onMounted(() => {
 .actions {
   display: flex;
   gap: 8px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .action-btn {
@@ -1294,6 +1300,18 @@ onMounted(() => {
   justify-content: center;
   font-size: 14px;
   transition: all 0.3s;
+}
+
+.actions .action-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.files-table th:last-child,
+.files-table td:last-child {
+  width: 120px;
+  text-align: center;
+  padding-right: 0;
 }
 
 .action-btn:hover {
@@ -1443,10 +1461,10 @@ onMounted(() => {
     overflow-x: auto;
   }
   
+  .files-table th:nth-child(3),
+  .files-table td:nth-child(3),
   .files-table th:nth-child(4),
-  .files-table td:nth-child(4),
-  .files-table th:nth-child(5),
-  .files-table td:nth-child(5) {
+  .files-table td:nth-child(4) {
     display: none;
   }
   

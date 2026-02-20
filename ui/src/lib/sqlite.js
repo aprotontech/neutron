@@ -13,6 +13,7 @@ export default class SQLiteManager {
         this.dbName = 'neutron.db';
         this.db = null;
         this.initPromise = null;
+        this.dbSchemaVersion = 'v0'
 
         // Table names
         this.TABLES = {
@@ -68,8 +69,27 @@ export default class SQLiteManager {
                 // Open database
                 await this.db.open();
 
-                // Create downloaded_files table if not exists
-                await this.db.execute(`
+                // Use localStorage to cache initialized DB schema version
+                const SCHEMA_KEY = 'neutron_db_schema_version';
+                let storedVersion = null;
+                try {
+                    storedVersion = localStorage.getItem(SCHEMA_KEY);
+                } catch (e) {
+                    console.warn('[SQLiteManager] localStorage unavailable:', e);
+                }
+
+                const needReinit = storedVersion !== this.dbSchemaVersion;
+                if (needReinit) {
+                    console.log(`[SQLiteManager] Schema version mismatch (stored=${storedVersion}) current=${this.dbSchemaVersion}; reinitializing tables.`);
+                    try {
+                        await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.DOWNLOADED_FILES}`);
+                        await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.CACHE_FILES}`);
+                    } catch (e) {
+                        console.warn('[SQLiteManager] Error dropping old tables:', e);
+                    }
+
+                    // Create downloaded_files table if not exists
+                    await this.db.execute(`
                     CREATE TABLE IF NOT EXISTS ${this.TABLES.DOWNLOADED_FILES} (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         file_path TEXT NOT NULL,
@@ -88,8 +108,8 @@ export default class SQLiteManager {
                     )
                 `);
 
-                // Create cache_files table if not exists
-                await this.db.execute(`
+                    // Create cache_files table if not exists
+                    await this.db.execute(`
                     CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHE_FILES} (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         cachekey TEXT NOT NULL,
@@ -103,17 +123,25 @@ export default class SQLiteManager {
                     )
                 `);
 
-                // Create indexes for downloaded_files
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_file_path ON ${this.TABLES.DOWNLOADED_FILES}(file_path)`);
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_local_path ON ${this.TABLES.DOWNLOADED_FILES}(local_path)`);
+                    // Create indexes for downloaded_files
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_file_path ON ${this.TABLES.DOWNLOADED_FILES}(file_path)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_local_path ON ${this.TABLES.DOWNLOADED_FILES}(local_path)`);
 
-                // Create indexes for cache_files
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachekey ON ${this.TABLES.CACHE_FILES}(cachekey)`);
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_filepath ON ${this.TABLES.CACHE_FILES}(filepath)`);
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachetype ON ${this.TABLES.CACHE_FILES}(cachetype)`);
-                await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_updated ON ${this.TABLES.CACHE_FILES}(updated_at)`);
+                    // Create indexes for cache_files
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachekey ON ${this.TABLES.CACHE_FILES}(cachekey)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_filepath ON ${this.TABLES.CACHE_FILES}(filepath)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachetype ON ${this.TABLES.CACHE_FILES}(cachetype)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_updated ON ${this.TABLES.CACHE_FILES}(updated_at)`);
 
-                console.log('[SQLiteManager] Database initialized successfully with all tables');
+                    console.log('[SQLiteManager] Database initialized successfully with all tables');
+                }
+                try {
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.setItem(SCHEMA_KEY, this.dbSchemaVersion);
+                    }
+                } catch (e) {
+                    console.warn('[SQLiteManager] Failed to persist schema version to localStorage:', e);
+                }
                 return true;
             } catch (error) {
                 console.error('[SQLiteManager] Failed to initialize database:', error);

@@ -25,4 +25,12 @@ export class Config {
     static getMaxRetryDownloadPartitionCount() {
         return 5
     }
+
+    static getThumbnailRequestMaxConcurrency() {
+        return 10
+    }
+
+    static getFileRequestMaxConcurrency() {
+        return 5
+    }
 }

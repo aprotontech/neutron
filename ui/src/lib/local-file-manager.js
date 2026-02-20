@@ -784,130 +784,6 @@ export default class LocalFileManager {
         return false;
     }
 
-    /**
-     * Prepare all possible Filesystem options for a given local path
-     * This can be used for stat, deleteFile, and other Filesystem operations
-     * @private
-     */
-    _prepareFilesystemOptions(localPath) {
-        const optionsList = [];
-
-        if (!localPath) {
-            return optionsList;
-        }
-
-        // 选项1: 直接使用完整路径
-        optionsList.push({ path: localPath });
-
-        // 提取文件名逻辑（原 _extractFilename 函数）
-        let extractedFilename = null;
-        // 移除协议前缀（如 capacitor://, file://）
-        const pathWithoutProtocol = localPath.replace(/^(capacitor|file):\/\//, '');
-        // 提取文件名（最后一个斜杠后的部分）
-        const filename = pathWithoutProtocol.split('/').pop();
-        // 如果提取的文件名包含扩展名，使用它
-        if (filename && filename.includes('.')) {
-            extractedFilename = filename;
-        } else {
-            // 如果没有扩展名，尝试使用原始路径的最后一部分
-            const originalFilename = localPath.split('/').pop();
-            extractedFilename = originalFilename || null;
-        }
-
-        // 选项2: 在下载目录中操作
-        if (this.downloadDir && extractedFilename) {
-            optionsList.push({
-                path: extractedFilename,
-                directory: this.downloadDir.directory
-            });
-        }
-
-        // 选项3: 在缓存目录中操作
-        if (this.cacheingDir && extractedFilename) {
-            optionsList.push({
-                path: extractedFilename,
-                directory: this.cacheingDir.directory
-            });
-        }
-
-        // 解析路径逻辑（原 _parseLocalPath 函数）
-        // 检查是否是完整的 Capacitor URI
-        if (localPath.startsWith('capacitor://')) {
-            // capacitor://path/to/file -> 移除协议，使用 Documents 目录
-            const pathWithoutProtocol = localPath.replace('capacitor://', '');
-            optionsList.push({
-                path: pathWithoutProtocol,
-                directory: Directory.Documents
-            });
-        }
-
-        // 检查是否是完整的 file URI
-        if (localPath.startsWith('file://')) {
-            // file:///path/to/file -> 移除协议
-            const pathWithoutProtocol = localPath.replace('file://', '');
-            optionsList.push({
-                path: pathWithoutProtocol,
-                directory: Directory.ExternalStorage
-            });
-        }
-
-        // 检查是否包含已知目录路径
-        if (localPath.includes('/downloads/')) {
-            const relativePath = localPath.split('/downloads/').pop();
-            optionsList.push({
-                path: relativePath,
-                directory: Directory.Documents
-            });
-        }
-
-        if (localPath.includes('/.caching/')) {
-            const relativePath = localPath.split('/.caching/').pop();
-            optionsList.push({
-                path: relativePath,
-                directory: Directory.Data
-            });
-        }
-
-        return optionsList;
-    }
-
-    /**
-     * Delete a file using multiple path options
-     * @param {string} localPath - Local file path
-     * @param {boolean} throwOnError - Whether to throw error if all options fail (default: true)
-     * @returns {Promise<void>}
-     * @private
-     */
-    async _deleteFileWithOptions(localPath, throwOnError = true) {
-        // 准备所有要尝试的 Filesystem.deleteFile 参数
-        const deleteOptionsList = this._prepareFilesystemOptions(localPath);
-
-        // 按顺序尝试所有参数组合
-        let deleteError = null;
-        for (let i = 0; i < deleteOptionsList.length; i++) {
-            const options = deleteOptionsList[i];
-            try {
-                console.log(`[LocalFileManager] Trying delete option ${i + 1}:`, options);
-                await Filesystem.deleteFile(options);
-                console.log(`[LocalFileManager] File deleted using option ${i + 1}`);
-                deleteError = null;
-                break;
-            } catch (error) {
-                console.log(`[LocalFileManager] Delete option ${i + 1} failed: ${error.message}`);
-                deleteError = error;
-            }
-        }
-
-        // 如果所有选项都失败，根据参数决定是否抛出错误
-        if (deleteError && throwOnError) {
-            throw new Error(`无法删除文件，请手动删除: ${localPath}`);
-        }
-
-        // 如果 throwOnError 为 false，即使失败也不抛出错误
-        return;
-    }
-
-
 
     /**
      * Get storage usage information
@@ -961,6 +837,11 @@ export default class LocalFileManager {
                 return false;
             }
 
+            await Filesystem.deleteFile({
+                path: fileRecord.localCache.path,
+                directory: fileRecord.localCache.directory,
+            });
+
             // Mark as invalid in database
             const db = await this._ensureDatabase();
 
@@ -969,8 +850,6 @@ export default class LocalFileManager {
                 [filePath]
             );
 
-            // 使用通用的删除方法
-            await this._deleteFileWithOptions(fileRecord.localUrl);
 
             console.log(`[LocalFileManager] File deleted: ${filePath}, local: ${fileRecord.localUrl}`);
             return true;

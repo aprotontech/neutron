@@ -100,6 +100,8 @@ func getFileInfo(fsm *FileSystemMock, req any) (any, error) {
 		return nil, err
 	}
 
+	exif, _ := media.GetImageExifData(path.Join(config.GlobalConfig.Home, fpath))
+
 	result := FileFolderInfo{
 		"name":     info.Name(),
 		"isDir":    info.IsDir(),
@@ -107,6 +109,7 @@ func getFileInfo(fsm *FileSystemMock, req any) (any, error) {
 		"modTime":  info.ModTime().Format("2006-01-02 15:04:05"),
 		"path":     fpath,
 		"mimeType": "",
+		"exif":     exif,
 	}
 
 	return result, nil
