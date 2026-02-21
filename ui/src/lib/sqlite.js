@@ -13,12 +13,14 @@ export default class SQLiteManager {
         this.dbName = 'neutron.db';
         this.db = null;
         this.initPromise = null;
-        this.dbSchemaVersion = 'v0'
+        this.dbSchemaVersion = 'v1'
 
         // Table names
         this.TABLES = {
             DOWNLOADED_FILES: 'downloaded_files',
-            CACHE_FILES: 'cache_files'
+            CACHE_FILES: 'cache_files',
+            CACHED_IMAGE_REPO: 'cached_image_repo',
+            CACHED_FILE_INFOS: 'cached_file_infos'
         };
     }
 
@@ -84,54 +86,89 @@ export default class SQLiteManager {
                     try {
                         await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.DOWNLOADED_FILES}`);
                         await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.CACHE_FILES}`);
+                        await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.CACHED_IMAGE_REPO}`);
+                        await this.db.execute(`DROP TABLE IF EXISTS ${this.TABLES.CACHED_FILE_INFOS}`);
                     } catch (e) {
                         console.warn('[SQLiteManager] Error dropping old tables:', e);
                     }
 
                     // Create downloaded_files table if not exists
                     await this.db.execute(`
-                    CREATE TABLE IF NOT EXISTS ${this.TABLES.DOWNLOADED_FILES} (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        file_path TEXT NOT NULL,
-                        file_name TEXT NOT NULL,
-                        local_path TEXT NOT NULL,
-                        local_directory TEXT,
-                        local_uri TEXT,
-                        total_parition INTEGER NOT NULL,
-                        parition INTEGER NOT NULL,
-                        file_size INTEGER NOT NULL,
-                        mime_type TEXT,
-                        downloaded_at INTEGER NOT NULL,
-                        last_accessed INTEGER NOT NULL,
-                        is_valid INTEGER DEFAULT 1,
-                        UNIQUE(file_path, parition, total_parition)
-                    )
-                `);
-
-                    // Create cache_files table if not exists
-                    await this.db.execute(`
-                    CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHE_FILES} (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        cachekey TEXT NOT NULL,
-                        filepath TEXT NOT NULL,
-                        cachetype TEXT NOT NULL,
-                        cachefile TEXT NOT NULL,
-                        mimetype TEXT,
-                        filesize INTEGER NOT NULL,
-                        updated_at INTEGER NOT NULL,
-                        UNIQUE(cachekey)
-                    )
-                `);
+                        CREATE TABLE IF NOT EXISTS ${this.TABLES.DOWNLOADED_FILES} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            file_path TEXT NOT NULL,
+                            file_name TEXT NOT NULL,
+                            local_path TEXT NOT NULL,
+                            local_directory TEXT,
+                            local_uri TEXT,
+                            total_parition INTEGER NOT NULL,
+                            parition INTEGER NOT NULL,
+                            file_size INTEGER NOT NULL,
+                            mime_type TEXT,
+                            downloaded_at INTEGER NOT NULL,
+                            last_accessed INTEGER NOT NULL,
+                            is_valid INTEGER DEFAULT 1,
+                            UNIQUE(file_path, parition, total_parition)
+                        )
+                    `);
 
                     // Create indexes for downloaded_files
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_file_path ON ${this.TABLES.DOWNLOADED_FILES}(file_path)`);
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_downloaded_local_path ON ${this.TABLES.DOWNLOADED_FILES}(local_path)`);
+
+                    // Create cache_files table if not exists
+                    await this.db.execute(`
+                        CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHE_FILES} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            cachekey TEXT NOT NULL,
+                            filepath TEXT NOT NULL,
+                            cachetype TEXT NOT NULL,
+                            cachefile TEXT NOT NULL,
+                            mimetype TEXT,
+                            filesize INTEGER NOT NULL,
+                            updated_at INTEGER NOT NULL,
+                            UNIQUE(cachekey)
+                        )
+                    `);
 
                     // Create indexes for cache_files
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachekey ON ${this.TABLES.CACHE_FILES}(cachekey)`);
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_filepath ON ${this.TABLES.CACHE_FILES}(filepath)`);
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_cachetype ON ${this.TABLES.CACHE_FILES}(cachetype)`);
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cache_updated ON ${this.TABLES.CACHE_FILES}(updated_at)`);
+
+                    // Create cached_image_repo table if not exists
+                    await this.db.execute(`
+                        CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHED_IMAGE_REPO} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            file_path TEXT NOT NULL,
+                            ftime INTEGER,
+                            ctime INTEGER,
+                            size INTEGER
+                        )
+                    `);
+
+                    // Create indexes for cached_image_repo
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_file_path ON ${this.TABLES.CACHED_IMAGE_REPO}(file_path)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_ctime ON ${this.TABLES.CACHED_IMAGE_REPO}(ctime)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_ftime ON ${this.TABLES.CACHED_IMAGE_REPO}(ftime)`);
+
+                    // Create cached_file_infos table if not exists
+                    await this.db.execute(`
+                        CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHED_FILE_INFOS} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            file_path TEXT NOT NULL,
+                            is_dir INTEGER NOT NULL DEFAULT 0,
+                            size INTEGER,
+                            mtime INTEGER,
+                            mime_type TEXT,
+                            exif TEXT
+                        )
+                    `);
+
+                    // Indexes for cached_file_infos
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_file_infos_file_path ON ${this.TABLES.CACHED_FILE_INFOS}(file_path)`);
+
 
                     console.log('[SQLiteManager] Database initialized successfully with all tables');
                 }

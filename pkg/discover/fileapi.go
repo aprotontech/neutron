@@ -253,6 +253,12 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	return map[string]any{"id": hex.EncodeToString(id)}, nil
 }
 
+func getFileSystemVersion(fsm *FileSystemMock, req any) (any, error) {
+	return map[string]any{
+		"version": fsm.metadataRepo.GetVersion(),
+	}, nil
+}
+
 func getImageVideos(fsm *FileSystemMock, req any) (any, error) {
 	info := req.(map[string]interface{})
 	_types, ok := info["types"].([]interface{})

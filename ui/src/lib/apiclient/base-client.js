@@ -5,6 +5,10 @@ export default class BaseClient {
         throw new Error('Not implemented');
     }
 
+    async getFileSystemVersion() {
+        throw new Error('Not implemented');
+    }
+
     async listFiles(path) {
         throw new Error('Not implemented');
     }

@@ -5,6 +5,7 @@ import CacheManager from './thumbnail-manager.js';
 import { Capacitor } from '@capacitor/core';
 import { getLocalFileManager } from './local-file-manager.js';
 import { Config } from './config.js';
+import CachedFileInformation from './file-info.js';
 
 // 全局Blob检查
 const BlobAvailable = typeof Blob !== 'undefined';
@@ -30,6 +31,8 @@ export default class FileAPI {
 
             // Ensure cache is ready
             this.cacheManager.ready();
+            // cached file info helper
+            this._cachedFileInfo = new CachedFileInformation();
         }
 
         // Concurrent request cache for deduplication
@@ -169,7 +172,7 @@ export default class FileAPI {
         }
 
         if (!fileInfo) {
-            fileInfo = await TransferClient.get().getFileInfo(filePath);
+            fileInfo = await this.getFileInfo(filePath);
             console.log("file info", JSON.stringify(fileInfo))
         }
 
@@ -310,7 +313,31 @@ export default class FileAPI {
      * @returns {Promise<Object>} - File info object
      */
     async getFileInfo(filePath) {
-        return TransferClient.get().getFileInfo(filePath);
+        if (!this._cachedFileInfo) {
+            return await TransferClient.get().getFileInfo(filePath);
+        }
+
+        // Try to read from local sqlite cache first
+        try {
+            const cached = await this._cachedFileInfo.getFileInfo(filePath);
+            if (cached) {
+                return cached;
+            }
+        } catch (e) {
+            // ignore cache errors and fall back to network
+            console.warn('CachedFileInformation.getFileInfo failed:', e);
+        }
+
+        // Fallback to network and cache the result when possible
+        const fresh = await TransferClient.get().getFileInfo(filePath);
+        try {
+            if (fresh) {
+                await this._cachedFileInfo.saveFileInfo(filePath, fresh);
+            }
+        } catch (e) {
+            console.warn('CachedFileInformation.saveFileInfo failed:', e);
+        }
+        return fresh;
     }
 
     /**

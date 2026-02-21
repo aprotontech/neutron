@@ -3,7 +3,7 @@
     <!-- 图库内容 -->
     <div class="gallery-content" ref="scrollContainer">
       <!-- 顶部工具栏（移动设备显示） -->
-      <div class="gallery-tools mobile-only" @click.stop>
+      <div class="gallery-tools mobile-only" v-if="!isViewingMedia" @click.stop>
         <div class="dropdown">
           <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
           <div class="menu" v-if="menuOpen">
@@ -73,11 +73,24 @@
       @touchend="mediaTouchEnd"
       @click="handleBackgroundClick"
     >
+      <!-- top bar: back, file time, dropdown -->
+      <div class="media-topbar" v-if="currentMediaFile">
+          <button class="media-back" @click.stop="closeMediaViewer">←</button>
+          <div class="media-title">{{ formattedMediaTime }}</div>
+          <div class="dropdown media-dropdown" @click.stop>
+          <button class="menu-btn" @click.stop="toggleViewerMenu">⋮</button>
+          <div class="menu" v-if="viewerMenuOpen">
+            <button class="menu-item disabled">删除</button>
+            <button class="menu-item" @click="openDetailsModal">详细信息</button>
+          </div>
+        </div>
+      </div>
       <div 
         class="media-viewer-content" 
         :style="{ 
-          transform: `translateY(${slideOffset}px)`,
-          opacity: slideOpacity
+          transform: `translate3d(${slideX}px, ${slideOffset}px, 0)`,
+          opacity: slideOpacity,
+          width: mediaWidth
         }"
       >
         <div v-if="isMediaLoading" class="media-loading">
@@ -106,6 +119,43 @@
         <span class="nav-counter" v-if="imageFiles.length > 1">
           {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
         </span>
+      </div>
+
+      <!-- thumbnails below preview -->
+      <div class="media-thumbnails" v-if="imageFiles.length > 0 && isViewingMedia">
+          <div class="thumb-list" ref="thumbsContainer">
+            <div 
+              v-for="(it, idx) in imageFiles" 
+              :key="it.path + '-' + idx" 
+              :class="['thumb-item', { active: idx === currentMediaIndex } ]"
+              @click.stop="jumpToIndex(idx)"
+            >
+            <img :src="it.thumbnailUrl || ''" :alt="it.name" />
+          </div>
+        </div>
+      </div>
+
+      <!-- details modal -->
+      <div class="details-modal" v-if="showDetailsModal">
+        <div class="details-backdrop" @click="closeDetailsModal"></div>
+        <div class="details-panel">
+          <div class="details-header">
+            <h3>文件信息</h3>
+            <button @click="closeDetailsModal">关闭</button>
+          </div>
+          <div class="details-body">
+            <div v-if="fileInfoLoading">加载中...</div>
+            <div v-else>
+              <div v-if="fileInfo">
+                <div v-for="(v, k) in fileInfo" :key="k" class="detail-row">
+                  <span class="detail-key">{{ k }}</span>
+                  <span class="detail-val">{{ v }}</span>
+                </div>
+              </div>
+              <div v-else>无信息</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -168,6 +218,13 @@ const currentMediaUrl = ref('')
 const isMediaLoading = ref(false)
 const imageFiles = ref([])
 const currentMediaIndex = ref(-1)
+const viewerMenuOpen = ref(false)
+const showDetailsModal = ref(false)
+const fileInfo = ref(null)
+const fileInfoLoading = ref(false)
+const slideX = ref(0)
+const mediaWidth = ref('100%')
+const thumbsContainer = ref(null)
 
 // touch state for swipe-down-to-close
 const touchStartY = ref(0)
@@ -178,6 +235,7 @@ const itemTouchStartX = ref(0)
 const itemTouchStartY = ref(0)
 const itemIsDragging = ref(false)
 const lastTouchHandledAt = ref(0)
+const lastTouchDx = ref(0)
 
 // layout estimation for scrollbar prefill
 const itemHeight = 100 // 与样式中一致（调整为更紧凑的 iOS 风格）
@@ -321,11 +379,21 @@ function handleImageClick(file) {
 
 async function openMediaViewer(file) {
   currentMediaFile.value = file
-  isMediaLoading.value = true
   isViewingMedia.value = true
   imageFiles.value = images.value.filter(f => f.type === '图片' || f.type === '视频')
   currentMediaIndex.value = imageFiles.value.findIndex(f => f.path === file.path)
   try {
+    isMediaLoading.value = await fileAPI.getFileLocalCachedUrl(file.path) ? false : true
+    // fetch file info for metadata display
+    try {
+      fileInfoLoading.value = true
+      fileInfo.value = await fileAPI.getFileInfo(file.path)
+    } catch (e) {
+      fileInfo.value = null
+    } finally {
+      fileInfoLoading.value = false
+    }
+
     currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
     if (file.type === '图片') {
       const img = new Image()
@@ -335,11 +403,67 @@ async function openMediaViewer(file) {
     } else {
       isMediaLoading.value = false
     }
+    // ensure thumbnails center on current
+    await nextTick()
+    centerThumbOnIndex(currentMediaIndex.value)
   } catch (e) {
     console.error('openMediaViewer error', e)
     isMediaLoading.value = false
   }
 }
+
+function toggleViewerMenu() { viewerMenuOpen.value = !viewerMenuOpen.value }
+
+async function openDetailsModal() {
+  viewerMenuOpen.value = false
+  showDetailsModal.value = true
+  if (currentMediaFile.value) {
+    fileInfoLoading.value = true
+    try {
+      const fileinfo = await fileAPI.getFileInfo(currentMediaFile.value.path)
+      if (fileinfo && fileinfo.exif) {
+        fileInfo.value = fileinfo.exif
+      } else {
+        fileInfo.value = fileinfo
+      }
+    } catch (e) {
+      fileInfo.value = null
+    } finally {
+      fileInfoLoading.value = false
+    }
+  }
+}
+
+function closeDetailsModal() { showDetailsModal.value = false }
+
+function jumpToIndex(idx) {
+  if (idx < 0 || idx >= imageFiles.value.length) return
+  currentMediaIndex.value = idx
+  const file = imageFiles.value[idx]
+  openMediaViewer(file)
+}
+
+function centerThumbOnIndex(idx) {
+  const cont = thumbsContainer.value
+  if (!cont) return
+  const items = cont.querySelectorAll('.thumb-item')
+  const item = items[idx]
+  if (!item) return
+  const contW = cont.clientWidth
+  const itemW = item.clientWidth
+  const left = item.offsetLeft + itemW / 2 - contW / 2
+  cont.scrollLeft = Math.max(0, left - 10)
+  cont.scrollTo({ left, behavior: 'smooth' })
+}
+
+const formattedMediaTime = computed(() => {
+  const info = fileInfo.value || {}
+  const maybe = info.modTime || info.mtime || info.lastModified || info.DateTimeOriginal || info.date || info.created_at
+  if (maybe) {
+    try { return (new Date(maybe)).toLocaleString() } catch (e) { return String(maybe) }
+  }
+  return currentMediaFile.value?.name || ''
+})
 
 function closeMediaViewer() {
   isViewingMedia.value = false
@@ -357,6 +481,9 @@ function mediaTouchStart(e) {
   const t = e.touches[0]
   touchStartY.value = t.clientY
   touchStartX.value = t.clientX
+  itemTouchStartX.value = t.clientX
+  itemTouchStartY.value = t.clientY
+  lastTouchDx.value = 0
 }
 
 function mediaTouchMove(e) {
@@ -364,26 +491,51 @@ function mediaTouchMove(e) {
   const t = e.touches[0]
   const dy = t.clientY - touchStartY.value
   const dx = Math.abs(t.clientX - touchStartX.value)
-  if (Math.abs(dy) > dx) {
+  const rawDx = t.clientX - itemTouchStartX.value
+  // if vertical movement larger -> vertical drag to close
+  if (Math.abs(dy) > Math.abs(rawDx)) {
     e.preventDefault()
     slideOffset.value = dy
     const ratio = Math.min(Math.abs(dy) / 300, 1)
     slideOpacity.value = 1 - ratio * 0.6
+  } else {
+    // horizontal swipe to change media
+    e.preventDefault()
+    slideX.value = rawDx
+    lastTouchDx.value = rawDx
   }
 }
 
 function mediaTouchEnd() {
   if (!isViewingMedia.value) return
+  // horizontal swipe handling
+  if (Math.abs(lastTouchDx.value) > 80) {
+    if (lastTouchDx.value < 0) {
+      // swipe left -> next
+      const next = Math.min(imageFiles.value.length - 1, currentMediaIndex.value + 1)
+      if (next !== currentMediaIndex.value) jumpToIndex(next)
+    } else {
+      // swipe right -> prev
+      const prev = Math.max(0, currentMediaIndex.value - 1)
+      if (prev !== currentMediaIndex.value) jumpToIndex(prev)
+    }
+  }
+
+  // vertical swipe handling (close)
   if (Math.abs(slideOffset.value) > 120) {
     closeMediaViewer()
   } else {
     slideOffset.value = 0
     slideOpacity.value = 1
   }
+
+  // reset horizontal slide animation
+  slideX.value = 0
+  lastTouchDx.value = 0
 }
 
 function handleBackgroundClick(e) {
-  if (e.target.classList && e.target.classList.contains('media-viewer')) closeMediaViewer()
+  //if (e.target.classList && e.target.classList.contains('media-viewer')) closeMediaViewer()
 }
 
 function refreshGallery() {
@@ -840,14 +992,90 @@ onUnmounted(() => {
 .media-viewer-content img,
 .media-viewer-content video {
   display: block;
-  width: auto;
+  width: 100%;
   height: auto;
   max-width: 100%;
-  max-height: 100%;
+  /* reserve space for topbar and thumbnails/tab area; slightly smaller gap */
+  max-height: calc(100vh - 160px);
   object-fit: contain;
   background: transparent;
   border-radius: 8px;
 }
+
+/* topbar inside media viewer */
+.media-topbar {
+  position: absolute;
+  /* reduce gap to status bar: smaller fallback and rely on safe-area inset */
+  top: env(safe-area-inset-top, 2px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  z-index: 1102;
+  color: white;
+}
+.media-back {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 20px;
+  padding: 8px;
+}
+.media-title {
+  text-align: center;
+  flex: 1;
+  font-size: 14px;
+  opacity: 0.95;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.media-dropdown { margin-left: 8px }
+
+/* thumbnails scroller */
+.media-thumbnails {
+  position: absolute;
+  /* lift thumbnails above bottom Tab (approx 65-72px); add safe-area and extra buffer */
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 1101;
+  pointer-events: auto;
+}
+.thumb-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 12px;
+  scrollbar-width: none;
+}
+.thumb-list::-webkit-scrollbar { display: none }
+.thumb-item {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid transparent;
+  flex: 0 0 auto;
+}
+.thumb-item img { width: 100%; height: 100%; object-fit: cover; display:block }
+.thumb-item.active { border-color: rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.6) }
+
+/* details modal */
+.details-modal { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center }
+.details-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6) }
+.details-panel { position: relative; background: white; width: min(720px, 92%); max-height: 80vh; overflow: auto; border-radius: 10px; z-index: 1201 }
+.details-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #eee }
+.details-body { padding: 12px 16px }
+.detail-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #f3f3f3 }
+.detail-key { font-weight:600; color:#333 }
+.detail-val { color:#555; margin-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 
 .media-viewer-close {
   position: absolute;

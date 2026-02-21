@@ -277,6 +277,10 @@ export default class WebRTCClient extends BaseClient {
         return await this.rpc.sendRpc('getFileInfo', { path: filePath });
     }
 
+    async getFileSystemVersion() {
+        return await this.rpc.sendRpc('getFileSystemVersion', {});
+    }
+
     async getImageRepo(offset, count) {
         console.log('getImageRepo:', offset, count);
 

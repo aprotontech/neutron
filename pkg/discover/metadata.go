@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
@@ -17,9 +18,10 @@ import (
 )
 
 type MetadataRepository struct {
-	home   string
-	config *config.MetadataRepoConfig
-	db     *sql.DB
+	home    string
+	config  *config.MetadataRepoConfig
+	db      *sql.DB
+	version string
 }
 
 func NewMetadataRepository(config *config.Config) *MetadataRepository {
@@ -29,10 +31,19 @@ func NewMetadataRepository(config *config.Config) *MetadataRepository {
 	}
 }
 
+func (mr *MetadataRepository) GetVersion() string {
+	return mr.version
+}
+
 func (mr *MetadataRepository) Start(ctx context.Context) error {
 	if mr.config == nil {
 		log.Info("Metadata repository config is nil, skipping initialization")
 		return nil
+	}
+
+	// 先尝试从标记文件读取 version 字段；如果不存在则生成一个新的 uuid
+	if err := mr.loadVersion(); err != nil {
+		log.Infof("failed to load version from marker file: %v; will generate one", err)
 	}
 
 	// 根据driver类型初始化数据库
@@ -179,11 +190,17 @@ func (mr *MetadataRepository) isScanCompleted() bool {
 	var marker struct {
 		Home      string `json:"home"`
 		Timestamp string `json:"timestamp"`
+		Version   string `json:"version,omitempty"`
 	}
 
 	if err := json.Unmarshal(data, &marker); err != nil {
 		// 如果是旧格式，重新扫描
 		return false
+	}
+
+	// 如果存在 version 字段，保存到内存中
+	if marker.Version != "" {
+		mr.version = marker.Version
 	}
 
 	// 检查 Home 目录是否匹配
@@ -200,13 +217,20 @@ func (mr *MetadataRepository) markScanCompleted() error {
 		homePath = mr.home
 	}
 
-	// 创建包含 Home 目录和时间的标记数据
+	// 确保 version 可用
+	if mr.version == "" {
+		mr.version = uuid.NewString()
+	}
+
+	// 创建包含 Home 目录、时间和 version 的标记数据
 	markerData := struct {
 		Home      string `json:"home"`
 		Timestamp string `json:"timestamp"`
+		Version   string `json:"version"`
 	}{
 		Home:      homePath,
 		Timestamp: time.Now().Format(time.RFC3339),
+		Version:   mr.version,
 	}
 
 	data, err := json.Marshal(markerData)
@@ -303,6 +327,37 @@ func (mr *MetadataRepository) scanFiles(ctx context.Context) error {
 	}
 
 	log.Info("File metadata scan completed successfully")
+	return nil
+}
+
+// loadVersion tries to read the version field from the marker file. If the file
+// doesn't exist or doesn't contain a version, a new UUID is generated and set.
+func (mr *MetadataRepository) loadVersion() error {
+	markerFile := filepath.Join(filepath.Dir(mr.config.Sqlite), ".metadata_scan_completed")
+
+	data, err := os.ReadFile(markerFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			mr.version = uuid.NewString()
+			return nil
+		}
+		return err
+	}
+
+	var marker struct {
+		Version string `json:"version,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &marker); err != nil {
+		return err
+	}
+
+	if marker.Version != "" {
+		mr.version = marker.Version
+	} else {
+		mr.version = uuid.NewString()
+	}
+
 	return nil
 }
 
