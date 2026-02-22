@@ -6,7 +6,7 @@ type Config struct {
 	Home           string                `yaml:"home"`
 	Fuse           *FuseMountConfig      `yaml:"fuse"`
 	Storage        []StorageConfig       `yaml:"storage"`
-	MetadataRepo   *MetadataRepoConfig   `yaml:"metadata"`
+	FileSystem     *FileSystemConfig     `yaml:"filesystem"`
 	Cache          *CacheConfig          `yaml:"cache"`
 	WebServer      *web.WebServerConfig  `yaml:"web"`
 	Users          *UserConfig           `yaml:"users"`
@@ -51,9 +51,14 @@ type ToolsConfig struct {
 	Ffmpeg *FfmpegConfig `yaml:"ffmpeg"`
 }
 
-type MetadataRepoConfig struct {
-	Driver       string   `yaml:"driver"`
-	Sqlite       string   `yaml:"sqlite"`
+type FileSystemConfig struct {
+	Driver string                 `yaml:"driver"`
+	Sqlite string                 `yaml:"sqlite"`
+	Local  *LocalFileSystemConfig `yaml:"local"`
+}
+
+type LocalFileSystemConfig struct {
+	RootPath     string   `yaml:"rootPath"`
 	ScanSpeedQPS int      `yaml:"qps"`
 	Excludes     []string `yaml:"excludes"`
 }
