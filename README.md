@@ -7,6 +7,8 @@ To build the project, use the make command:
 
 ```sh
 make
+
+# protoc --go_out=../pkg/proto/ --go_opt=paths=source_relative ./*.proto
 ```
 
 Common targets:

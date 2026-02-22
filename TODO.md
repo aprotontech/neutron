@@ -5,7 +5,7 @@ TODO:
 
 - APP文件列表优化
   - APP本地图片列表使用 sqlite 进行cache
-  - APP本地文件列表使用 sqlite 进行cache
+  - APP本地文件列表使用 sqlite 进行cache [DONE]
 
 - 支持在线升级
 

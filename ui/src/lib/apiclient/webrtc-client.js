@@ -281,36 +281,35 @@ export default class WebRTCClient extends BaseClient {
         return await this.rpc.sendRpc('getFileSystemVersion', {});
     }
 
-    async getImageRepo(offset, count) {
-        console.log('getImageRepo:', offset, count);
+    async getImageRepoHistory(version, lastId, count) {
+        console.log('getImageRepoHistory:', version, lastId, count);
 
         try {
-            const resp = await this.rpc.sendRpc('getImageVideos', {
+            const resp = await this.rpc.sendRpc('getImageRepoHistory', {
                 "types": ["image", "video"],
-                "offset": offset,
+                "version": version,
+                "lastId": lastId,
                 "count": count
             });
 
-            console.log('getImageRepo response:', resp);
+            console.log('getImageRepoHistory response:', resp);
 
             // 确保返回正确的格式
             if (resp && typeof resp === 'object') {
                 return {
                     total: resp.total || 0,
+                    version: resp.version | "",
                     items: resp.items || []
                 };
             } else {
-                // 如果服务器返回的不是对象，返回默认格式
-                return {
-                    total: 0,
-                    items: []
-                };
+                throw new Error("response format error")
             }
         } catch (err) {
-            console.error('getImageRepo error:', err);
+            console.error('getImageRepoHistory error:', err);
             // 返回空结果而不是抛出错误，避免UI崩溃
             return {
                 total: 0,
+                version: "",
                 items: []
             };
         }

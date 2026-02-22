@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 import { getLocalFileManager } from './local-file-manager.js';
 import { Config } from './config.js';
 import CachedFileInformation from './file-info.js';
+import ImageRepo from './image-repo.js';
 
 // 全局Blob检查
 const BlobAvailable = typeof Blob !== 'undefined';
@@ -34,6 +35,9 @@ export default class FileAPI {
             // cached file info helper
             this._cachedFileInfo = new CachedFileInformation();
         }
+
+        // Image repository for managing image history
+        this.imageRepo = new ImageRepo();
 
         // Concurrent request cache for deduplication
         this._pendingRequests = new Map(); // key -> Promise
@@ -294,16 +298,6 @@ export default class FileAPI {
             return localFile.localUrl;
         }
 
-        const db = await this.localFileManager._ensureDatabase();
-        const result = await db.query(
-            `SELECT * FROM ${this.localFileManager.tableName} 
-                 WHERE file_path = ? AND is_valid = 1
-                 ORDER BY downloaded_at DESC`,
-            [filePath]
-        );
-
-        console.log("records: ", JSON.stringify(result.values))
-
         return null
     }
 
@@ -474,15 +468,131 @@ export default class FileAPI {
      * Get image repository with pagination
      * @param {number} offset - Starting offset
      * @param {number} count - Number of items to retrieve
+     * @param {string} order - Sort order: 'ctime' or 'mtime' (default: 'ctime')
      * @returns {Promise<Object>} - Object with total count and items array
      */
-    async getImageRepo(offset, count) {
-        console.log(`Requesting image repo: offset = ${offset}, count = ${count}`);
-        const dedupKey = Hash.md5sum('getImageRepo', offset, count);
+    async getImageRepo(offset, count, order = 'ctime') {
+        console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
+        const dedupKey = Hash.md5sum('getImageRepo', offset, count, order);
 
         return await this._executeWithDeduplication(dedupKey, async () => {
-            return TransferClient.get().getImageRepo(offset, count);
+            try {
+                // 从 ImageRepo 获取数据
+                const items = await this.imageRepo.getList(order, offset, count);
+                const totalCount = await this.imageRepo.getTotalCount();
+                
+                console.log(`Retrieved ${items.length} items from image repo (total: ${totalCount})`);
+                
+                return {
+                    success: true,
+                    items,
+                    totalCount,
+                    offset,
+                    count: items.length,
+                    order
+                };
+            } catch (error) {
+                console.error('Error getting image repo:', error);
+                return {
+                    success: false,
+                    error: error.message,
+                    items: [],
+                    totalCount: 0
+                };
+            }
         });
+    }
+
+    async syncImageRepoHistory() {
+        try {
+            console.log('Starting image repository history sync...');
+            
+            let version = "";
+            let lastID = "";
+            const batchSize = 100; // 每次读取的数量
+            let totalSynced = 0;
+            let hasMoreData = true;
+            
+            // 清空现有的历史记录
+            await this.imageRepo.clear();
+            console.log('Cleared existing image repository history');
+            
+            // 循环读取数据直到全部完成
+            while (hasMoreData) {
+                console.log(`Fetching image repo history: version=${version}, lastID=${lastID}, count=${batchSize}`);
+                
+                try {
+                    // 调用 TransferClient 获取数据
+                    const response = await TransferClient.get().getImageRepoHistory(version, lastID, batchSize);
+                    
+                    if (!response || !response.items || !Array.isArray(response.items)) {
+                        console.error('Invalid response from getImageRepoHistory:', response);
+                        break;
+                    }
+                    
+                    const items = response.items;
+                    console.log(`Received ${items.length} items from server`);
+                    
+                    if (items.length === 0) {
+                        // 没有更多数据了
+                        hasMoreData = false;
+                        console.log('No more data to sync');
+                        break;
+                    }
+                    
+                    // 将数据保存到 ImageRepo
+                    await this.imageRepo.appendHistory(items);
+                    totalSynced += items.length;
+                    
+                    // 更新 lastID 为最后一项的 ID，用于下一次请求
+                    lastID = items[items.length - 1].id;
+                    
+                    // 如果返回的数量小于请求的数量，说明没有更多数据了
+                    if (items.length < batchSize) {
+                        hasMoreData = false;
+                        console.log('Reached end of data (less than batch size)');
+                    }
+                    
+                    // 可选：添加小的延迟以避免请求过于频繁
+                    if (hasMoreData) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                } catch (error) {
+                    console.error('Error fetching image repo history:', error);
+                    throw error;
+                }
+            }
+            
+            console.log(`Image repository history sync completed. Total synced: ${totalSynced} items`);
+            
+            // 获取同步后的统计信息
+            const totalCount = await this.imageRepo.getTotalCount();
+            const stats = await this.imageRepo.getStatsByType();
+            const timeRange = await this.imageRepo.getTimeRange();
+            
+            console.log('Sync statistics:', {
+                totalCount,
+                stats,
+                timeRange
+            });
+            
+            return {
+                success: true,
+                totalSynced,
+                totalCount,
+                stats,
+                timeRange
+            };
+            
+        } catch (error) {
+            console.error('Failed to sync image repository history:', error);
+            return {
+                success: false,
+                error: error.message,
+                totalSynced: 0
+            };
+        }
     }
 
     async getCacheSize() {

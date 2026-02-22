@@ -1,4 +1,4 @@
-home: /mnt/data/storage
+home: .
 
 fuse:
   mountPoint: /mnt/neutron
@@ -16,19 +16,22 @@ storage:
 
 cache:
   enabled: true
-  cacheDir: /tmp/.caches/neutron
+  cacheDir: vars/.caches/neutron
   maxSizeMB: 512
   evictionPolicy: LRU
 
-metadata:
-  driver: sqlite
-  sqlite: /mnt/data/storage/metadata.db
-  qps: 50  # 每秒扫描50个文件
-  excludes:
-    - ".git"
-    - ".cache"
-    - "node_modules"
-    - ".metadata_scan_completed"
+driver:
+  type: sqlite
+  sqlite: vars/metadata.db
+
+filesystem:
+  local: 
+    root: /workspaces/neutron
+    qps: 50  # 每秒扫描50个文件
+    excludes:
+      - ".git"
+      - ".cache"
+      - "node_modules"
 
 web:
   port: 8080

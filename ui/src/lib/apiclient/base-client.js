@@ -29,7 +29,7 @@ export default class BaseClient {
         throw new Error('Not implemented');
     }
 
-    async getImageRepo(offset, count) {
+    async getImageRepoHistory(version, lastId, count) {
         throw new Error('Not implemented');
     }
 }

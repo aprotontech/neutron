@@ -69,4 +69,8 @@ RUN mkdir -p ${GRADLE_USER_HOME} && \
     echo "org.gradle.daemon=false" >> ${GRADLE_USER_HOME}/gradle.properties && \
     echo "systemProp.http.keepAlive=true" >> ${GRADLE_USER_HOME}/gradle.properties
 
-RUN sudo apt-get update && sudo apt-get install -y gcc libsqlite3-dev
+RUN sudo apt-get update && sudo apt-get install -y gcc libsqlite3-dev protobuf-compiler
+
+RUN alias go=/home/aproton/.local/go/bin/go; \
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest

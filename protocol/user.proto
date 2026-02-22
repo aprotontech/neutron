@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+package neutron;
+
+option go_package = "github.com/aproton/neutron/pkg/proto";
+
