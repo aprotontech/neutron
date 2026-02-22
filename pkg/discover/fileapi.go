@@ -24,13 +24,17 @@ type FileDataChannelInfo struct {
 	size   int64
 }
 
-type FileSystemMock struct {
-	dcFileMap map[string]*FileDataChannelInfo
-
-	metadataRepo *MetadataRepository
-
-	thumbnailDC    *webrtc.DataChannel
+type WebRTCRemoteClient struct {
 	peerConnection *webrtc.PeerConnection
+	thumbnailDC    *webrtc.DataChannel
+	dcFileMap      map[string]*FileDataChannelInfo
+}
+
+func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteClient {
+	return &WebRTCRemoteClient{
+		peerConnection: peerConnection,
+		dcFileMap:      make(map[string]*FileDataChannelInfo),
+	}
 }
 
 // getInt64FromMap 从map中提取int64值，支持int、int64和float64类型
@@ -56,30 +60,26 @@ func getInt64FromMap(m map[string]interface{}, key string, defaultValue interfac
 	}
 }
 
-func getFileList(fsm *FileSystemMock, req any) (any, error) {
+func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	folder, ok := req.(map[string]interface{})["path"].(string)
 	if !ok {
 		return nil, os.ErrInvalid
 	}
 
-	fs, err := os.ReadDir(path.Join(config.GlobalConfig.Home, folder))
+	fs, err := fsm.filesystem.List(folder)
 	if err != nil {
 		return nil, err
 	}
 
 	result := make([]FileFolderInfo, 0, len(fs))
-	for _, f := range fs {
-		info, err := f.Info()
-		if err != nil {
-			return nil, err
-		}
+	for _, info := range fs {
 
 		item := FileFolderInfo{
-			"name":     info.Name(),
+			"name":     info.Name,
 			"isDir":    info.IsDir(),
-			"size":     info.Size(),
-			"modTime":  info.ModTime().Format("2006-01-02 15:04:05"),
-			"path":     path.Join(folder, info.Name()),
+			"size":     info.Size,
+			"modTime":  info.Mtime.Format("2006-01-02 15:04:05"),
+			"path":     path.Join(folder, info.Name),
 			"mimeType": "",
 		}
 		result = append(result, item)
@@ -88,7 +88,7 @@ func getFileList(fsm *FileSystemMock, req any) (any, error) {
 	return result, nil
 }
 
-func getFileInfo(fsm *FileSystemMock, req any) (any, error) {
+func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	fpath, ok := req.(map[string]interface{})["path"].(string)
 	if !ok {
 		return nil, os.ErrInvalid
@@ -115,7 +115,7 @@ func getFileInfo(fsm *FileSystemMock, req any) (any, error) {
 	return result, nil
 }
 
-func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
+func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	reqMap, ok := req.(map[string]interface{})
 	if !ok {
 		return nil, os.ErrInvalid
@@ -164,7 +164,7 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 		size = fi.Size() - offset
 	}
 
-	fsm.dcFileMap[dcName] = &FileDataChannelInfo{
+	client.dcFileMap[dcName] = &FileDataChannelInfo{
 		path:   abspath,
 		offset: offset,
 		size:   size,
@@ -176,7 +176,7 @@ func prepareFileReceive(fsm *FileSystemMock, req any) (any, error) {
 	return data, nil
 }
 
-func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
+func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	reqMap, ok := req.(map[string]interface{})
 	if !ok {
 		return nil, os.ErrInvalid
@@ -239,10 +239,10 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 		// Packet: first 16 bytes = raw id, remainder = thumbnail bytes
 		packet := append(id, data...)
 
-		if fsm.thumbnailDC == nil {
+		if client.thumbnailDC == nil {
 			log.Warnf("thumbnail data channel not available, id=%s", hex.EncodeToString(id))
 		} else {
-			if err := fsm.thumbnailDC.Send(packet); err != nil {
+			if err := client.thumbnailDC.Send(packet); err != nil {
 				log.Warnf("failed to send thumbnail on datachannel: %v", err)
 			} else {
 				log.Infof("sent thumbnail %s on data channel, size=%d", cachePath, len(packet))
@@ -253,68 +253,70 @@ func getThumbnail(fsm *FileSystemMock, req any) (any, error) {
 	return map[string]any{"id": hex.EncodeToString(id)}, nil
 }
 
-func getFileSystemVersion(fsm *FileSystemMock, req any) (any, error) {
+func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	return map[string]any{
-		"version": fsm.metadataRepo.GetVersion(),
+		"version": "1.0",
 	}, nil
 }
 
-func getImageVideos(fsm *FileSystemMock, req any) (any, error) {
-	info := req.(map[string]interface{})
-	_types, ok := info["types"].([]interface{})
-	if !ok {
-		log.Warnf("get types failed")
-		return nil, os.ErrInvalid
-	}
+func getImageVideos(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	return nil, errors.New("not implemented")
+	// info := req.(map[string]interface{})
+	// _types, ok := info["types"].([]interface{})
+	// if !ok {
+	// 	log.Warnf("get types failed")
+	// 	return nil, os.ErrInvalid
+	// }
 
-	types := make([]string, len(_types))
-	for i, v := range _types {
-		types[i] = v.(string)
-	}
+	// types := make([]string, len(_types))
+	// for i, v := range _types {
+	// 	types[i] = v.(string)
+	// }
 
-	// 使用通用函数提取offset（可选参数，默认值0）
-	offset, err := getInt64FromMap(info, "offset", 0)
-	if err != nil {
-		// 即使类型无效，我们也使用默认值继续执行
-		offset = 0
-	}
+	// // 使用通用函数提取offset（可选参数，默认值0）
+	// offset, err := getInt64FromMap(info, "offset", 0)
+	// if err != nil {
+	// 	// 即使类型无效，我们也使用默认值继续执行
+	// 	offset = 0
+	// }
 
-	// 使用通用函数提取count（可选参数，默认值100）
-	count, err := getInt64FromMap(info, "count", 100)
-	if err != nil {
-		// 即使类型无效，我们也使用默认值继续执行
-		count = 100
-	}
+	// // 使用通用函数提取count（可选参数，默认值100）
+	// count, err := getInt64FromMap(info, "count", 100)
+	// if err != nil {
+	// 	// 即使类型无效，我们也使用默认值继续执行
+	// 	count = 100
+	// }
 
-	imgs, total, err := fsm.metadataRepo.ListFiles(types, int(offset), int(count))
-	if err != nil {
-		return nil, err
-	}
+	// imgs, total, err := fsm.repo.ListFiles(types, int(offset), int(count))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return map[string]any{
-		"items": imgs,
-		"total": total,
-	}, nil
+	// return map[string]any{
+	// 	"items": imgs,
+	// 	"total": total,
+	// }, nil
 }
 
-func playVideo(fsm *FileSystemMock, req any) (any, error) {
-	vs, err := NewVideoStreamer("./test.mp4")
-	if err != nil {
-		return nil, err
-	}
+func playVideo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	return nil, errors.New("not implemented")
+	// vs, err := NewVideoStreamer("./test.mp4")
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if fsm.peerConnection == nil {
-		return nil, errors.New("peerConnection is null")
-	}
+	// if fsm.peerConnection == nil {
+	// 	return nil, errors.New("peerConnection is null")
+	// }
 
-	vs.SetupVideoDataChannel(fsm.peerConnection)
+	// vs.SetupVideoDataChannel(fsm.peerConnection)
 
-	videoInfo := map[string]interface{}{
-		"type":     "videoInfo",
-		"duration": 600.0, // 示例时长，实际应该解析视频文件
-		"fileSize": vs.fileInfo.Size(),
-		"fileName": vs.fileInfo.Name(),
-		"ready":    true,
-	}
-	return videoInfo, nil
+	// videoInfo := map[string]interface{}{
+	// 	"type":     "videoInfo",
+	// 	"duration": 600.0, // 示例时长，实际应该解析视频文件
+	// 	"fileSize": vs.fileInfo.Size(),
+	// 	"fileName": vs.fileInfo.Name(),
+	// 	"ready":    true,
+	// }
+	// return videoInfo, nil
 }

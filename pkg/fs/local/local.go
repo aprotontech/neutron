@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -16,6 +17,10 @@ func NewLocalFileSystem(rootfs string) fs.FileSystem {
 	return &LocalFileSystem{
 		RootFS: rootfs,
 	}
+}
+
+func (rf *LocalFileSystem) Start(ctx context.Context) error {
+	return nil
 }
 
 func (lf *LocalFileSystem) List(path string) ([]*fs.NodeAttr, error) {

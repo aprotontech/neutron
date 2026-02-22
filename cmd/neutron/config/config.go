@@ -4,6 +4,7 @@ import "github.com/aproton/neutron/pkg/web"
 
 type Config struct {
 	Home           string                `yaml:"home"`
+	Driver         *DriverConfig         `yaml:"driver"`
 	Fuse           *FuseMountConfig      `yaml:"fuse"`
 	Storage        []StorageConfig       `yaml:"storage"`
 	FileSystem     *FileSystemConfig     `yaml:"filesystem"`
@@ -16,6 +17,11 @@ type Config struct {
 
 type FuseMountConfig struct {
 	MountPoint string `yaml:"mountPoint"`
+}
+
+type DriverConfig struct {
+	BackendType string `yaml:"type"`
+	Sqlite      string `yaml:"sqlite"`
 }
 
 type StorageConfig struct {
@@ -52,13 +58,11 @@ type ToolsConfig struct {
 }
 
 type FileSystemConfig struct {
-	Driver string                 `yaml:"driver"`
-	Sqlite string                 `yaml:"sqlite"`
-	Local  *LocalFileSystemConfig `yaml:"local"`
+	Local *LocalFileSystemConfig `yaml:"local"`
 }
 
 type LocalFileSystemConfig struct {
-	RootPath     string   `yaml:"rootPath"`
+	RootPath     string   `yaml:"root"`
 	ScanSpeedQPS int      `yaml:"qps"`
 	Excludes     []string `yaml:"excludes"`
 }

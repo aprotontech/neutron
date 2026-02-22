@@ -19,7 +19,7 @@ func (fio *LocalFileIO) Open(flag int) error {
 		return errors.New("file is opened")
 	}
 
-	fpath := (fio.node.SystemExtra).(string)
+	fpath := fio.node.SystemExtra
 	fio.handle, err = os.Open(fpath)
 	return err
 }

@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,7 +9,6 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
@@ -23,26 +23,25 @@ type FileSystemDatabase struct {
 	cachedNodes *cache.Cache // cache for NodeAttr, key is path, value is *NodeAttr
 }
 
-func NewFileSystemDatabase(cfg *config.Config) *FileSystemDatabase {
-	if cfg.FileSystem.Driver != "sqlite" {
-		panic("unsupported database driver: " + cfg.FileSystem.Driver)
-	}
-	gdb, err := gorm.Open(sqlite.Open(cfg.FileSystem.Sqlite), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
-	// ensure table exists
-	if err := gdb.AutoMigrate(&NodeAttr{}); err != nil {
-		panic(err)
-	}
-
+func NewFileSystemDatabase(cfg *config.Config, db *gorm.DB) *FileSystemDatabase {
 	return &FileSystemDatabase{
 		config:      cfg,
-		db:          gdb,
+		db:          db,
 		version:     "0.1",
 		rootNode:    nil,
 		cachedNodes: cache.New(5*time.Minute, 10*time.Minute),
 	}
+}
+
+func (fsdb *FileSystemDatabase) Start(ctx context.Context) error {
+	// ensure table exists
+	if err := fsdb.db.AutoMigrate(&NodeAttr{}); err != nil {
+		return fmt.Errorf("failed to auto migrate NodeAttr: %v", err)
+	}
+
+	<-ctx.Done()
+
+	return nil
 }
 
 func (fsdb *FileSystemDatabase) List(path string) ([]*NodeAttr, error) {

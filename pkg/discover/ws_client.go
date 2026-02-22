@@ -8,17 +8,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	webrtc "github.com/pion/webrtc/v4"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
+	"github.com/aproton/neutron/pkg/fs"
+	"github.com/aproton/neutron/pkg/local"
+	"github.com/aproton/neutron/pkg/meta"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
-type FileAPI func(dcm *FileSystemMock, req any) (any, error)
+type FileAPI func(dcm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error)
 
 type RemoteStorageServer struct {
 	conn *websocket.Conn
@@ -27,13 +33,16 @@ type RemoteStorageServer struct {
 
 	config *config.Config
 
-	remoteClients map[string]*webrtc.PeerConnection
+	remoteClients map[string]*WebRTCRemoteClient
 
 	api *webrtc.API
 
 	fileAPIS map[string]FileAPI
 
-	dcm *FileSystemMock
+	db *gorm.DB
+
+	filesystem fs.FileSystem
+	repo       *meta.Repository
 
 	combineAnswerCandidates bool
 }
@@ -43,17 +52,29 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 		panic("invalidate config")
 	}
 
-	var metadataRepo *MetadataRepository
-	if config.MetadataRepo != nil {
-		metadataRepo = NewMetadataRepository(config)
+	if config.Driver.BackendType != "sqlite" {
+		panic("unsupported database driver: " + config.Driver.BackendType)
+	}
+
+	if err := os.MkdirAll(config.Cache.CacheDir, 0755); err != nil {
+		panic(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(config.Driver.Sqlite), 0755); err != nil {
+		panic(err)
+	}
+
+	gdb, err := gorm.Open(sqlite.Open(config.Driver.Sqlite), &gorm.Config{})
+	if err != nil {
+		panic(err)
 	}
 
 	return &RemoteStorageServer{
 		config:                  config,
 		conn:                    nil,
-		remoteClients:           map[string]*webrtc.PeerConnection{},
+		remoteClients:           map[string]*WebRTCRemoteClient{},
 		api:                     nil,
 		combineAnswerCandidates: true,
+		db:                      gdb,
 		fileAPIS: map[string]FileAPI{
 			"listFiles":            getFileList,
 			"prepareFileReceive":   prepareFileReceive,
@@ -63,16 +84,24 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 			"getFileInfo":          getFileInfo,
 			"getFileSystemVersion": getFileSystemVersion,
 		},
-		dcm: &FileSystemMock{
-			dcFileMap:    map[string]*FileDataChannelInfo{},
-			metadataRepo: metadataRepo,
-		},
+		filesystem: fs.NewFileSystemDatabase(config, gdb),
+		repo:       meta.NewRepo(gdb),
 	}
 }
 
 func (s *RemoteStorageServer) Start(ctx context.Context) error {
-	if s.dcm.metadataRepo != nil {
-		go s.dcm.metadataRepo.Start(ctx)
+	scanner := local.NewLocalFileSystemScanner(s.config, s.db)
+	if err := scanner.Start(ctx); err != nil {
+		log.Warnf("start local file system scanner error: %v", err)
+		return err
+	}
+
+	if s.filesystem != nil {
+		go s.filesystem.Start(ctx)
+	}
+
+	if s.repo != nil {
+		go s.repo.Start(ctx)
 	}
 
 	settingEngine := webrtc.SettingEngine{}
@@ -169,7 +198,7 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 				}
 
 				if pc, exists := s.remoteClients[signal.Source]; exists {
-					if err := pc.AddICECandidate(candidate); err != nil {
+					if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
 						log.Warnf("AddICECandidate error: %v", err)
 					}
 				}
@@ -191,15 +220,14 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		return err
 	}
 
+	remoteClient := NewWebRTCRemoteClient(peerConnection)
+
 	s.mutex.Lock()
-	s.remoteClients[source] = peerConnection
+	s.remoteClients[source] = remoteClient
 	s.mutex.Unlock()
 
 	peerConnection.OnConnectionStateChange(func(pcs webrtc.PeerConnectionState) {
 		log.Infof("Connect status changed to %v", pcs)
-		if pcs == webrtc.PeerConnectionStateConnected {
-			s.dcm.peerConnection = peerConnection
-		}
 	})
 	peerConnection.OnICEConnectionStateChange(func(is webrtc.ICEConnectionState) {
 		log.Infof("ICE Connect status changed to %v", is)
@@ -209,12 +237,12 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		log.Infof("New DataChannel %s %d", dataChannel.Label(), dataChannel.ID())
 
 		if dataChannel.Label() == "thumbnail" {
-			s.dcm.thumbnailDC = dataChannel
+			remoteClient.thumbnailDC = dataChannel
 		}
 
 		dataChannel.OnOpen(func() {
 			log.Infof("Data channel '%s' open", dataChannel.Label())
-			if dcInfo, ok := s.dcm.dcFileMap[dataChannel.Label()]; ok {
+			if dcInfo, ok := remoteClient.dcFileMap[dataChannel.Label()]; ok {
 				data, err := os.ReadFile(dcInfo.path)
 				if err != nil {
 					log.Warnf("Read file %s error: %v", dcInfo.path, err)
@@ -259,7 +287,7 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 
 				var response any
 				if api, ok := s.fileAPIS[m.Type]; ok {
-					response, err = api(s.dcm, m.Data)
+					response, err = api(s, remoteClient, m.Data)
 					if err != nil {
 						log.Warnf("File API %s error: %v", m.Type, err)
 						if response != nil {

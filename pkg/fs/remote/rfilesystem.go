@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"context"
 	"errors"
 
 	"github.com/aproton/neutron/pkg/fs"
@@ -37,6 +38,10 @@ type RemoteFileSystem struct {
 
 func NewRemoteFileSystem(rootfs string) fs.FileSystem {
 	return &RemoteFileSystem{}
+}
+
+func (rf *RemoteFileSystem) Start(ctx context.Context) error {
+	return nil
 }
 
 func (rf *RemoteFileSystem) List(path string) ([]*fs.NodeAttr, error) {
