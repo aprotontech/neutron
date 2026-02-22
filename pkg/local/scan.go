@@ -131,6 +131,14 @@ func (scanner *LocalFileSystemScanner) scanFiles(ctx context.Context) error {
 
 		// 检查是否在排除列表中
 		relPath, _ := filepath.Rel(scanner.root, path)
+		if relPath != "." {
+			relPath = "/" + relPath
+		} else {
+			relPath = "/"
+		}
+
+		//log.Infof("Processing path: %s", relPath)
+
 		for _, exclude := range scanner.config.Excludes {
 			if strings.Contains(relPath, exclude) {
 				if info.IsDir() {
@@ -140,7 +148,7 @@ func (scanner *LocalFileSystemScanner) scanFiles(ctx context.Context) error {
 			}
 		}
 
-		nodeAttr, repoItem, err := scanner.processPath(path, info)
+		nodeAttr, repoItem, err := scanner.processPath(relPath, info)
 		if err != nil {
 			return fmt.Errorf("failed to process path %s: %v", path, err)
 		}
@@ -191,17 +199,15 @@ func (scanner *LocalFileSystemScanner) scanFiles(ctx context.Context) error {
 // 如果不是媒体文件，返回的 RepoHistoryItem 为 nil
 func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo) (
 	*fs.NodeAttr, *meta.RepoHistoryItem, error) {
-	relPath, _ := filepath.Rel(scanner.root, path)
-	relPath = "/" + relPath
 
 	nodeID := scanner.nextNodeID
 	scanner.nextNodeID++
 
 	parentNodeID := uint64(0)
-	if pid, ok := scanner.folderNodeIDs[filepath.Dir(relPath)]; ok {
+	if pid, ok := scanner.folderNodeIDs[filepath.Dir(path)]; ok {
 		parentNodeID = pid
 	} else {
-		log.Warnf("Parent folder not found for path: %s, parent: %s", path, filepath.Dir(relPath))
+		log.Warnf("Parent folder not found for path: %s, parent: %s", path, filepath.Dir(path))
 		panic("parent folder not found for path: " + path)
 	}
 
@@ -216,7 +222,7 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 			repoItem = &meta.RepoHistoryItem{
 				Time:     time.Now().Unix(),
 				Type:     meta.CREATE_FILE,
-				FilePath: relPath,
+				FilePath: path,
 			}
 
 			exif, _ := media.GetImageExifData(path)
@@ -228,7 +234,7 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 			}
 		}
 	} else {
-		scanner.folderNodeIDs[relPath] = nodeID
+		scanner.folderNodeIDs[path] = nodeID
 
 	}
 

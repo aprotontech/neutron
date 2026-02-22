@@ -4,8 +4,8 @@ import "os"
 
 type NeutronFileMode uint64
 
-const ModeDir NeutronFileMode = 0x01
-const ModeFile NeutronFileMode = 0x00
+const ModeDir NeutronFileMode = 0x01 << 60
+const ModeFile NeutronFileMode = 0x00 << 32
 
 func (nfm NeutronFileMode) ToOSFileMode(osType OperationSystem) os.FileMode {
 	switch osType {
@@ -18,7 +18,11 @@ func (nfm NeutronFileMode) ToOSFileMode(osType OperationSystem) os.FileMode {
 func (nfm *NeutronFileMode) FromOSFileMode(osType OperationSystem, mode os.FileMode) {
 	switch osType {
 	case LinuxSystem:
-		*nfm = NeutronFileMode(uint64(0x01<<32) + uint64(mode))
+		*nfm = NeutronFileMode(uint64(mode))
+		if mode.IsDir() {
+			*nfm += ModeDir
+		}
+
 		return
 	}
 	panic("not supported system")

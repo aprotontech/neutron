@@ -143,7 +143,7 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 		return nil, err
 	}
 
-	abspath := path.Join(config.GlobalConfig.Home, filePath)
+	abspath := path.Join(config.GlobalConfig.FileSystem.Local.RootPath, filePath)
 
 	log.Infof("Prepared file receive: %s on data channel %s", filePath, dcName)
 
@@ -194,7 +194,7 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 		size = 200
 	}
 
-	srcPath := path.Join(config.GlobalConfig.Home, filePath)
+	srcPath := path.Join(config.GlobalConfig.FileSystem.Local.RootPath, filePath)
 
 	if _, err := os.Stat(srcPath); err != nil {
 		log.Warnf("File %s not found for thumbnail: %v", filePath, err)
