@@ -31,8 +31,16 @@ class ImageRepo {
      * 构造函数
      */
     constructor() {
-        /** @type {HistoryItem[]} */
-        this.historyItems = [];
+        /** @type {Map<string, HistoryItem>} 以 path 为 key 的 Map，确保路径唯一性 */
+        this.historyMap = new Map();
+        /** @type {string|null} 当前最大的 ID */
+        this.lastID = null;
+        
+        // 缓存机制
+        /** @type {HistoryItem[]|null} 缓存排序后的列表 */
+        this._sortedCache = null;
+        /** @type {string|null} 当前缓存的排序方式 */
+        this._cachedOrder = null;
         
         // 初始化排序比较函数
         this.sortFunctions = {
@@ -56,11 +64,30 @@ class ImageRepo {
             this._validateHistoryItem(item, index);
         });
 
-        // 添加到数组
-        this.historyItems.push(...items);
+        // 清除缓存，因为数据即将更新
+        this._clearCache();
+
+        // 处理每个项目
+        for (const item of items) {
+            // 更新 lastID
+            if (this.lastID === null || this._compareIDs(item.id, this.lastID) > 0) {
+                this.lastID = item.id;
+            }
+
+            // 处理 DELETE 类型
+            if (item.type === HistoryItemType.DELETE) {
+                // 使用 Map 的 delete 方法，O(1) 时间复杂度
+                this.historyMap.delete(item.path);
+                // 不添加 DELETE 记录到 historyMap
+                continue;
+            }
+
+            // 对于非 DELETE 类型，直接设置到 Map 中
+            // Map 会自动处理 key 的唯一性，相同 path 会覆盖旧值
+            this.historyMap.set(item.path, item);
+        }
         
-        // 可选：去重（根据 id）
-        this._deduplicateItems();
+        this._clearCache();
     }
 
     /**
@@ -85,19 +112,29 @@ class ImageRepo {
         }
 
         // 如果没有数据，返回空数组
-        if (this.historyItems.length === 0) {
+        if (this.historyMap.size === 0) {
             return [];
         }
 
-        // 获取排序函数
-        const sortFn = this.sortFunctions[order];
-        if (!sortFn) {
-            throw new Error(`不支持的排序方式: ${order}`);
+        // 检查缓存
+        let sortedItems = this._sortedCache;
+        
+        // 如果缓存不存在或排序方式发生变化，重新生成缓存
+        if (!sortedItems || this._cachedOrder !== order) {
+            // 获取排序函数
+            const sortFn = this.sortFunctions[order];
+            if (!sortFn) {
+                throw new Error(`不支持的排序方式: ${order}`);
+            }
+
+            // 从 Map 获取所有值并排序
+            sortedItems = Array.from(this.historyMap.values()).sort(sortFn);
+            
+            // 更新缓存
+            this._sortedCache = sortedItems;
+            this._cachedOrder = order;
         }
 
-        // 创建副本并排序
-        const sortedItems = [...this.historyItems].sort(sortFn);
-        
         // 计算分页
         const startIndex = Math.min(offset, sortedItems.length);
         const endIndex = Math.min(startIndex + count, sortedItems.length);
@@ -111,7 +148,15 @@ class ImageRepo {
      * @returns {Promise<number>}
      */
     async getTotalCount() {
-        return this.historyItems.length;
+        return this.historyMap.size;
+    }
+
+    /**
+     * 获取当前最大的 ID
+     * @returns {Promise<string|null>}
+     */
+    async getLastID() {
+        return this.lastID;
     }
 
     /**
@@ -119,7 +164,9 @@ class ImageRepo {
      * @returns {Promise<void>}
      */
     async clear() {
-        this.historyItems = [];
+        this.historyMap.clear();
+        this.lastID = null;
+        this._clearCache();
     }
 
     /**
@@ -164,18 +211,37 @@ class ImageRepo {
     }
 
     /**
-     * 去重历史记录项（根据 id）
+     * 清除缓存
      * @private
      */
-    _deduplicateItems() {
-        const seen = new Set();
-        this.historyItems = this.historyItems.filter(item => {
-            if (seen.has(item.id)) {
-                return false;
-            }
-            seen.add(item.id);
-            return true;
-        });
+    _clearCache() {
+        this._sortedCache = null;
+        this._cachedOrder = null;
+    }
+
+    /**
+     * 比较两个 ID 字符串
+     * @private
+     * @param {string} id1 - 第一个 ID
+     * @param {string} id2 - 第二个 ID
+     * @returns {number} 比较结果：1 表示 id1 > id2，-1 表示 id1 < id2，0 表示相等
+     */
+    _compareIDs(id1, id2) {
+        // 尝试将 ID 解析为数字进行比较
+        const num1 = Number(id1);
+        const num2 = Number(id2);
+        
+        if (!isNaN(num1) && !isNaN(num2)) {
+            // 如果都是有效数字，按数字比较
+            if (num1 > num2) return 1;
+            if (num1 < num2) return -1;
+            return 0;
+        }
+        
+        // 否则按字符串比较
+        if (id1 > id2) return 1;
+        if (id1 < id2) return -1;
+        return 0;
     }
 
     /**
@@ -189,11 +255,12 @@ class ImageRepo {
             [HistoryItemType.MODIFY]: 0
         };
 
-        this.historyItems.forEach(item => {
+        // 遍历 Map 的值
+        for (const item of this.historyMap.values()) {
             if (stats[item.type] !== undefined) {
                 stats[item.type]++;
             }
-        });
+        }
 
         return stats;
     }
@@ -203,7 +270,7 @@ class ImageRepo {
      * @returns {Promise<Object>}
      */
     async getTimeRange() {
-        if (this.historyItems.length === 0) {
+        if (this.historyMap.size === 0) {
             return { earliest: null, latest: null };
         }
 
@@ -212,12 +279,13 @@ class ImageRepo {
         let earliestMtime = Infinity;
         let latestMtime = -Infinity;
 
-        this.historyItems.forEach(item => {
+        // 遍历 Map 的值
+        for (const item of this.historyMap.values()) {
             earliestCtime = Math.min(earliestCtime, item.ctime);
             latestCtime = Math.max(latestCtime, item.ctime);
             earliestMtime = Math.min(earliestMtime, item.mtime);
             latestMtime = Math.max(latestMtime, item.mtime);
-        });
+        }
 
         return {
             ctime: { earliest: earliestCtime, latest: latestCtime },

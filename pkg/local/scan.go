@@ -223,6 +223,7 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 				Time:     time.Now().Unix(),
 				Type:     meta.CREATE_FILE,
 				FilePath: path,
+				IsValidate: true,
 			}
 
 			exif, _ := media.GetImageExifData(path)

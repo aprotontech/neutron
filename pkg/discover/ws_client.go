@@ -80,7 +80,7 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 			"prepareFileReceive":   prepareFileReceive,
 			"getThumbnail":         getThumbnail,
 			"playVideo":            playVideo,
-			"getImageVideos":       getImageVideos,
+			"getImageRepoHistory":  getImageRepoHistory,
 			"getFileInfo":          getFileInfo,
 			"getFileSystemVersion": getFileSystemVersion,
 		},

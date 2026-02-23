@@ -473,52 +473,61 @@ export default class FileAPI {
      */
     async getImageRepo(offset, count, order = 'ctime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
-        const dedupKey = Hash.md5sum('getImageRepo', offset, count, order);
+        
+        const currentTotalCount = await this.imageRepo.getTotalCount();
+        const requiredCount = offset + count;
+        console.log(`Cache check: currentTotalCount=${currentTotalCount}, requiredCount=${requiredCount}`);
+        
+        if (currentTotalCount < requiredCount) {
+            const dedupKey = Hash.md5sum('getImageRepo', offset, count, order);
+            await this._executeWithDeduplication(dedupKey, async () => {
+                try {
+                    // 缓存不足，需要同步数据
+                    console.log(`Cache insufficient, syncing data...`);
+                    
+                    // 同步数据，传入期望的数量
+                    const syncResult = await this.syncImageRepoHistory(requiredCount);
+                    
+                    if (!syncResult.success) {
+                        throw new Error(`Failed to sync image repo: ${syncResult.error}`);
+                    }
+                } catch (error) {
+                    console.error('Error getting image repo:', error);
+                }
+            });
+        }
 
-        return await this._executeWithDeduplication(dedupKey, async () => {
-            try {
-                // 从 ImageRepo 获取数据
-                const items = await this.imageRepo.getList(order, offset, count);
-                const totalCount = await this.imageRepo.getTotalCount();
-                
-                console.log(`Retrieved ${items.length} items from image repo (total: ${totalCount})`);
-                
-                return {
-                    success: true,
-                    items,
-                    totalCount,
-                    offset,
-                    count: items.length,
-                    order
-                };
-            } catch (error) {
-                console.error('Error getting image repo:', error);
-                return {
-                    success: false,
-                    error: error.message,
-                    items: [],
-                    totalCount: 0
-                };
-            }
-        });
+        const items = await this.imageRepo.getList(order, offset, count);
+        
+        console.log(`Retrieved ${items.length} items from image repo cache (total: ${currentTotalCount})`);
+        
+        return {
+            success: true,
+            items,
+            totalCount: currentTotalCount,
+            offset,
+            count: items.length,
+            order,
+        };
     }
 
-    async syncImageRepoHistory() {
+    async syncImageRepoHistory(expectedCount = -1) {
         try {
-            console.log('Starting image repository history sync...');
+            console.log(`Starting image repository history sync... expectedCount=${expectedCount}`);
             
             let version = "";
-            let lastID = "";
+            let lastID = this.imageRepo.getLastID() || "";
             const batchSize = 100; // 每次读取的数量
             let totalSynced = 0;
             let hasMoreData = true;
+            const initialCount = await this.imageRepo.getTotalCount();
             
             // 清空现有的历史记录
             await this.imageRepo.clear();
             console.log('Cleared existing image repository history');
             
             // 循环读取数据直到全部完成
-            while (hasMoreData) {
+            while (hasMoreData || (expectedCount > 0 && initialCount + totalSynced < expectedCount)) {
                 console.log(`Fetching image repo history: version=${version}, lastID=${lastID}, count=${batchSize}`);
                 
                 try {

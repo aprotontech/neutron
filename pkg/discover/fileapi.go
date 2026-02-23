@@ -259,43 +259,40 @@ func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, 
 	}, nil
 }
 
-func getImageVideos(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	return nil, errors.New("not implemented")
-	// info := req.(map[string]interface{})
-	// _types, ok := info["types"].([]interface{})
-	// if !ok {
-	// 	log.Warnf("get types failed")
-	// 	return nil, os.ErrInvalid
-	// }
+func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	info := req.(map[string]interface{})
+	_types, ok := info["types"].([]interface{})
+	if !ok {
+		log.Warnf("get types failed")
+		return nil, os.ErrInvalid
+	}
 
-	// types := make([]string, len(_types))
-	// for i, v := range _types {
-	// 	types[i] = v.(string)
-	// }
+	types := make([]string, len(_types))
+	for i, v := range _types {
+		types[i] = v.(string)
+	}
 
-	// // 使用通用函数提取offset（可选参数，默认值0）
-	// offset, err := getInt64FromMap(info, "offset", 0)
-	// if err != nil {
-	// 	// 即使类型无效，我们也使用默认值继续执行
-	// 	offset = 0
-	// }
+	lastID, err := getInt64FromMap(info, "lastID", 0)
+	if err != nil {
+		lastID = -1
+	}
 
-	// // 使用通用函数提取count（可选参数，默认值100）
-	// count, err := getInt64FromMap(info, "count", 100)
-	// if err != nil {
-	// 	// 即使类型无效，我们也使用默认值继续执行
-	// 	count = 100
-	// }
+	// 使用通用函数提取count（可选参数，默认值100）
+	count, err := getInt64FromMap(info, "count", 100)
+	if err != nil {
+		// 即使类型无效，我们也使用默认值继续执行
+		count = 100
+	}
 
-	// imgs, total, err := fsm.repo.ListFiles(types, int(offset), int(count))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	imgs, total, err := fsm.repo.ListFiles(types, int(offset), int(count))
+	if err != nil {
+		return nil, err
+	}
 
-	// return map[string]any{
-	// 	"items": imgs,
-	// 	"total": total,
-	// }, nil
+	return map[string]any{
+		"items": imgs,
+		"total": total,
+	}, nil
 }
 
 func playVideo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
