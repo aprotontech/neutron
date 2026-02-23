@@ -284,7 +284,7 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 		count = 100
 	}
 
-	imgs, total, err := fsm.repo.ListFiles(types, int(offset), int(count))
+	imgs, total, err := fsm..ListFiles(types, int(offset), int(count))
 	if err != nil {
 		return nil, err
 	}
