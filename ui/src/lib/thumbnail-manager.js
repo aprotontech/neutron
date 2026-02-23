@@ -5,7 +5,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import md5 from 'md5';
+import { Base64Encoder } from './helpers.js';
 import SQLiteManager from './sqlite.js';
 
 export default class CacheManager {
@@ -218,7 +218,7 @@ export default class CacheManager {
                     cachefile: cacheRecord.cachefile,
                 };
 
-                console.log("cache metadata", JSON.stringify(metadata))
+                //console.log("cache metadata", JSON.stringify(metadata))
 
                 return {
                     metadata: metadata,
@@ -265,18 +265,8 @@ export default class CacheManager {
                 // 忽略错误
             }
 
-
-            // 计算大小变化
-            const sizeDelta = metadata.size - oldSize;
-
             // 保存到内存缓存
-            let dataForMemoryCache = data;
-            if (data instanceof Blob) {
-                // 对于Blob，我们保存base64到内存缓存
-                dataForMemoryCache = await this.blobToBase64(data);
-            }
-            this._saveToMemoryCache(cacheKey, dataForMemoryCache, metadata);
-
+            this._saveToMemoryCache(cacheKey, data, metadata);
 
             // In native environment, save to filesystem
             const cachePath = this.getCacheFilePath(cacheKey, cacheType);
@@ -294,9 +284,10 @@ export default class CacheManager {
 
             // Save cache data
             if (data instanceof Blob) {
+                const base64Data = await Base64Encoder.encodeBlob(data);
                 await Filesystem.writeFile({
                     path: cachePath,
-                    data: dataForMemoryCache,
+                    data: base64Data,
                     directory: Directory.Data,
                     encoding: Encoding.Base64,
                 });
@@ -431,42 +422,6 @@ export default class CacheManager {
             console.error('CacheManager: Error deleting entire cache:', error);
             return false;
         }
-    }
-
-
-    /**
-     * Convert blob to base64
-     * @param {Blob} blob - Blob to convert
-     * @returns {Promise<string>} Base64 string
-     */
-    async blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64data = reader.result.split(',')[1];
-                resolve(base64data);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    }
-
-    /**
-     * Convert base64 to blob
-     * @param {string} base64 - Base64 string
-     * @param {string} mimeType - MIME type
-     * @returns {Blob} Blob object
-     */
-    base64ToBlob(base64, mimeType) {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: mimeType });
     }
 
     /**

@@ -482,6 +482,15 @@ export default class FileAPI {
             const dedupKey = Hash.md5sum('getImageRepo', offset, count, order);
             await this._executeWithDeduplication(dedupKey, async () => {
                 try {
+                    if (currentTotalCount == 0 && this.imageRepo.lastID === null) {
+                        await this.imageRepo.init()
+                    }
+
+                    if (await this.imageRepo.getTotalCount() >= requiredCount) {
+                        console.log('Cache was filled by another request, no need to sync');
+                        return;
+                    }
+
                     // 缓存不足，需要同步数据
                     console.log(`Cache insufficient, syncing data...`);
 
@@ -523,12 +532,15 @@ export default class FileAPI {
             let hasMoreData = true;
             const initialCount = await this.imageRepo.getTotalCount();
 
-            // 清空现有的历史记录
-            await this.imageRepo.clear();
-            console.log('Cleared existing image repository history');
+            if (false) { // TODO: check version
+                // 清空现有的历史记录
+                //await this.imageRepo.clear();
+                console.log('Cleared existing image repository history');
+            }
+
 
             // 循环读取数据直到全部完成
-            while (hasMoreData || (expectedCount > 0 && initialCount + totalSynced < expectedCount)) {
+            while (hasMoreData && (expectedCount > 0 && initialCount + totalSynced < expectedCount)) {
                 let lastID = this.imageRepo.getLastID() === null ? -1 : this.imageRepo.getLastID();
                 console.log(`Fetching image repo history: version=${version}, lastID=${lastID}, count=${batchSize}`);
 
@@ -578,12 +590,6 @@ export default class FileAPI {
             const totalCount = await this.imageRepo.getTotalCount();
             const stats = await this.imageRepo.getStatsByType();
             const timeRange = await this.imageRepo.getTimeRange();
-
-            console.log('Sync statistics:', {
-                totalCount,
-                stats,
-                timeRange
-            });
 
             return {
                 success: true,
@@ -644,6 +650,10 @@ export default class FileAPI {
 
         if (this.localFileManager) {
             this.localFileManager.clearAllFiles()
+        }
+
+        if (this.imageRepo) {
+            this.imageRepo.clear()
         }
 
     }

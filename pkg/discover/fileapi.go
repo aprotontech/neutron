@@ -12,6 +12,7 @@ import (
 	webrtc "github.com/pion/webrtc/v4"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
+	"github.com/aproton/neutron/pkg/fs"
 	"github.com/aproton/neutron/pkg/media"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
@@ -94,22 +95,25 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 		return nil, os.ErrInvalid
 	}
 
-	info, err := os.Stat(path.Join(config.GlobalConfig.Home, fpath))
+	info, err := fsm.filesystem.Stat(fpath)
 
 	if err != nil {
 		return nil, err
 	}
 
-	exif, _ := media.GetImageExifData(path.Join(config.GlobalConfig.Home, fpath))
+	extraInfo, err := info.GetSystemExtraInfo()
+	if err != nil || extraInfo == nil {
+		extraInfo = &fs.FileSystemExtraInfo{}
+	}
 
 	result := FileFolderInfo{
-		"name":     info.Name(),
+		"name":     info.Name,
 		"isDir":    info.IsDir(),
-		"size":     info.Size(),
-		"modTime":  info.ModTime().Format("2006-01-02 15:04:05"),
+		"size":     info.Size,
+		"modTime":  info.Mtime.Format("2006-01-02 15:04:05"),
 		"path":     fpath,
-		"mimeType": "",
-		"exif":     exif,
+		"mimeType": extraInfo.MimeType,
+		"exif":     extraInfo.Exif,
 	}
 
 	return result, nil
@@ -255,7 +259,7 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 
 func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	return map[string]any{
-		"version": "1.0",
+		"version": fsm.version,
 	}, nil
 }
 

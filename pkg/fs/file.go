@@ -1,6 +1,8 @@
 package fs
 
 import (
+	"encoding/json"
+	"errors"
 	"os"
 	"time"
 )
@@ -19,6 +21,8 @@ type NodeAttr struct {
 	Mode        NeutronFileMode `gorm:"column:mode"`                        // file mode
 	Name        string          `gorm:"column:name"`                        // file name
 	SystemExtra string          `gorm:"column:extra"`                       // file extra info for system
+
+	cachedSystemExtra *FileSystemExtraInfo `gorm:"-"` // cached parsed SystemExtra, not stored in DB
 }
 
 type FileSystemExtraInfo struct {
@@ -35,11 +39,21 @@ func (n *NodeAttr) IsDir() bool {
 }
 
 func (n *NodeAttr) GetSystemExtraInfo() (*FileSystemExtraInfo, error) {
-	if n.SystemExtra == "" {
-		return nil, nil
+	if n.cachedSystemExtra != nil {
+		return n.cachedSystemExtra, nil
 	}
 
-	return &FileSystemExtraInfo{}, nil
+	if n.SystemExtra == "" {
+		return nil, errors.New("no system extra info available")
+	}
+
+	var extraInfo FileSystemExtraInfo
+	if err := json.Unmarshal([]byte(n.SystemExtra), &extraInfo); err != nil {
+		return nil, err
+	}
+
+	n.cachedSystemExtra = &extraInfo
+	return n.cachedSystemExtra, nil
 }
 
 // NodeAttr already defined in file.go

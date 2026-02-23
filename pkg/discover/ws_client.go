@@ -44,6 +44,8 @@ type RemoteStorageServer struct {
 	filesystem fs.FileSystem
 	repo       *meta.Repository
 
+	version string
+
 	combineAnswerCandidates bool
 }
 
@@ -95,6 +97,8 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 		log.Warnf("start local file system scanner error: %v", err)
 		return err
 	}
+
+	s.version = scanner.GetVersion()
 
 	if s.filesystem != nil {
 		go s.filesystem.Start(ctx)

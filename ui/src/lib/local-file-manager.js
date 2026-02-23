@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import SparkMD5 from 'spark-md5';
 import SQLiteManager from './sqlite.js';
 import { FileMergeService } from './native/file-merge.ts';
+import { Base64Encoder } from './helpers.js';
 
 /**
  * Local File Manager for Capacitor Native Mode
@@ -390,15 +391,7 @@ export default class LocalFileManager {
 
                     // 将数据块转换为base64
                     const blob = new Blob([value]);
-                    const base64Data = await new Promise((resolve, reject) => {
-                        const fileReader = new FileReader();
-                        fileReader.onloadend = () => {
-                            const result = fileReader.result;
-                            resolve(result.split(',')[1]);
-                        };
-                        fileReader.onerror = reject;
-                        fileReader.readAsDataURL(blob);
-                    });
+                    const base64Data = await Base64Encoder.encodeBlob(blob);
 
                     // 写入缓存目录
                     await Filesystem.writeFile({

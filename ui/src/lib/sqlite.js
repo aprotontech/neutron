@@ -13,7 +13,7 @@ export default class SQLiteManager {
         this.dbName = 'neutron.db';
         this.db = null;
         this.initPromise = null;
-        this.dbSchemaVersion = 'v1'
+        this.dbSchemaVersion = 'v1.1'
 
         // Table names
         this.TABLES = {
@@ -150,8 +150,8 @@ export default class SQLiteManager {
 
                     // Create indexes for cached_image_repo
                     await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_file_path ON ${this.TABLES.CACHED_IMAGE_REPO}(file_path)`);
-                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_ctime ON ${this.TABLES.CACHED_IMAGE_REPO}(ctime)`);
-                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_ftime ON ${this.TABLES.CACHED_IMAGE_REPO}(ftime)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_mtime ON ${this.TABLES.CACHED_IMAGE_REPO}(mtime)`);
+                    await this.db.execute(`CREATE INDEX IF NOT EXISTS idx_cached_image_repo_etime ON ${this.TABLES.CACHED_IMAGE_REPO}(etime)`);
 
                     // Create cached_file_infos table if not exists
                     await this.db.execute(`

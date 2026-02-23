@@ -282,8 +282,6 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getImageRepoHistory(version, lastId, count) {
-        console.log('getImageRepoHistory:', version, lastId, count);
-
         try {
             const resp = await this.rpc.sendRpc('getImageRepoHistory', {
                 "types": ["image", "video"],

@@ -141,6 +141,21 @@ export class DateFormatter {
     }
 }
 
+export class Base64Encoder {
+    static async encodeBlob(blob) {
+        const base64Data = await new Promise((resolve, reject) => {
+            const fileReader = new FileReader();
+            fileReader.onloadend = () => {
+                const result = fileReader.result;
+                resolve(result.split(',')[1]);
+            };
+            fileReader.onerror = reject;
+            fileReader.readAsDataURL(blob);
+        });
+        return base64Data
+    }
+}
+
 export class Hash {
     static md5sum(...params) {
         return md5(JSON.stringify(params))

@@ -180,6 +180,9 @@ class ImageRepo {
         this.historyMap.clear();
         this.lastID = null;
         this._clearCache();
+
+        // 同步清空数据库
+        await this.clearDatabase();
     }
 
     /**
@@ -307,6 +310,8 @@ class ImageRepo {
             return;
         }
 
+        let failedItem = null;
+
         try {
             const db = await this.sqliteManager.getDatabase();
             if (!db) {
@@ -318,25 +323,27 @@ class ImageRepo {
             for (const item of items) {
                 if (item.type === HistoryItemType.DELETE) {
                     // 删除操作：从数据库删除对应的记录
-                    await db.execute(
+                    await db.run(
                         `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path = ?`,
                         [item.file_path]
                     );
                 } else {
                     // 创建或修改操作：插入或更新记录
                     // 使用 INSERT OR REPLACE 来确保唯一性
-                    await db.execute(
+                    const file_path = item.file_path;
+                    failedItem = item;
+                    await db.run(
                         `INSERT OR REPLACE INTO ${this.CACHED_IMAGE_REPO_TABLE} 
-                         (file_path, ftime, etime, size) 
-                         VALUES (?, ?, ?, ?)`,
-                        [item.file_path, item.mtime, item.etime, 0] // size 暂时设为0，后续可以根据需要调整
+                         (id, file_path, mtime, etime, size) 
+                         VALUES (?, ?, ?, ?, ?)`,
+                        [item.id, file_path, item.mtime, item.etime, 0] // size 暂时设为0，后续可以根据需要调整
                     );
                 }
             }
 
             console.log(`[ImageRepo] Successfully synced ${items.length} items to database`);
         } catch (error) {
-            console.error('[ImageRepo] Error syncing to database:', error);
+            console.error('[ImageRepo] Error syncing item ', JSON.stringify(failedItem), 'to database:', error);
             // 不抛出错误，避免影响主流程
         }
     }
@@ -393,6 +400,8 @@ class ImageRepo {
             } else {
                 console.log('[ImageRepo] No data found in database');
             }
+
+            return this.historyMap.size;
         } catch (error) {
             console.error('[ImageRepo] Error initializing from database:', error);
             throw error;
@@ -417,7 +426,7 @@ class ImageRepo {
                 return;
             }
 
-            await db.execute(`DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE}`);
+            await db.run(`DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE}`);
             console.log('[ImageRepo] Cleared database cache');
         } catch (error) {
             console.error('[ImageRepo] Error clearing database:', error);
