@@ -5,5 +5,8 @@
     "go.lintTool": "golangci-lint",
     "go.lintFlags": [
         "--fast"
-    ]
+    ],
+    "protobuf.includes": [
+        "${workspaceFolder}/protocol"
+    ],
 }

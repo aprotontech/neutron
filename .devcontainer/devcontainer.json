@@ -11,7 +11,8 @@
                 "golang.go",
                 "ms-vscode.makefile-tools",
                 "aleksandra.go-group-imports",
-                "Vue.volar"
+                "Vue.volar",
+                "DrBlury.protobuf-vsc"
             ]
         }
     },

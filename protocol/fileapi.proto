@@ -28,6 +28,6 @@ message ImageRepoHistoryItem {
 
 message ImageRepoHistoryResponse {
     int32 total = 1;
-    version string = 2;
+    string version = 2;
     repeated ImageRepoHistoryItem items = 3;
 }

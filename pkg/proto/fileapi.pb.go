@@ -169,7 +169,7 @@ func (x *ImageRepoHistoryRequest) GetVersion() string {
 type ImageRepoHistoryItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Info          *FileInformation       `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -211,17 +211,18 @@ func (x *ImageRepoHistoryItem) GetId() int64 {
 	return 0
 }
 
-func (x *ImageRepoHistoryItem) GetInfo() *FileInformation {
+func (x *ImageRepoHistoryItem) GetPath() string {
 	if x != nil {
-		return x.Info
+		return x.Path
 	}
-	return nil
+	return ""
 }
 
 type ImageRepoHistoryResponse struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
 	Total         int32                   `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Items         []*ImageRepoHistoryItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	Version       string                  `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Items         []*ImageRepoHistoryItem `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -263,6 +264,13 @@ func (x *ImageRepoHistoryResponse) GetTotal() int32 {
 	return 0
 }
 
+func (x *ImageRepoHistoryResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 func (x *ImageRepoHistoryResponse) GetItems() []*ImageRepoHistoryItem {
 	if x != nil {
 		return x.Items
@@ -288,13 +296,14 @@ const file_fileapi_proto_rawDesc = "" +
 	"\x17ImageRepoHistoryRequest\x12\x17\n" +
 	"\alast_id\x18\x01 \x01(\x03R\x06lastId\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\"T\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\":\n" +
 	"\x14ImageRepoHistoryItem\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\x12,\n" +
-	"\x04info\x18\x02 \x01(\v2\x18.neutron.FileInformationR\x04info\"e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\"\x7f\n" +
 	"\x18ImageRepoHistoryResponse\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\x05R\x05total\x123\n" +
-	"\x05items\x18\x02 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05itemsB&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x123\n" +
+	"\x05items\x18\x03 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05itemsB&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
 
 var (
 	file_fileapi_proto_rawDescOnce sync.Once
@@ -319,14 +328,13 @@ var file_fileapi_proto_goTypes = []any{
 }
 var file_fileapi_proto_depIdxs = []int32{
 	4, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
-	0, // 1: neutron.ImageRepoHistoryItem.info:type_name -> neutron.FileInformation
-	2, // 2: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
-	5, // 3: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	2, // 1: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
+	5, // 2: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_fileapi_proto_init() }

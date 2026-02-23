@@ -8,7 +8,55 @@ import BaseClient from './base-client.js';
 import WebRTCDataChannelRPC from './webrtc-dc-rpc.js';
 import WebRTCDataChannelThumbnail from './webrtc-dc-thumbnail.js';
 import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
+import * as proto from '../proto/message_pb.js';
 import WebRTCDataChannelVideo from './webrtc-dc-video.js'
+
+const RemoteMessage = proto.RemoteMessage;
+
+// Helper function to create a Struct from a plain JavaScript object
+function createStructFromObject(obj) {
+    if (!obj || typeof obj !== 'object') {
+        return null;
+    }
+
+    // Try to use google-protobuf if available
+    try {
+        // In browser environment, google-protobuf might be available globally
+        let structPb;
+        if (typeof require !== 'undefined') {
+            // Node.js environment
+            structPb = require('google-protobuf/google/protobuf/struct_pb.js');
+        } else if (typeof window !== 'undefined' && window.google_protobuf_struct_pb) {
+            // Browser environment with global variable
+            structPb = window.google_protobuf_struct_pb;
+        } else {
+            // Try to import dynamically
+            structPb = globalThis.google_protobuf_struct_pb;
+        }
+
+        if (!structPb) {
+            console.warn('google-protobuf struct_pb not available');
+            return null;
+        }
+
+        const Struct = structPb.Struct;
+        const Value = structPb.Value;
+
+        const struct = new Struct();
+        const fields = {};
+
+        for (const [key, value] of Object.entries(obj)) {
+            fields[key] = Value.fromJavaScript(value);
+        }
+
+        struct.setFields(fields);
+        return struct;
+    } catch (e) {
+        // If we can't create a Struct, return null
+        console.warn('Could not create Struct from object:', e);
+        return null;
+    }
+}
 
 export default class WebRTCClient extends BaseClient {
     constructor(wsaddr, clientId, storageServerId, token, auth_failed_callback) {
@@ -68,6 +116,22 @@ export default class WebRTCClient extends BaseClient {
 
     // RPC now handled by WebRTCDataChannelRPC helper attached at runtime
 
+    remoteMessage(type, source, destination, id, payload) {
+        const msg = new RemoteMessage();
+        if (type) msg.setType(type);
+        if (source) msg.setSource(source);
+        if (destination) msg.setDestination(destination);
+        if (id) msg.setId(id);
+        if (payload) {
+            // Convert plain JavaScript object to Struct if needed
+            const structPayload = createStructFromObject(payload);
+            if (structPayload) {
+                msg.setPayload(structPayload);
+            }
+        }
+        return msg;
+    }
+
     async init() {
         try {
             var remoteCandidates = [];
@@ -80,12 +144,12 @@ export default class WebRTCClient extends BaseClient {
                 this.pc.onicecandidate = (event) => {
                     if (event.candidate) {
                         console.log('ICE candidate:', event.candidate);
-                        this.signalingSocket.send(JSON.stringify({
-                            type: 'candidate',
-                            source: this.clientId,
-                            destination: this.storageServerId,
-                            data: event.candidate.toJSON(),
-                        }));
+                        // Create payload with candidate data
+                        const payload = { data: event.candidate.toJSON() };
+
+                        // Create protobuf message
+                        const msg = this.remoteMessage('candidate', this.clientId, this.storageServerId, null, payload);
+                        this.signalingSocket.send(msg.serializeBinary());
                     }
                 };
 
@@ -98,37 +162,62 @@ export default class WebRTCClient extends BaseClient {
                 const offer = await this.pc.createOffer();
                 await this.pc.setLocalDescription(offer);
 
-                this.signalingSocket.send(JSON.stringify({
-                    type: 'offer',
-                    source: this.clientId,
-                    destination: this.storageServerId,
-                    data: offer
-                }));
+                // Create payload with offer data
+                // Create payload with offer data
+                const payload = { data: offer };
+
+                // Create protobuf message
+                const msg = this.remoteMessage('offer', this.clientId, this.storageServerId, null, payload);
+                this.signalingSocket.send(msg.serializeBinary());
 
             }
 
             this.signalingSocket.onmessage = async (message) => {
                 console.log("got message", message.data)
-                var m = JSON.parse(message.data)
+
+                // Try to parse as protobuf first
+                let m;
+                if (message.data instanceof ArrayBuffer || message.data instanceof Uint8Array) {
+                    // Parse as protobuf
+                    const msg = RemoteMessage.deserializeBinary(new Uint8Array(message.data));
+                    m = {
+                        type: msg.getType(),
+                        source: msg.getSource(),
+                        destination: msg.getDestination(),
+                        id: msg.getId(),
+                        payload: msg.getPayload() ? msg.getPayload().toJavaScript() : {}
+                    };
+                    console.log("Parsed protobuf message:", m);
+                } else {
+                    // Fallback to JSON for backward compatibility
+                    try {
+                        m = JSON.parse(message.data);
+                    } catch (e) {
+                        console.error("Failed to parse message:", e);
+                        return;
+                    }
+                }
+
                 if (m.type == "answer") {
                     await this.pc.setRemoteDescription(new RTCSessionDescription({
                         type: 'answer',
-                        sdp: m.data.sdp,
+                        sdp: m.payload.data.sdp,
                     }));
-                    console.log("finished set awnser")
+                    console.log("finished set answer")
 
                     for (const candidate of remoteCandidates) {
                         console.log("adding remote candidate", candidate)
                         await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
                     }
                 } else if (m.type == "candidate") {
+                    const candidateData = m.payload.data;
                     if (this.pc.remoteDescription == null) {
-                        remoteCandidates.push(m.data);
+                        remoteCandidates.push(candidateData);
                         return;
                     }
-                    await this.pc.addIceCandidate(new RTCIceCandidate(m.data));
+                    await this.pc.addIceCandidate(new RTCIceCandidate(candidateData));
                 } else if (m.type == "answer+candidates") {
-                    this.pc.setRemoteDescription(m.data)
+                    this.pc.setRemoteDescription(m.payload.data)
                 }
             }
 

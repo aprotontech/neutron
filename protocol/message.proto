@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/aproton/neutron/pkg/proto";
+option optimize_for = SPEED;
+
+package neutron;
+
+message RemoteMessage {
+    string type = 1;
+	string source = 2;
+	string destination = 3;
+	string id = 4;
+    google.protobuf.Struct payload = 5;
+}
