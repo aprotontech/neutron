@@ -15,11 +15,11 @@ const DELETE_FILE = 2
 const MODIFY_FILE = 3
 
 type RepoHistoryItem struct {
-	ID       int64  `gorm:"column:id;primaryKey;autoIncrement"`
-	IsValidate bool 	`gorm:"column:is_valid"`
-	Time     int64  `gorm:"column:time;index"`
-	Type     uint8  `gorm:"column:type"`
-	FilePath string `gorm:"column:file_path;index"`
+	ID         int64  `gorm:"column:id;primaryKey;autoIncrement"`
+	IsValidate bool   `gorm:"column:is_valid"`
+	Time       int64  `gorm:"column:time;index"`
+	Type       uint8  `gorm:"column:type"`
+	FilePath   string `gorm:"column:file_path;index"`
 }
 
 func (RepoHistoryItem) TableName() string {
@@ -46,21 +46,36 @@ func (r *Repository) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repository) GetHistory(offset, limit int64) ([]RepoHistoryItem, error) {
+func (r *Repository) GetHistory(lastID, limit int64) ([]RepoHistoryItem, int, error) {
 	if r.db == nil {
-		return nil, gorm.ErrInvalidDB
+		return nil, 0, gorm.ErrInvalidDB
 	}
 
-	var items []RepoHistoryItem
-	err := r.db.Where("is_valid = ?", true).Order("time DESC")
-		.Offset(int(offset)).Limit(int(limit)).Find(&items).Error
+	// 首先获取总记录数
+	var total int64
+	err := r.db.Model(&RepoHistoryItem{}).Where("is_valid = ?", true).Count(&total).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return items, nil
-}
+	// 构建查询
+	query := r.db.Where("is_valid = ?", true).Order("time DESC")
 
+	// 如果 lastID > 0，则查询 ID 小于 lastID 的记录（用于分页）
+	if lastID > 0 {
+		query = query.Where("id < ?", lastID)
+	}
+
+	// 获取分页数据
+	var items []RepoHistoryItem
+	err = query.Limit(int(limit)).Find(&items).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, int(total), nil
+}
 
 func (r *Repository) Update() error {
 	err := r.db.Exec(`
@@ -74,7 +89,7 @@ func (r *Repository) Update() error {
 			GROUP BY file_path
 		)
 	`).Error
-	
+
 	if err != nil {
 		return err
 	}

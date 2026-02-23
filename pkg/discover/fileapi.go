@@ -284,14 +284,15 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 		count = 100
 	}
 
-	imgs, total, err := fsm..ListFiles(types, int(offset), int(count))
+	imgs, total, err := fsm.repo.GetHistory(lastID, count)
 	if err != nil {
 		return nil, err
 	}
 
 	return map[string]any{
-		"items": imgs,
-		"total": total,
+		"version": "1.0",
+		"items":   imgs,
+		"total":   total,
 	}, nil
 }
 
