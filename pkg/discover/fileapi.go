@@ -272,7 +272,7 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 		types[i] = v.(string)
 	}
 
-	lastID, err := getInt64FromMap(info, "lastID", 0)
+	lastID, err := getInt64FromMap(info, "lastId", 0)
 	if err != nil {
 		lastID = -1
 	}
@@ -283,6 +283,8 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 		// 即使类型无效，我们也使用默认值继续执行
 		count = 100
 	}
+
+	log.Infof("Fetching image repo history... types=%v, lastID=%d, count=%d", types, lastID, count)
 
 	imgs, total, err := fsm.repo.GetHistory(lastID, count)
 	if err != nil {

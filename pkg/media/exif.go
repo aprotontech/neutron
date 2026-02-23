@@ -114,3 +114,16 @@ func GetImageExifData(imagePath string) (map[string]interface{}, error) {
 
 	return result, nil
 }
+
+func GetExifDataTime(exifData map[string]interface{}) (time.Time, error) {
+	timeKeys := []string{"ParsedDateTime", "DateTimeOriginal", "DateTimeDigitized", "DateTime"}
+	for _, key := range timeKeys {
+		if dateTimeStr, ok := exifData[key].(string); ok && dateTimeStr != "" {
+			if tm, err := time.Parse(time.RFC3339, dateTimeStr); err == nil {
+				return tm, nil
+			}
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("Not found valid time in EXIF data")
+}

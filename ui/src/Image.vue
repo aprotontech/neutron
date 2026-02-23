@@ -311,7 +311,7 @@ async function loadImages(offset = 0) {
 
     const items = res.items || []
     const mapped = items.map((it, i) => {
-      const path = typeof it === 'string' ? it : (it.path || it)
+      const path = typeof it === 'string' ? it : (it.file_path || it)
       const name = (path || '').split('/').pop() || '未命名'
       return {
         id: offset + i,

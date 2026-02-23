@@ -218,20 +218,26 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 	if !info.IsDir() {
 		fileType := media.GetFileMimeType(path)
 		if fileType == "image" || fileType == "video" {
-			// 创建 RepoHistoryItem
-			repoItem = &meta.RepoHistoryItem{
-				Time:       time.Now().Unix(),
-				Type:       meta.CREATE_FILE,
-				FilePath:   path,
-				IsValidate: true,
-			}
-
 			exif, _ := media.GetImageExifData(path)
+
+			exifTime, err := media.GetExifDataTime(exif)
+			if err == nil {
+				log.Infof("Processing media file: %s, type: %s, exif time: %v", path, fileType, exifTime)
+			}
 
 			// 创建额外的系统信息
 			extraInfo = &fs.FileSystemExtraInfo{
 				MimeType: fileType,
 				Exif:     exif,
+			}
+
+			// 创建 RepoHistoryItem
+			repoItem = &meta.RepoHistoryItem{
+				ModTime:    info.ModTime().Unix(),
+				ExifTime:   info.ModTime().Unix(),
+				Type:       meta.CREATE_FILE,
+				FilePath:   path,
+				IsValidate: true,
 			}
 		}
 	} else {

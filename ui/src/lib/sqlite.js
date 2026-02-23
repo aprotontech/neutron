@@ -142,8 +142,8 @@ export default class SQLiteManager {
                         CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHED_IMAGE_REPO} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             file_path TEXT NOT NULL,
-                            ftime INTEGER,
-                            ctime INTEGER,
+                            etime INTEGER,
+                            mtime INTEGER,
                             size INTEGER
                         )
                     `);

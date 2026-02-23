@@ -15,7 +15,7 @@ const HistoryItemType = {
 
 // 排序方式常量
 const SortOrder = {
-    CTIME: 'ctime',  // 按照图片拍摄时间排序
+    ETIME: 'etime',  // 按照图片拍摄时间排序
     MTIME: 'mtime'   // 按照文件修改时间排序
 };
 
@@ -25,7 +25,7 @@ const SortOrder = {
  * @property {string} id - 项目唯一标识
  * @property {string} path - 文件路径
  * @property {number} type - 操作类型 (1:创建, 2:删除, 3:修改)
- * @property {number} ctime - 图片拍摄时间 (Unix 时间戳，毫秒)
+ * @property {number} etime - 图片拍摄时间 (Unix 时间戳，毫秒)
  * @property {number} mtime - 文件修改时间 (Unix 时间戳，毫秒)
  */
 
@@ -38,23 +38,23 @@ class ImageRepo {
         this.historyMap = new Map();
         /** @type {string|null} 当前最大的 ID */
         this.lastID = null;
-        
+
         // 平台检测
         this.isNative = Capacitor.isNativePlatform();
-        
+
         // SQLite 数据库管理器（仅在原生平台使用）
         this.sqliteManager = this.isNative ? getSQLiteManager() : null;
         this.CACHED_IMAGE_REPO_TABLE = 'cached_image_repo';
-        
+
         // 缓存机制
         /** @type {HistoryItem[]|null} 缓存排序后的列表 */
         this._sortedCache = null;
         /** @type {string|null} 当前缓存的排序方式 */
         this._cachedOrder = null;
-        
+
         // 初始化排序比较函数
         this.sortFunctions = {
-            [SortOrder.CTIME]: (a, b) => b.ctime - a.ctime, // 降序：最新的在前
+            [SortOrder.ETIME]: (a, b) => b.etime - a.etime, // 降序：最新的在前
             [SortOrder.MTIME]: (a, b) => b.mtime - a.mtime  // 降序：最新的在前
         };
     }
@@ -87,33 +87,33 @@ class ImageRepo {
             // 处理 DELETE 类型
             if (item.type === HistoryItemType.DELETE) {
                 // 使用 Map 的 delete 方法，O(1) 时间复杂度
-                this.historyMap.delete(item.path);
+                this.historyMap.delete(item.file_path);
                 // 不添加 DELETE 记录到 historyMap
                 continue;
             }
 
             // 对于非 DELETE 类型，直接设置到 Map 中
             // Map 会自动处理 key 的唯一性，相同 path 会覆盖旧值
-            this.historyMap.set(item.path, item);
+            this.historyMap.set(item.file_path, item);
         }
-        
+
         this._clearCache();
-        
+
         // 同步更新到数据库
         await this._syncToDatabase(items);
     }
 
     /**
      * 获取历史记录列表
-     * @param {string} order - 排序方式：'ctime' 或 'mtime'
+     * @param {string} order - 排序方式：'etime' 或 'mtime'
      * @param {number} offset - 起始偏移量
      * @param {number} count - 返回数量
      * @returns {Promise<HistoryItem[]>}
      */
-    async getList(order = SortOrder.CTIME, offset = 0, count = 20) {
+    async getList(order = SortOrder.ETIME, offset = 0, count = 20) {
         // 参数验证
-        if (![SortOrder.CTIME, SortOrder.MTIME].includes(order)) {
-            throw new Error(`order 参数必须是 '${SortOrder.CTIME}' 或 '${SortOrder.MTIME}'`);
+        if (![SortOrder.ETIME, SortOrder.MTIME].includes(order)) {
+            throw new Error(`order 参数必须是 '${SortOrder.ETIME}' 或 '${SortOrder.MTIME}'`);
         }
 
         if (typeof offset !== 'number' || offset < 0) {
@@ -131,7 +131,7 @@ class ImageRepo {
 
         // 检查缓存
         let sortedItems = this._sortedCache;
-        
+
         // 如果缓存不存在或排序方式发生变化，重新生成缓存
         if (!sortedItems || this._cachedOrder !== order) {
             // 获取排序函数
@@ -142,7 +142,7 @@ class ImageRepo {
 
             // 从 Map 获取所有值并排序
             sortedItems = Array.from(this.historyMap.values()).sort(sortFn);
-            
+
             // 更新缓存
             this._sortedCache = sortedItems;
             this._cachedOrder = order;
@@ -151,7 +151,7 @@ class ImageRepo {
         // 计算分页
         const startIndex = Math.min(offset, sortedItems.length);
         const endIndex = Math.min(startIndex + count, sortedItems.length);
-        
+
         // 返回分页结果
         return sortedItems.slice(startIndex, endIndex);
     }
@@ -168,7 +168,7 @@ class ImageRepo {
      * 获取当前最大的 ID
      * @returns {Promise<string|null>}
      */
-    async getLastID() {
+    getLastID() {
         return this.lastID;
     }
 
@@ -189,8 +189,8 @@ class ImageRepo {
      * @param {number} index - 项目在数组中的索引
      */
     _validateHistoryItem(item, index) {
-        const requiredFields = ['id', 'path', 'type', 'ctime', 'mtime'];
-        
+        const requiredFields = ['id', 'file_path', 'type', 'etime', 'mtime'];
+
         // 检查必需字段
         requiredFields.forEach(field => {
             if (item[field] === undefined || item[field] === null) {
@@ -204,8 +204,8 @@ class ImageRepo {
         }
 
         // 验证时间戳
-        if (typeof item.ctime !== 'number' || item.ctime < 0) {
-            throw new Error(`第 ${index} 个项目的 ctime 必须是有效的 Unix 时间戳（毫秒）`);
+        if (typeof item.etime !== 'number' || item.etime < 0) {
+            throw new Error(`第 ${index} 个项目的 etime 必须是有效的 Unix 时间戳（毫秒）`);
         }
 
         if (typeof item.mtime !== 'number' || item.mtime < 0) {
@@ -213,13 +213,13 @@ class ImageRepo {
         }
 
         // 验证路径
-        if (typeof item.path !== 'string' || item.path.trim() === '') {
-            throw new Error(`第 ${index} 个项目的 path 必须是有效的非空字符串`);
+        if (typeof item.file_path !== 'string' || item.file_path.trim() === '') {
+            throw new Error(`第 ${index} 个项目的 file_path 必须是有效的非空字符串`);
         }
 
         // 验证 ID
-        if (typeof item.id !== 'string' || item.id.trim() === '') {
-            throw new Error(`第 ${index} 个项目的 id 必须是有效的非空字符串`);
+        if (typeof item.id !== 'number' || item.id < 0) {
+            throw new Error(`第 ${index} 个项目的 id 必须是有效的正整数`);
         }
     }
 
@@ -240,18 +240,6 @@ class ImageRepo {
      * @returns {number} 比较结果：1 表示 id1 > id2，-1 表示 id1 < id2，0 表示相等
      */
     _compareIDs(id1, id2) {
-        // 尝试将 ID 解析为数字进行比较
-        const num1 = Number(id1);
-        const num2 = Number(id2);
-        
-        if (!isNaN(num1) && !isNaN(num2)) {
-            // 如果都是有效数字，按数字比较
-            if (num1 > num2) return 1;
-            if (num1 < num2) return -1;
-            return 0;
-        }
-        
-        // 否则按字符串比较
         if (id1 > id2) return 1;
         if (id1 < id2) return -1;
         return 0;
@@ -287,21 +275,21 @@ class ImageRepo {
             return { earliest: null, latest: null };
         }
 
-        let earliestCtime = Infinity;
-        let latestCtime = -Infinity;
+        let earliestEtime = Infinity;
+        let latestEtime = -Infinity;
         let earliestMtime = Infinity;
         let latestMtime = -Infinity;
 
         // 遍历 Map 的值
         for (const item of this.historyMap.values()) {
-            earliestCtime = Math.min(earliestCtime, item.ctime);
-            latestCtime = Math.max(latestCtime, item.ctime);
+            earliestEtime = Math.min(earliestEtime, item.etime);
+            latestEtime = Math.max(latestEtime, item.etime);
             earliestMtime = Math.min(earliestMtime, item.mtime);
             latestMtime = Math.max(latestMtime, item.mtime);
         }
 
         return {
-            ctime: { earliest: earliestCtime, latest: latestCtime },
+            etime: { earliest: earliestEtime, latest: latestEtime },
             mtime: { earliest: earliestMtime, latest: latestMtime }
         };
     }
@@ -318,7 +306,7 @@ class ImageRepo {
             console.log('[ImageRepo] 非原生平台，跳过数据库同步');
             return;
         }
-        
+
         try {
             const db = await this.sqliteManager.getDatabase();
             if (!db) {
@@ -332,20 +320,20 @@ class ImageRepo {
                     // 删除操作：从数据库删除对应的记录
                     await db.execute(
                         `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path = ?`,
-                        [item.path]
+                        [item.file_path]
                     );
                 } else {
                     // 创建或修改操作：插入或更新记录
                     // 使用 INSERT OR REPLACE 来确保唯一性
                     await db.execute(
                         `INSERT OR REPLACE INTO ${this.CACHED_IMAGE_REPO_TABLE} 
-                         (file_path, ftime, ctime, size) 
+                         (file_path, ftime, etime, size) 
                          VALUES (?, ?, ?, ?)`,
-                        [item.path, item.mtime, item.ctime, 0] // size 暂时设为0，后续可以根据需要调整
+                        [item.file_path, item.mtime, item.etime, 0] // size 暂时设为0，后续可以根据需要调整
                     );
                 }
             }
-            
+
             console.log(`[ImageRepo] Successfully synced ${items.length} items to database`);
         } catch (error) {
             console.error('[ImageRepo] Error syncing to database:', error);
@@ -363,7 +351,7 @@ class ImageRepo {
             console.log('[ImageRepo] 非原生平台，跳过数据库初始化');
             return;
         }
-        
+
         try {
             const db = await this.sqliteManager.getDatabase();
             if (!db) {
@@ -378,23 +366,23 @@ class ImageRepo {
 
             // 从数据库读取所有记录
             const result = await db.query(
-                `SELECT * FROM ${this.CACHED_IMAGE_REPO_TABLE} ORDER BY ctime DESC`
+                `SELECT * FROM ${this.CACHED_IMAGE_REPO_TABLE} ORDER BY etime DESC`
             );
 
             if (result.values && result.values.length > 0) {
                 // 将数据库记录转换为 HistoryItem 格式
                 const items = result.values.map(row => ({
-                    id: String(row.id), // 使用数据库的id作为历史记录id
-                    path: row.file_path,
+                    id: row.id, // 使用数据库的id作为历史记录id
+                    file_path: row.file_path,
                     type: HistoryItemType.CREATE, // 数据库中的记录都视为创建类型
-                    ctime: row.ctime || 0,
-                    mtime: row.ftime || 0
+                    etime: row.etime || 0,
+                    mtime: row.mtime || 0
                 }));
 
                 // 添加到内存中
                 for (const item of items) {
-                    this.historyMap.set(item.path, item);
-                    
+                    this.historyMap.set(item.file_path, item);
+
                     // 更新 lastID
                     if (this.lastID === null || this._compareIDs(item.id, this.lastID) > 0) {
                         this.lastID = item.id;
@@ -421,7 +409,7 @@ class ImageRepo {
             console.log('[ImageRepo] 非原生平台，跳过数据库清理');
             return;
         }
-        
+
         try {
             const db = await this.sqliteManager.getDatabase();
             if (!db) {
