@@ -24,10 +24,74 @@ message ImageRepoHistoryRequest {
 message ImageRepoHistoryItem {
     int64 id = 1;
     string path = 2;
+    int32 type = 3; // 1:创建, 2:删除, 3:修改
+    int64 etime = 4; // 图片拍摄时间 (Unix 时间戳，毫秒)
+    int64 mtime = 5; // 文件修改时间 (Unix 时间戳，毫秒)
+    string file_path = 6; // 文件路径（兼容旧字段）
 }
 
 message ImageRepoHistoryResponse {
     int32 total = 1;
     string version = 2;
     repeated ImageRepoHistoryItem items = 3;
+}
+
+// File operation request/response messages
+message FileOperationRequest {
+    string operation = 1;
+    google.protobuf.Struct params = 2;
+}
+
+message FileOperationResponse {
+    bool success = 1;
+    google.protobuf.Struct result = 2;
+    string error = 3;
+}
+
+// Prepare file receive request (used in WebRTC)
+message PrepareFileReceiveRequest {
+    string path = 1;
+    string label = 2;
+    int64 offset = 3;
+    int64 size = 4;
+}
+
+// Prepare file receive response
+message PrepareFileReceiveResponse {
+    bool success = 1;
+    int64 size = 2;
+    string error = 3;
+}
+
+// Get file info request
+message GetFileInfoRequest {
+    string path = 1;
+}
+
+// Get file info response
+message GetFileInfoResponse {
+    FileInformation file_info = 1;
+    string error = 2;
+}
+
+// List files request
+message ListFilesRequest {
+    string path = 1;
+}
+
+// List files response
+message ListFilesResponse {
+    repeated FileInformation files = 1;
+    string error = 2;
+}
+
+// Get file system version request
+message GetFileSystemVersionRequest {
+    // Empty message
+}
+
+// Get file system version response
+message GetFileSystemVersionResponse {
+    string version = 1;
+    string error = 2;
 }

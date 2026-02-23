@@ -545,15 +545,16 @@ export default class FileAPI {
                 console.log(`Fetching image repo history: version=${version}, lastID=${lastID}, count=${batchSize}`);
 
                 try {
-                    // 调用 TransferClient 获取数据
+                    // 调用 TransferClient 获取数据（现在返回protobuf对象）
                     const response = await TransferClient.get().getImageRepoHistory(version, lastID, batchSize);
 
-                    if (!response || !response.items || !Array.isArray(response.items)) {
+                    if (!response) {
                         console.error('Invalid response from getImageRepoHistory:', response);
                         break;
                     }
 
-                    const items = response.items;
+                    // response是protobuf对象，直接使用其属性
+                    const items = response.items || [];
                     console.log(`Received ${items.length} items from server`);
 
                     if (items.length === 0) {

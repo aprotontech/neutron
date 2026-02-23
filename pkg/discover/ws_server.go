@@ -3,9 +3,9 @@ package discover
 import (
 	"container/list"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,7 +14,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/patrickmn/go-cache"
+	"google.golang.org/protobuf/encoding/protojson"
+	protobuf "google.golang.org/protobuf/proto"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
+	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
@@ -43,9 +47,9 @@ type DiscoverServer struct {
 	clients map[string]*WebSocketClient
 	users   map[string]*WebSocketUser
 
-	responseChannels map[string]chan *RemoteMessage
+	responseChannels map[string]chan *neutronproto.RemoteMessage
 
-	// key: token,  value: *LoginRequest
+	// key: token,  value: *neutronproto.LoginRequest
 	tokenCaches *cache.Cache
 }
 
@@ -55,7 +59,7 @@ func NewDiscoverServer() *DiscoverServer {
 		clients:          make(map[string]*WebSocketClient),
 		users:            make(map[string]*WebSocketUser),
 		tokenCaches:      cache.New(24*time.Hour, time.Hour),
-		responseChannels: make(map[string]chan *RemoteMessage),
+		responseChannels: make(map[string]chan *neutronproto.RemoteMessage),
 	}
 }
 
@@ -79,8 +83,8 @@ func (s *DiscoverServer) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 			log.Debugf("decode input token failed", err.Error())
 			validateFailed = true
 		} else {
-			var loginInfo LoginRequest
-			if err := json.Unmarshal(cnt, &loginInfo); err != nil {
+			var loginInfo neutronproto.LoginRequest
+			if err := protobuf.Unmarshal(cnt, &loginInfo); err != nil {
 				validateFailed = true
 			} else {
 				ok, err := CheckPassword(loginInfo.Username, loginInfo.Password)
@@ -100,11 +104,11 @@ func (s *DiscoverServer) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 
 	}
 
-	s.doWebSocketTraffic(loginData.(*LoginRequest), w, r)
+	s.doWebSocketTraffic(loginData.(*neutronproto.LoginRequest), w, r)
 
 }
 
-func (s *DiscoverServer) doWebSocketTraffic(userData *LoginRequest, w http.ResponseWriter, r *http.Request) {
+func (s *DiscoverServer) doWebSocketTraffic(userData *neutronproto.LoginRequest, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Warnf("Upgrade error:", err)
@@ -112,7 +116,7 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *LoginRequest, w http.Respo
 	}
 	defer conn.Close()
 
-	log.Infof("New client %s, user %s connected", userData.ClientID, userData.Username)
+	log.Infof("New client %s, user %s connected", userData.ClientId, userData.Username)
 
 	client, err := s.regist(conn, userData)
 	if err != nil {
@@ -136,8 +140,14 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *LoginRequest, w http.Respo
 			if err := s.callAck(signal); err != nil {
 				log.Warnf("callack failed %v", err)
 			}
-		} else if err := s.forward(signal.Destionation, signal.msgBytes); err != nil {
-			log.Warnf("forward failed %v", err)
+		} else {
+			// Re-marshal the message for forwarding
+			msgBytes, err := protojson.Marshal(signal)
+			if err != nil {
+				log.Warnf("marshal message for forwarding failed %v", err)
+			} else if err := s.forward(signal.Destination, msgBytes); err != nil {
+				log.Warnf("forward failed %v", err)
+			}
 		}
 	}
 
@@ -163,27 +173,25 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *LoginRequest, w http.Respo
 	}
 }
 
-func (s *DiscoverServer) readMessage(conn *websocket.Conn) (*RemoteMessage, error) {
+func (s *DiscoverServer) readMessage(conn *websocket.Conn) (*neutronproto.RemoteMessage, error) {
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
 
-	var signal RemoteMessage
-	if err := json.Unmarshal(msg, &signal); err != nil {
+	var signal neutronproto.RemoteMessage
+	if err := protojson.Unmarshal(msg, &signal); err != nil {
 		return nil, fmt.Errorf("Unmarshal error: %v", err)
 	}
-
-	signal.msgBytes = msg
 
 	return &signal, nil
 }
 
-func (s *DiscoverServer) regist(conn *websocket.Conn, loginData *LoginRequest) (*WebSocketClient, error) {
+func (s *DiscoverServer) regist(conn *websocket.Conn, loginData *neutronproto.LoginRequest) (*WebSocketClient, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if client, ok := s.clients[loginData.ClientID]; ok {
+	if client, ok := s.clients[loginData.ClientId]; ok {
 		if client.wsConn != nil {
 			log.Infof("client %s original connection is not null, so close it", client.clientID)
 			if err := client.wsConn.Close(); err != nil {
@@ -201,22 +209,22 @@ func (s *DiscoverServer) regist(conn *websocket.Conn, loginData *LoginRequest) (
 	}
 
 	client := &WebSocketClient{
-		clientID:        loginData.ClientID,
-		storageServerID: loginData.StorageServerID,
+		clientID:        loginData.ClientId,
+		storageServerID: loginData.StorageServerId,
 		wsConn:          conn,
 		offset:          nil,
 		user:            s.users[loginData.Username],
 	}
 
-	s.clients[loginData.ClientID] = client
+	s.clients[loginData.ClientId] = client
 	client.offset = s.users[loginData.Username].clients.PushBack(client)
 	return client, nil
 }
 
-func (s *DiscoverServer) forward(destionation string, data []byte) error {
-	conn, err := s.getClientConnection(destionation)
+func (s *DiscoverServer) forward(destination string, data []byte) error {
+	conn, err := s.getClientConnection(destination)
 	if err != nil {
-		return fmt.Errorf("client %s not found", destionation)
+		return fmt.Errorf("client %s not found", destination)
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
@@ -249,20 +257,42 @@ func (s *DiscoverServer) getClientConnection(id string) (*websocket.Conn, error)
 }
 
 func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var loginInfo LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&loginInfo); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Warnf("read request body failed %v", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	var loginInfo neutronproto.LoginRequest
+	if err := protojson.Unmarshal(body, &loginInfo); err != nil {
 		log.Warnf("decode login request failed %v", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	// Send to StorageServer to check user/passwd
-	result, err := s.callClient(loginInfo.StorageServerID, &RemoteMessage{
-		Type:         "authorizen",
-		Source:       "discover",
-		Destionation: loginInfo.StorageServerID,
-		ID:           uuid.NewString(),
-		Data:         &loginInfo,
+	// Create payload for login request
+	payloadMap := map[string]interface{}{
+		"clientID":        loginInfo.ClientId,
+		"username":        loginInfo.Username,
+		"password":        loginInfo.Password,
+		"storageServerID": loginInfo.StorageServerId,
+	}
+
+	structValue, err := structpb.NewStruct(payloadMap)
+	if err != nil {
+		log.Warnf("create struct failed %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	result, err := s.callClient(loginInfo.StorageServerId, &neutronproto.RemoteMessage{
+		Type:        "authorizen",
+		Source:      "discover",
+		Destination: loginInfo.StorageServerId,
+		Id:          uuid.NewString(),
+		Payload:     structValue,
 	}, 5*time.Second)
 	if err != nil {
 		log.Warnf("call login user %s: %v", loginInfo.Username, err)
@@ -270,11 +300,33 @@ func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginResponse, err := result.GetLoginResponse()
-	if err != nil {
-		log.Warnf("get login response data failed %v", err)
+	// Extract login response from payload
+	if result.Payload == nil {
+		log.Warnf("login response payload is empty")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
+	}
+
+	// Convert payload to LoginResponse
+	loginResponse := &neutronproto.LoginResponse{}
+	// Extract fields from struct
+	if result.Payload != nil {
+		fields := result.Payload.Fields
+		if successVal, ok := fields["success"]; ok {
+			if success, ok := successVal.GetKind().(*structpb.Value_BoolValue); ok {
+				loginResponse.Success = success.BoolValue
+			}
+		}
+		if messageVal, ok := fields["message"]; ok {
+			if message, ok := messageVal.GetKind().(*structpb.Value_StringValue); ok {
+				loginResponse.Message = message.StringValue
+			}
+		}
+		if tokenVal, ok := fields["token"]; ok {
+			if token, ok := tokenVal.GetKind().(*structpb.Value_StringValue); ok {
+				loginResponse.Token = token.StringValue
+			}
+		}
 	}
 
 	if !loginResponse.Success {
@@ -285,35 +337,23 @@ func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.tokenCaches.Set(loginResponse.Token, &loginInfo, 0)
 
-	// claims := jwt.MapClaims{
-	// 	"userID":   "kog",
-	// 	"username": "test-username",
-	// }
-
-	// token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	// tokenString, err := token.SignedString([]byte("your-secret-key"))
-	// if err != nil {
-	// 	http.Error(w, "Could not generate token", http.StatusInternalServerError)
-	// 	return
-	// }
-
 	w.Header().Set("Content-Type", "application/json")
-	cnt, _ := json.Marshal(loginResponse)
+	cnt, _ := protojson.Marshal(loginResponse)
 	if _, err := w.Write(cnt); err != nil {
 		log.Warnf("Error writing response: %v", err)
 	}
 }
 
-func (s *DiscoverServer) callClient(userId string, msg *RemoteMessage, timeout time.Duration) (*RemoteMessage, error) {
-	ch := make(chan *RemoteMessage, 1)
+func (s *DiscoverServer) callClient(userId string, msg *neutronproto.RemoteMessage, timeout time.Duration) (*neutronproto.RemoteMessage, error) {
+	ch := make(chan *neutronproto.RemoteMessage, 1)
 
-	content, err := json.Marshal(msg)
+	content, err := protojson.Marshal(msg)
 	if err != nil {
 		return nil, errors.New("encode message failed")
 	}
 
-	_ = s.registCallback(msg.ID, &ch)
-	defer s.registCallback(msg.ID, nil)
+	_ = s.registCallback(msg.Id, &ch)
+	defer s.registCallback(msg.Id, nil)
 
 	if err := s.forward(userId, content); err != nil {
 		return nil, fmt.Errorf("send authorizen message failed %v", err)
@@ -327,19 +367,19 @@ func (s *DiscoverServer) callClient(userId string, msg *RemoteMessage, timeout t
 	}
 }
 
-func (s *DiscoverServer) callAck(msg *RemoteMessage) error {
+func (s *DiscoverServer) callAck(msg *neutronproto.RemoteMessage) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	ch, ok := s.responseChannels[msg.ID]
+	ch, ok := s.responseChannels[msg.Id]
 	if !ok {
-		return fmt.Errorf("not found ack channel for id %s", msg.ID)
+		return fmt.Errorf("not found ack channel for id %s", msg.Id)
 	}
 
 	ch <- msg
 	return nil
 }
 
-func (s *DiscoverServer) registCallback(callID string, ch *chan *RemoteMessage) error {
+func (s *DiscoverServer) registCallback(callID string, ch *chan *neutronproto.RemoteMessage) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

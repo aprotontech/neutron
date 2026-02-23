@@ -61,7 +61,7 @@ class ImageRepo {
 
     /**
      * 添加历史记录项到数组中
-     * @param {HistoryItem[]} items - 要添加的历史记录项数组
+     * @param {HistoryItem[]|neutron.ImageRepoHistoryItem[]} items - 要添加的历史记录项数组（可以是普通对象或protobuf对象）
      * @returns {Promise<void>}
      */
     async appendHistory(items) {
@@ -69,38 +69,39 @@ class ImageRepo {
             throw new Error('items 必须是一个数组');
         }
 
-        // 验证每个项目
-        items.forEach((item, index) => {
-            this._validateHistoryItem(item, index);
-        });
-
         // 清除缓存，因为数据即将更新
         this._clearCache();
 
         // 处理每个项目
         for (const item of items) {
+            // 处理protobuf对象：转换为普通对象
+            const normalizedItem = this._normalizeHistoryItem(item);
+
+            // 验证项目
+            this._validateHistoryItem(normalizedItem, items.indexOf(item));
+
             // 更新 lastID
-            if (this.lastID === null || this._compareIDs(item.id, this.lastID) > 0) {
-                this.lastID = item.id;
+            if (this.lastID === null || this._compareIDs(normalizedItem.id, this.lastID) > 0) {
+                this.lastID = normalizedItem.id;
             }
 
             // 处理 DELETE 类型
-            if (item.type === HistoryItemType.DELETE) {
+            if (normalizedItem.type === HistoryItemType.DELETE) {
                 // 使用 Map 的 delete 方法，O(1) 时间复杂度
-                this.historyMap.delete(item.file_path);
+                this.historyMap.delete(normalizedItem.file_path);
                 // 不添加 DELETE 记录到 historyMap
                 continue;
             }
 
             // 对于非 DELETE 类型，直接设置到 Map 中
             // Map 会自动处理 key 的唯一性，相同 path 会覆盖旧值
-            this.historyMap.set(item.file_path, item);
+            this.historyMap.set(normalizedItem.file_path, normalizedItem);
         }
 
         this._clearCache();
 
         // 同步更新到数据库
-        await this._syncToDatabase(items);
+        await this._syncToDatabase(items.map(item => this._normalizeHistoryItem(item)));
     }
 
     /**
@@ -246,6 +247,35 @@ class ImageRepo {
         if (id1 > id2) return 1;
         if (id1 < id2) return -1;
         return 0;
+    }
+
+    /**
+     * 标准化历史记录项，处理protobuf对象和普通对象的兼容性
+     * @private
+     * @param {Object|neutron.ImageRepoHistoryItem} item - 原始项目
+     * @returns {HistoryItem} 标准化后的项目
+     */
+    _normalizeHistoryItem(item) {
+        // 如果是protobuf对象，转换为普通对象
+        if (item && typeof item === 'object' && item.constructor && item.constructor.name === 'ImageRepoHistoryItem') {
+            return {
+                id: item.id,
+                // 优先使用file_path，如果没有则使用path
+                file_path: item.file_path || item.path || '',
+                type: item.type || HistoryItemType.CREATE,
+                etime: item.etime || 0,
+                mtime: item.mtime || 0
+            };
+        }
+
+        // 如果是普通对象，确保有必要的字段
+        return {
+            id: item.id,
+            file_path: item.file_path || item.path || '',
+            type: item.type || HistoryItemType.CREATE,
+            etime: item.etime || 0,
+            mtime: item.mtime || 0
+        };
     }
 
     /**

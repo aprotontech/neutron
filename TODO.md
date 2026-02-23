@@ -4,7 +4,7 @@ TODO:
 
 
 - APP文件列表优化
-  - APP本地图片列表使用 sqlite 进行cache
+  - APP本地图片列表使用 sqlite 进行cache [DONE]
   - APP本地文件列表使用 sqlite 进行cache
 
 - 支持在线升级
@@ -86,7 +86,7 @@ TODO:
 
 - capacitor模式优化
   - 使用capacitor的本地模式，而不是使用浏览器打开远程服务器模式 [DONE]
-  - 支持调试使用远程服务，体验用本地页面
+  - 支持调试使用远程服务，体验用本地页面 [DONE]
   - 和服务器之间的网络连接使用后台worker的模式
 
 - Cache 管理
@@ -98,15 +98,15 @@ TODO:
   - 支持不同的子目录，防止所有的文件都放在同一个目录
 
 - 代码优化
-  - 优化golang消息的field字段获取逻辑，支持struct解析
-  - Javascript中的所有配置，迁移到一个独立的Config文件，并且部分参数可以在设置页面可以设置
+  - 优化golang消息的field字段获取逻辑，支持struct解析 -> 使用protobuf [DOING]
+  - Javascript中的所有配置，迁移到一个独立的Config文件，并且部分参数可以在设置页面可以设置 [DONE]
   - 支持应用在线更新
 
 - 安全问题
   - storageserver和discover之间使用公私钥
   - storageserver和client之间的token传递需要使用公私钥加密
   - storageserver和client之间的webrtc通讯需要使用token进行验证
-  - 解决文件扫描时，sqlite操作的SQL安全问题，改成ORM语句
+  - 解决文件扫描时，sqlite操作的SQL安全问题，改成ORM语句 [DONE]
   - 支持多次登录错误后，增加图形验证码校验
 
 

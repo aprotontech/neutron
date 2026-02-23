@@ -8,7 +8,9 @@
     "preview": "vite preview --port 5173",
     "cap:copy": "npx cap copy --web-dir=www",
     "cap:sync": "npx cap sync --web-dir=www",
-    "ship": "vite build && npx cap sync --web-dir=www"
+    "ship": "vite build && npx cap sync --web-dir=www",
+    "proto:generate": "cd ../protocol && ../ui/node_modules/.bin/pbjs -t static-module -w es6 --es6 -o ../ui/src/lib/proto/neutron_pb.js *.proto",
+    "proto": "npm run proto:generate"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^8.0.0",
@@ -33,6 +35,7 @@
     "@rollup/plugin-commonjs": "^29.0.0",
     "@types/node": "^25.1.0",
     "@vitejs/plugin-vue": "^4.1.0",
+    "protobufjs-cli": "^2.0.0",
     "typescript": "^5.9.3",
     "vite": "^5.0.0"
   }

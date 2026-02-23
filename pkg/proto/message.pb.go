@@ -108,7 +108,7 @@ const file_message_proto_rawDesc = "" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
 	"\vdestination\x18\x03 \x01(\tR\vdestination\x12\x0e\n" +
 	"\x02id\x18\x04 \x01(\tR\x02id\x121\n" +
-	"\apayload\x18\x05 \x01(\v2\x17.google.protobuf.StructR\apayloadB&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
+	"\apayload\x18\x05 \x01(\v2\x17.google.protobuf.StructR\apayloadB(H\x01Z$github.com/aproton/neutron/pkg/protob\x06proto3"
 
 var (
 	file_message_proto_rawDescOnce sync.Once

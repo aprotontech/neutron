@@ -8,10 +8,10 @@ import BaseClient from './base-client.js';
 import WebRTCDataChannelRPC from './webrtc-dc-rpc.js';
 import WebRTCDataChannelThumbnail from './webrtc-dc-thumbnail.js';
 import WebRTCDataChannelFileContent from './webrtc-dc-file.js';
-import * as proto from '../proto/message_pb.js';
+import { neutron } from '../proto/neutron_pb.js';
 import WebRTCDataChannelVideo from './webrtc-dc-video.js'
 
-const RemoteMessage = proto.RemoteMessage;
+const RemoteMessage = neutron.RemoteMessage;
 
 // Helper function to create a Struct from a plain JavaScript object
 function createStructFromObject(obj) {
@@ -19,38 +19,25 @@ function createStructFromObject(obj) {
         return null;
     }
 
-    // Try to use google-protobuf if available
     try {
-        // In browser environment, google-protobuf might be available globally
-        let structPb;
-        if (typeof require !== 'undefined') {
-            // Node.js environment
-            structPb = require('google-protobuf/google/protobuf/struct_pb.js');
-        } else if (typeof window !== 'undefined' && window.google_protobuf_struct_pb) {
-            // Browser environment with global variable
-            structPb = window.google_protobuf_struct_pb;
-        } else {
-            // Try to import dynamically
-            structPb = globalThis.google_protobuf_struct_pb;
+        // With protobufjs, we can use the global $root or google.protobuf namespace
+        // Check if google.protobuf.Struct is available
+        if (typeof google !== 'undefined' && google.protobuf && google.protobuf.Struct) {
+            return google.protobuf.Struct.fromObject(obj);
         }
 
-        if (!structPb) {
-            console.warn('google-protobuf struct_pb not available');
-            return null;
+        // Try to access via the imported neutron module
+        if (typeof neutron !== 'undefined' && neutron.google && neutron.google.protobuf && neutron.google.protobuf.Struct) {
+            return neutron.google.protobuf.Struct.fromObject(obj);
         }
 
-        const Struct = structPb.Struct;
-        const Value = structPb.Value;
-
-        const struct = new Struct();
-        const fields = {};
-
-        for (const [key, value] of Object.entries(obj)) {
-            fields[key] = Value.fromJavaScript(value);
+        // Last resort: check if $root is available in the generated code
+        if (typeof $root !== 'undefined' && $root.google && $root.google.protobuf && $root.google.protobuf.Struct) {
+            return $root.google.protobuf.Struct.fromObject(obj);
         }
 
-        struct.setFields(fields);
-        return struct;
+        console.warn('google.protobuf.Struct not available');
+        return null;
     } catch (e) {
         // If we can't create a Struct, return null
         console.warn('Could not create Struct from object:', e);
@@ -118,15 +105,15 @@ export default class WebRTCClient extends BaseClient {
 
     remoteMessage(type, source, destination, id, payload) {
         const msg = new RemoteMessage();
-        if (type) msg.setType(type);
-        if (source) msg.setSource(source);
-        if (destination) msg.setDestination(destination);
-        if (id) msg.setId(id);
+        if (type) msg.type = type;
+        if (source) msg.source = source;
+        if (destination) msg.destination = destination;
+        if (id) msg.id = id;
         if (payload) {
             // Convert plain JavaScript object to Struct if needed
             const structPayload = createStructFromObject(payload);
             if (structPayload) {
-                msg.setPayload(structPayload);
+                msg.payload = structPayload;
             }
         }
         return msg;
@@ -168,7 +155,8 @@ export default class WebRTCClient extends BaseClient {
 
                 // Create protobuf message
                 const msg = this.remoteMessage('offer', this.clientId, this.storageServerId, null, payload);
-                this.signalingSocket.send(msg.serializeBinary());
+                const encodedMsg = RemoteMessage.encode(msg).finish();
+                this.signalingSocket.send(encodedMsg);
 
             }
 
@@ -179,13 +167,13 @@ export default class WebRTCClient extends BaseClient {
                 let m;
                 if (message.data instanceof ArrayBuffer || message.data instanceof Uint8Array) {
                     // Parse as protobuf
-                    const msg = RemoteMessage.deserializeBinary(new Uint8Array(message.data));
+                    const msg = RemoteMessage.decode(new Uint8Array(message.data));
                     m = {
-                        type: msg.getType(),
-                        source: msg.getSource(),
-                        destination: msg.getDestination(),
-                        id: msg.getId(),
-                        payload: msg.getPayload() ? msg.getPayload().toJavaScript() : {}
+                        type: msg.type,
+                        source: msg.source,
+                        destination: msg.destination,
+                        id: msg.id,
+                        payload: msg.payload ? msg.payload.toObject() : {}
                     };
                     console.log("Parsed protobuf message:", m);
                 } else {
@@ -344,24 +332,6 @@ export default class WebRTCClient extends BaseClient {
 
     }
 
-    async getFileUrl(filePath, mimeType) {
-        console.log('Generating file URL via WebRTC for:', filePath, 'type:', mimeType);
-
-        try {
-            // Get file content as blob (stream = false)
-            const blob = await this.getFileContent(filePath, mimeType, false);
-
-            // Create object URL from blob
-            const objectUrl = URL.createObjectURL(blob);
-            console.log("Created object URL for file:", filePath, "size:", blob.size);
-            return objectUrl;
-        } catch (err) {
-            // Fallback to a placeholder URL if WebRTC transfer fails
-            console.warn('WebRTC file transfer failed, using fallback URL:', err);
-            return 'webrtc://' + filePath;
-        }
-    }
-
     async getFileInfo(filePath) {
         return await this.rpc.sendRpc('getFileInfo', { path: filePath });
     }
@@ -381,24 +351,17 @@ export default class WebRTCClient extends BaseClient {
 
             console.log('getImageRepoHistory response:', resp);
 
-            // 确保返回正确的格式
-            if (resp && typeof resp === 'object') {
-                return {
-                    total: resp.total || 0,
-                    version: resp.version | "",
-                    items: resp.items || []
-                };
-            } else {
-                throw new Error("response format error")
-            }
+            // 直接返回protobuf对象，让调用者处理
+            return resp;
         } catch (err) {
             console.error('getImageRepoHistory error:', err);
-            // 返回空结果而不是抛出错误，避免UI崩溃
-            return {
+            // 返回空的protobuf对象而不是抛出错误
+            const ImageRepoHistoryResponse = neutron.ImageRepoHistoryResponse;
+            return new ImageRepoHistoryResponse({
                 total: 0,
                 version: "",
                 items: []
-            };
+            });
         }
     }
 }

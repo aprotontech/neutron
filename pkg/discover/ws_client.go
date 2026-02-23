@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,6 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	webrtc "github.com/pion/webrtc/v4"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/aproton/neutron/pkg/fs"
 	"github.com/aproton/neutron/pkg/local"
 	"github.com/aproton/neutron/pkg/meta"
+	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
@@ -111,15 +114,17 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 	settingEngine := webrtc.SettingEngine{}
 	s.api = webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine))
 
-	cnt, _ := json.Marshal(&LoginRequest{
-		ClientID:        s.config.DiscoverClient.StorageServerID,
+	// Create login request using protobuf
+	loginReq := &neutronproto.LoginRequest{
+		ClientId:        s.config.DiscoverClient.StorageServerID,
 		Username:        s.config.DiscoverClient.StorageServerID,
 		Password:        s.config.DiscoverClient.Password,
-		StorageServerID: s.config.DiscoverClient.StorageServerID,
-	})
+		StorageServerId: s.config.DiscoverClient.StorageServerID,
+	}
 
+	loginReqBytes, _ := proto.Marshal(loginReq)
 	conn, _, err := websocket.DefaultDialer.Dial(s.config.DiscoverClient.WebSocketURL, http.Header{
-		"Authorization": []string{"Bearer " + base64.StdEncoding.EncodeToString(cnt)},
+		"Authorization": []string{"Bearer " + base64.StdEncoding.EncodeToString(loginReqBytes)},
 	})
 	if err != nil {
 		return err
@@ -144,30 +149,59 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 
 		log.Infof("Received message: %s", string(msg))
 
-		var signal RemoteMessage
-		if err := json.Unmarshal(msg, &signal); err != nil {
+		var signal neutronproto.RemoteMessage
+		if err := protojson.Unmarshal(msg, &signal); err != nil {
 			log.Warnf("Unmarshal error:", err)
 			continue
 		}
 
 		switch signal.Type {
 		case "authorizen":
-			loginInfo, err := signal.GetLoginRequest()
-			if err == nil {
-				ok, err := CheckPassword(loginInfo.Username, loginInfo.Password)
+			// Extract login request from payload
+			if signal.Payload == nil {
+				log.Warnf("authorizen payload is empty")
+				continue
+			}
+
+			// Extract fields from struct
+			fields := signal.Payload.Fields
+			username := ""
+			password := ""
+
+			if usernameVal, ok := fields["username"]; ok {
+				if u, ok := usernameVal.GetKind().(*structpb.Value_StringValue); ok {
+					username = u.StringValue
+				}
+			}
+			if passwordVal, ok := fields["password"]; ok {
+				if p, ok := passwordVal.GetKind().(*structpb.Value_StringValue); ok {
+					password = p.StringValue
+				}
+			}
+
+			if username != "" && password != "" {
+				ok, err := CheckPassword(username, password)
 				if ok || err != nil {
 					token := md5.Sum([]byte(uuid.NewString()))
-					data, err := json.Marshal(&RemoteMessage{
-						Type:         "callAck",
-						Source:       s.config.DiscoverClient.StorageServerID,
-						Destionation: signal.Source,
-						ID:           signal.ID,
-						Data: &LoginResponse{
-							Success: true,
-							Message: "success",
-							Token:   hex.EncodeToString(token[:]),
+
+					// Create response payload
+					responsePayload := &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"success": structpb.NewBoolValue(true),
+							"message": structpb.NewStringValue("success"),
+							"token":   structpb.NewStringValue(hex.EncodeToString(token[:])),
 						},
-					})
+					}
+
+					responseMsg := &neutronproto.RemoteMessage{
+						Type:        "callAck",
+						Source:      s.config.DiscoverClient.StorageServerID,
+						Destination: signal.Source,
+						Id:          signal.Id,
+						Payload:     responsePayload,
+					}
+
+					data, err := protojson.Marshal(responseMsg)
 					if err == nil {
 						if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 							log.Warnf("Write regist message error: %v", err)
@@ -179,26 +213,49 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 				} else {
 					log.Warnf("check login data error: %v", err)
 				}
-
-			} else {
-				log.Warnf("GetLoginRequest failed:  %v", err)
 			}
 
 		case "offer":
-			offer, err := signal.GetWebRTCOfferContent()
-			if err != nil {
-				log.Warnf("Get remote offer error:", err)
-			} else if err := s.setupRemoteConnection(signal.Source, offer.SDP); err != nil {
-				log.Warnf("Setup remote connection error:", err)
+			// Extract offer SDP from payload
+			if signal.Payload == nil {
+				log.Warnf("offer payload is empty")
+				continue
+			}
+
+			fields := signal.Payload.Fields
+			sdp := ""
+			if sdpVal, ok := fields["sdp"]; ok {
+				if s, ok := sdpVal.GetKind().(*structpb.Value_StringValue); ok {
+					sdp = s.StringValue
+				}
+			}
+
+			if sdp != "" {
+				if err := s.setupRemoteConnection(signal.Source, sdp); err != nil {
+					log.Warnf("Setup remote connection error:", err)
+				}
+			} else {
+				log.Warnf("Get remote offer error: sdp not found")
 			}
 
 		case "candidate":
-			cand, err := signal.GetWebRTCCandidateContent()
-			if err != nil {
-				log.Warnf("Get remote offer error:", err)
-			} else {
+			// Extract candidate from payload
+			if signal.Payload == nil {
+				log.Warnf("candidate payload is empty")
+				continue
+			}
+
+			fields := signal.Payload.Fields
+			candidateStr := ""
+			if candidateVal, ok := fields["candidate"]; ok {
+				if c, ok := candidateVal.GetKind().(*structpb.Value_StringValue); ok {
+					candidateStr = c.StringValue
+				}
+			}
+
+			if candidateStr != "" {
 				candidate := webrtc.ICECandidateInit{
-					Candidate: cand.Candidate,
+					Candidate: candidateStr,
 				}
 
 				if pc, exists := s.remoteClients[signal.Source]; exists {
@@ -206,6 +263,8 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 						log.Warnf("AddICECandidate error: %v", err)
 					}
 				}
+			} else {
+				log.Warnf("Get remote candidate error: candidate not found")
 			}
 		}
 	}
@@ -283,15 +342,20 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 			log.Infof("Received: %s", string(msg.Data))
 
 			if dataChannel.Label() == "rpc" {
-				m := RemoteMessage{}
-				if err := json.Unmarshal(msg.Data, &m); err != nil {
+				var m neutronproto.RemoteMessage
+				if err := protojson.Unmarshal(msg.Data, &m); err != nil {
 					log.Warnf("Unmarshal data channel message error: %v", err)
 					return
 				}
 
 				var response any
 				if api, ok := s.fileAPIS[m.Type]; ok {
-					response, err = api(s, remoteClient, m.Data)
+					// Convert payload to map[string]interface{} for API compatibility
+					var reqData map[string]interface{}
+					if m.Payload != nil {
+						reqData = m.Payload.AsMap()
+					}
+					response, err = api(s, remoteClient, reqData)
 					if err != nil {
 						log.Warnf("File API %s error: %v", m.Type, err)
 						if response != nil {
@@ -306,14 +370,25 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					}
 				}
 
-				res, err := json.Marshal(&RemoteMessage{
-					Type:         "@response",
-					Source:       s.config.DiscoverClient.StorageServerID,
-					ID:           m.ID,
-					Destionation: source,
-					Data:         response,
-				})
+				// Convert response to struct
+				var responsePayload *structpb.Struct
+				if response != nil {
+					if respMap, ok := response.(map[string]interface{}); ok {
+						if s, err := structpb.NewStruct(respMap); err == nil {
+							responsePayload = s
+						}
+					}
+				}
 
+				resMsg := &neutronproto.RemoteMessage{
+					Type:        "@response",
+					Source:      s.config.DiscoverClient.StorageServerID,
+					Id:          m.Id,
+					Destination: source,
+					Payload:     responsePayload,
+				}
+
+				res, err := protojson.Marshal(resMsg)
 				if err != nil {
 					log.Warnf("Marshal file list message error: %v", err)
 					return
@@ -343,13 +418,26 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate != nil && !s.combineAnswerCandidates {
 			log.Infof("OnICECandidate %v", candidate)
-			if err := s.conn.WriteJSON(&RemoteMessage{
-				Type:         "candidate",
-				Source:       s.config.DiscoverClient.StorageServerID,
-				Destionation: source,
-				Data:         candidate,
-			}); err != nil {
-				log.Warnf("Write answer error: %v", err)
+
+			// Create candidate payload
+			candidatePayload := &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"candidate": structpb.NewStringValue(candidate.ToJSON().Candidate),
+				},
+			}
+
+			candidateMsg := &neutronproto.RemoteMessage{
+				Type:        "candidate",
+				Source:      s.config.DiscoverClient.StorageServerID,
+				Destination: source,
+				Payload:     candidatePayload,
+			}
+
+			data, err := protojson.Marshal(candidateMsg)
+			if err != nil {
+				log.Warnf("Marshal candidate message error: %v", err)
+			} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Warnf("Write candidate error: %v", err)
 			}
 		}
 	})
@@ -369,23 +457,46 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 	if s.combineAnswerCandidates {
 		<-gatherComplete
 
-		if err := s.conn.WriteJSON(&RemoteMessage{
-			Type:         "answer+candidates",
-			Source:       s.config.DiscoverClient.StorageServerID,
-			Destionation: source,
-			Data:         peerConnection.LocalDescription(),
-		}); err != nil {
+		// Create answer+candidates payload
+		answerPayload := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"sdp":  structpb.NewStringValue(peerConnection.LocalDescription().SDP),
+				"type": structpb.NewStringValue(string(peerConnection.LocalDescription().Type)),
+			},
+		}
+
+		answerMsg := &neutronproto.RemoteMessage{
+			Type:        "answer+candidates",
+			Source:      s.config.DiscoverClient.StorageServerID,
+			Destination: source,
+			Payload:     answerPayload,
+		}
+
+		data, err := protojson.Marshal(answerMsg)
+		if err != nil {
+			log.Warnf("Marshal answer message error: %v", err)
+		} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	} else {
-		if err := s.conn.WriteJSON(&RemoteMessage{
-			Type:         "answer",
-			Source:       s.config.DiscoverClient.StorageServerID,
-			Destionation: source,
-			Data: map[string]string{
-				"sdp": peerConnection.LocalDescription().SDP,
+		// Create answer payload
+		answerPayload := &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"sdp": structpb.NewStringValue(peerConnection.LocalDescription().SDP),
 			},
-		}); err != nil {
+		}
+
+		answerMsg := &neutronproto.RemoteMessage{
+			Type:        "answer",
+			Source:      s.config.DiscoverClient.StorageServerID,
+			Destination: source,
+			Payload:     answerPayload,
+		}
+
+		data, err := protojson.Marshal(answerMsg)
+		if err != nil {
+			log.Warnf("Marshal answer message error: %v", err)
+		} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	}

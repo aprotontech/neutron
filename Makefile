@@ -15,6 +15,10 @@ endif
 
 all: neutron
 
+proto:
+	@echo "generating protobuf javascript files using protobufjs"
+	@cd ui && npm run proto
+
 neutron:
 	@echo "building ./cmd/neutron/ --> ./build/bin/neutron"
 	@rm -rf ./build/www ./build/etc

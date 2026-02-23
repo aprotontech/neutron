@@ -4,3 +4,24 @@ package neutron;
 
 option go_package = "github.com/aproton/neutron/pkg/proto";
 
+message LoginRequest {
+    string client_id = 1;
+    string username = 2;
+    string password = 3;
+    string storage_server_id = 4;
+}
+
+message LoginResponse {
+    bool success = 1;
+    string message = 2;
+    string token = 3;
+}
+
+message WebRTCOfferContent {
+    string sdp = 1;
+}
+
+message WebRTCCandidateContent {
+    string candidate = 1;
+}
+
