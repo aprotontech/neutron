@@ -33,6 +33,12 @@ filesystem:
       - ".cache"
       - "node_modules"
 
+
+discoverClient:
+  websocketURL: ws://192.168.1.115:8080/ws
+  storageServerID: home
+  password: aproton@2026
+
 web:
   port: 8080
   html: ./www

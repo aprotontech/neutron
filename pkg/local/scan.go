@@ -220,9 +220,9 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 		if fileType == "image" || fileType == "video" {
 			// 创建 RepoHistoryItem
 			repoItem = &meta.RepoHistoryItem{
-				Time:     time.Now().Unix(),
-				Type:     meta.CREATE_FILE,
-				FilePath: path,
+				Time:       time.Now().Unix(),
+				Type:       meta.CREATE_FILE,
+				FilePath:   path,
 				IsValidate: true,
 			}
 
@@ -236,7 +236,6 @@ func (scanner *LocalFileSystemScanner) processPath(path string, info os.FileInfo
 		}
 	} else {
 		scanner.folderNodeIDs[path] = nodeID
-
 	}
 
 	// 创建 NodeAttr

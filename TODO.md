@@ -5,7 +5,7 @@ TODO:
 
 - APP文件列表优化
   - APP本地图片列表使用 sqlite 进行cache
-  - APP本地文件列表使用 sqlite 进行cache [DONE]
+  - APP本地文件列表使用 sqlite 进行cache
 
 - 支持在线升级
 
@@ -29,7 +29,7 @@ TODO:
 - PC模式优化
   - 图库预览窗口支持一个关闭按钮
 - 服务器的优化
-  - 服务端文件树使用sqlite进行缓存
+  - 服务端文件树使用sqlite进行缓存   [DONE]
   - 服务器支持API的QPS限制
 - 支持大文件的重传（修复filesize卡住的问题） [DONE]
 - 支持实时查看的文件，自动保存到本地，这样下次进来可以直接使用本地缓存 [DONE]

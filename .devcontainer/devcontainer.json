@@ -10,7 +10,8 @@
             "extensions": [
                 "golang.go",
                 "ms-vscode.makefile-tools",
-                "aleksandra.go-group-imports"
+                "aleksandra.go-group-imports",
+                "Vue.volar"
             ]
         }
     },

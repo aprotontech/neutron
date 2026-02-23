@@ -3,6 +3,9 @@
  * 管理 historyItem 数组，支持添加和查询操作
  */
 
+import { Capacitor } from '@capacitor/core';
+import { getSQLiteManager } from './sqlite.js';
+
 // 历史记录项类型常量
 const HistoryItemType = {
     CREATE: 1,   // 创建
@@ -35,6 +38,13 @@ class ImageRepo {
         this.historyMap = new Map();
         /** @type {string|null} 当前最大的 ID */
         this.lastID = null;
+        
+        // 平台检测
+        this.isNative = Capacitor.isNativePlatform();
+        
+        // SQLite 数据库管理器（仅在原生平台使用）
+        this.sqliteManager = this.isNative ? getSQLiteManager() : null;
+        this.CACHED_IMAGE_REPO_TABLE = 'cached_image_repo';
         
         // 缓存机制
         /** @type {HistoryItem[]|null} 缓存排序后的列表 */
@@ -88,6 +98,9 @@ class ImageRepo {
         }
         
         this._clearCache();
+        
+        // 同步更新到数据库
+        await this._syncToDatabase(items);
     }
 
     /**
@@ -291,6 +304,137 @@ class ImageRepo {
             ctime: { earliest: earliestCtime, latest: latestCtime },
             mtime: { earliest: earliestMtime, latest: latestMtime }
         };
+    }
+
+    /**
+     * 同步数据到数据库
+     * @private
+     * @param {HistoryItem[]} items - 要同步的项目数组
+     * @returns {Promise<void>}
+     */
+    async _syncToDatabase(items) {
+        // 仅在原生平台执行数据库同步
+        if (!this.isNative) {
+            console.log('[ImageRepo] 非原生平台，跳过数据库同步');
+            return;
+        }
+        
+        try {
+            const db = await this.sqliteManager.getDatabase();
+            if (!db) {
+                console.warn('[ImageRepo] SQLite database not available, skipping sync');
+                return;
+            }
+
+            // 批量处理数据库操作
+            for (const item of items) {
+                if (item.type === HistoryItemType.DELETE) {
+                    // 删除操作：从数据库删除对应的记录
+                    await db.execute(
+                        `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path = ?`,
+                        [item.path]
+                    );
+                } else {
+                    // 创建或修改操作：插入或更新记录
+                    // 使用 INSERT OR REPLACE 来确保唯一性
+                    await db.execute(
+                        `INSERT OR REPLACE INTO ${this.CACHED_IMAGE_REPO_TABLE} 
+                         (file_path, ftime, ctime, size) 
+                         VALUES (?, ?, ?, ?)`,
+                        [item.path, item.mtime, item.ctime, 0] // size 暂时设为0，后续可以根据需要调整
+                    );
+                }
+            }
+            
+            console.log(`[ImageRepo] Successfully synced ${items.length} items to database`);
+        } catch (error) {
+            console.error('[ImageRepo] Error syncing to database:', error);
+            // 不抛出错误，避免影响主流程
+        }
+    }
+
+    /**
+     * 从数据库初始化历史记录
+     * @returns {Promise<void>}
+     */
+    async init() {
+        // 仅在原生平台执行数据库初始化
+        if (!this.isNative) {
+            console.log('[ImageRepo] 非原生平台，跳过数据库初始化');
+            return;
+        }
+        
+        try {
+            const db = await this.sqliteManager.getDatabase();
+            if (!db) {
+                console.warn('[ImageRepo] SQLite database not available, skipping initialization');
+                return;
+            }
+
+            // 清空当前内存中的数据
+            this.historyMap.clear();
+            this.lastID = null;
+            this._clearCache();
+
+            // 从数据库读取所有记录
+            const result = await db.query(
+                `SELECT * FROM ${this.CACHED_IMAGE_REPO_TABLE} ORDER BY ctime DESC`
+            );
+
+            if (result.values && result.values.length > 0) {
+                // 将数据库记录转换为 HistoryItem 格式
+                const items = result.values.map(row => ({
+                    id: String(row.id), // 使用数据库的id作为历史记录id
+                    path: row.file_path,
+                    type: HistoryItemType.CREATE, // 数据库中的记录都视为创建类型
+                    ctime: row.ctime || 0,
+                    mtime: row.ftime || 0
+                }));
+
+                // 添加到内存中
+                for (const item of items) {
+                    this.historyMap.set(item.path, item);
+                    
+                    // 更新 lastID
+                    if (this.lastID === null || this._compareIDs(item.id, this.lastID) > 0) {
+                        this.lastID = item.id;
+                    }
+                }
+
+                console.log(`[ImageRepo] Initialized ${items.length} items from database`);
+            } else {
+                console.log('[ImageRepo] No data found in database');
+            }
+        } catch (error) {
+            console.error('[ImageRepo] Error initializing from database:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 清空数据库中的缓存数据
+     * @returns {Promise<void>}
+     */
+    async clearDatabase() {
+        // 仅在原生平台执行数据库清理
+        if (!this.isNative) {
+            console.log('[ImageRepo] 非原生平台，跳过数据库清理');
+            return;
+        }
+        
+        try {
+            const db = await this.sqliteManager.getDatabase();
+            if (!db) {
+                console.warn('[ImageRepo] SQLite database not available');
+                return;
+            }
+
+            await db.execute(`DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE}`);
+            console.log('[ImageRepo] Cleared database cache');
+        } catch (error) {
+            console.error('[ImageRepo] Error clearing database:', error);
+            throw error;
+        }
     }
 }
 
