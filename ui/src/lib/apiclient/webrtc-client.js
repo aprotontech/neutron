@@ -13,37 +13,6 @@ import WebRTCDataChannelVideo from './webrtc-dc-video.js'
 
 const RemoteMessage = neutron.RemoteMessage;
 
-// Helper function to create a Struct from a plain JavaScript object
-function createStructFromObject(obj) {
-    if (!obj || typeof obj !== 'object') {
-        return null;
-    }
-
-    try {
-        // With protobufjs, we can use the global $root or google.protobuf namespace
-        // Check if google.protobuf.Struct is available
-        if (typeof google !== 'undefined' && google.protobuf && google.protobuf.Struct) {
-            return google.protobuf.Struct.fromObject(obj);
-        }
-
-        // Try to access via the imported neutron module
-        if (typeof neutron !== 'undefined' && neutron.google && neutron.google.protobuf && neutron.google.protobuf.Struct) {
-            return neutron.google.protobuf.Struct.fromObject(obj);
-        }
-
-        // Last resort: check if $root is available in the generated code
-        if (typeof $root !== 'undefined' && $root.google && $root.google.protobuf && $root.google.protobuf.Struct) {
-            return $root.google.protobuf.Struct.fromObject(obj);
-        }
-
-        console.warn('google.protobuf.Struct not available');
-        return null;
-    } catch (e) {
-        // If we can't create a Struct, return null
-        console.warn('Could not create Struct from object:', e);
-        return null;
-    }
-}
 
 export default class WebRTCClient extends BaseClient {
     constructor(wsaddr, clientId, storageServerId, token, auth_failed_callback) {
@@ -101,23 +70,6 @@ export default class WebRTCClient extends BaseClient {
         this.init();
     }
 
-    // RPC now handled by WebRTCDataChannelRPC helper attached at runtime
-
-    remoteMessage(type, source, destination, id, payload) {
-        const msg = new RemoteMessage();
-        if (type) msg.type = type;
-        if (source) msg.source = source;
-        if (destination) msg.destination = destination;
-        if (id) msg.id = id;
-        if (payload) {
-            // Convert plain JavaScript object to Struct if needed
-            const structPayload = createStructFromObject(payload);
-            if (structPayload) {
-                msg.payload = structPayload;
-            }
-        }
-        return msg;
-    }
 
     async init() {
         try {
@@ -129,19 +81,36 @@ export default class WebRTCClient extends BaseClient {
 
                 // Handle ICE candidates
                 this.pc.onicecandidate = (event) => {
-                    if (event.candidate) {
+                    if (event.candidate && event.candidate.candidate) {
                         console.log('ICE candidate:', event.candidate);
-                        // Create payload with candidate data
-                        const payload = { data: event.candidate.toJSON() };
 
-                        // Create protobuf message
-                        const msg = this.remoteMessage('candidate', this.clientId, this.storageServerId, null, payload);
-                        const encodedMsg = RemoteMessage.encode(msg).finish();
-                        this.signalingSocket.send(encodedMsg);
+                        // 获取候选者字符串
+                        const candidateStr = event.candidate.candidate;
+
+                        // Create WebRTCCandidateContent protobuf message
+                        const candidateContent = neutron.WebRTCCandidateContent.create({
+                            candidate: candidateStr
+                        });
+
+                        // Create RemoteMessage with WebRTCCandidateContent as payload
+                        const candidateMsg = new RemoteMessage();
+                        candidateMsg.type = 'candidate';
+                        candidateMsg.source = this.clientId;
+                        candidateMsg.id = uuidv4();
+                        candidateMsg.destination = this.storageServerId;
+                        candidateMsg.webrtcCandidateContent = candidateContent;
+
+                        const candidateEncodedMsg = RemoteMessage.encode(candidateMsg).finish();
+
+                        // 确保发送二进制消息
+                        if (this.signalingSocket.readyState === WebSocket.OPEN) {
+                            this.signalingSocket.send(candidateEncodedMsg);
+                            console.log('Sent ICE candidate (binary message)');
+                        } else {
+                            console.warn('WebSocket not open, cannot send candidate');
+                        }
                     }
                 };
-
-                // Handle connection state changes
                 this.pc.onconnectionstatechange = () => {
                     console.log('Connection state:', this.pc.connectionState);
                     this.connected = this.pc.connectionState === 'connected';
@@ -150,62 +119,51 @@ export default class WebRTCClient extends BaseClient {
                 const offer = await this.pc.createOffer();
                 await this.pc.setLocalDescription(offer);
 
-                // Create payload with offer data
-                // Create payload with offer data
-                const payload = { data: offer };
+                // Create WebRTCOfferContent protobuf message
+                const offerContent = neutron.WebRTCOfferContent.create({
+                    sdp: offer.sdp
+                });
 
-                // Create protobuf message
-                const msg = this.remoteMessage('offer', this.clientId, this.storageServerId, null, payload);
-                const encodedMsg = RemoteMessage.encode(msg).finish();
-                this.signalingSocket.send(encodedMsg);
+                // Create RemoteMessage with WebRTCOfferContent as payload
+                const offerMsg = new RemoteMessage();
+                offerMsg.type = 'offer';
+                offerMsg.source = this.clientId;
+                offerMsg.destination = this.storageServerId;
+                offerMsg.webrtcOfferContent = offerContent;
+
+                const offerEncodedMsg = RemoteMessage.encode(offerMsg).finish();
+
+                // 确保发送二进制消息
+                if (this.signalingSocket.readyState === WebSocket.OPEN) {
+                    this.signalingSocket.send(offerEncodedMsg);
+                    console.log('Sent WebRTC offer (binary message)');
+                } else {
+                    console.warn('WebSocket not open, cannot send offer');
+                }
 
             }
 
             this.signalingSocket.onmessage = async (message) => {
-                console.log("got message", message.data)
+                console.log("got message", message.data, "type:", typeof message.data, "constructor:", message.data?.constructor?.name)
 
                 // Try to parse as protobuf first
                 let m;
-                if (message.data instanceof ArrayBuffer || message.data instanceof Uint8Array) {
+                let dataToParse = message.data;
+
+                // 处理不同类型的二进制数据
+                if (dataToParse instanceof Blob) {
+                    // 将Blob转换为ArrayBuffer
+                    dataToParse = await dataToParse.arrayBuffer();
+                }
+
+                if (dataToParse instanceof ArrayBuffer || dataToParse instanceof Uint8Array) {
                     // Parse as protobuf
-                    const msg = RemoteMessage.decode(new Uint8Array(message.data));
+                    const msg = RemoteMessage.decode(new Uint8Array(dataToParse));
+                    console.log("Decoded protobuf message:", msg, "type:", msg.type, "webrtcAnswerCandidatesContent:", msg.webrtcAnswerCandidatesContent);
 
                     // Extract payload based on message type
-                    let payload = {};
-                    if (msg.error) {
-                        // Error message - extract error details
-                        payload = msg.error.toObject ? msg.error.toObject() : {};
-                        console.warn("Received error message:", payload);
-                    } else if (msg.webrtcAnswerContent) {
-                        payload = msg.webrtcAnswerContent.toObject();
-                    } else if (msg.webrtcCandidateContent) {
-                        payload = msg.webrtcCandidateContent.toObject();
-                    } else if (msg.webrtcAnswerCandidatesContent) {
-                        payload = msg.webrtcAnswerCandidatesContent.toObject();
-                    } else if (msg.webrtcOfferContent) {
-                        payload = msg.webrtcOfferContent.toObject();
-                    } else if (msg.loginResponse) {
-                        payload = msg.loginResponse.toObject();
-                    } else if (msg.loginRequest) {
-                        payload = msg.loginRequest.toObject();
-                    } else if (msg.listFilesResponse) {
-                        payload = msg.listFilesResponse.toObject ? msg.listFilesResponse.toObject() : {};
-                    } else if (msg.getFileInfoResponse) {
-                        payload = msg.getFileInfoResponse.toObject ? msg.getFileInfoResponse.toObject() : {};
-                    } else if (msg.prepareFileReceiveResponse) {
-                        payload = msg.prepareFileReceiveResponse.toObject ? msg.prepareFileReceiveResponse.toObject() : {};
-                    } else if (msg.getThumbnailResponse) {
-                        payload = msg.getThumbnailResponse.toObject ? msg.getThumbnailResponse.toObject() : {};
-                    } else if (msg.getFileSystemVersionResponse) {
-                        payload = msg.getFileSystemVersionResponse.toObject ? msg.getFileSystemVersionResponse.toObject() : {};
-                    } else if (msg.imageRepoHistoryResponse) {
-                        payload = msg.imageRepoHistoryResponse.toObject ? msg.imageRepoHistoryResponse.toObject() : {};
-                    } else if (msg.playVideoResponse) {
-                        payload = msg.playVideoResponse.toObject ? msg.playVideoResponse.toObject() : {};
-                    } else if (msg.payload) {
-                        // Fallback for other payload types
-                        payload = msg.payload.toObject ? msg.payload.toObject() : {};
-                    }
+                    console.log(msg.payload)
+                    let payload = msg[msg.payload];
 
                     m = {
                         type: msg.type,
@@ -254,8 +212,7 @@ export default class WebRTCClient extends BaseClient {
                         sdp: answerCandidatesContent.sdp,
                     }))
                 }
-            }
-
+            }; // 结束 onmessage 回调函数
 
         } catch (error) {
             console.error('WebRTC initialization error:', error);
@@ -317,8 +274,7 @@ export default class WebRTCClient extends BaseClient {
     async listFiles(path = '/') {
         // Use RPC over data channel to request listing from remote peer
         try {
-            const resp = await this.rpc.sendRpc('listFiles', { path: path });
-            //console.log(resp)
+            const resp = await this.rpc.sendRpc('listFiles', neutron.ListFilesRequest.create({ path: path }));
             return resp;
         } catch (err) {
             console.error('listFiles RPC error:', err);
@@ -336,7 +292,7 @@ export default class WebRTCClient extends BaseClient {
 
         try {
             // Ask remote peer to prepare and send the file on the given label
-            const resp = await this.rpc.sendRpc('prepareFileReceive', { "path": filePath, "label": label, "offset": offset, "size": size });
+            const resp = await this.rpc.sendRpc('prepareFileReceive', neutron.PrepareFileReceiveRequest.create({ "path": filePath, "label": label, "offset": offset, "size": size }));
             console.log("Requested file receive via WebRTC:", filePath, JSON.stringify(resp));
 
             const fileSize = resp["size"] || null;
@@ -362,7 +318,7 @@ export default class WebRTCClient extends BaseClient {
             // Ask remote peer (via RPC) to prepare/produce a thumbnail.
             // The server should respond with an id that will be sent over
             // the thumbnail datachannel as a binary packet (first 16 bytes = id).
-            const resp = await this.rpc.sendRpc('getThumbnail', { path: filePath, size: maxSize });
+            const resp = await this.rpc.sendRpc('getThumbnail', neutron.GetThumbnailRequest.create({ path: filePath, size: maxSize }));
             const thumbId = (resp && resp.id) ? resp.id : resp;
             if (!thumbId) return null;
 
@@ -380,21 +336,21 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileInfo(filePath) {
-        return await this.rpc.sendRpc('getFileInfo', { path: filePath });
+        return await this.rpc.sendRpc('getFileInfo', neutron.GetFileInfoRequest.create({ path: filePath }));
     }
 
     async getFileSystemVersion() {
-        return await this.rpc.sendRpc('getFileSystemVersion', {});
+        return await this.rpc.sendRpc('getFileSystemVersion', neutron.getFileSystemVersion.create({}));
     }
 
     async getImageRepoHistory(version, lastId, count) {
         try {
-            const resp = await this.rpc.sendRpc('getImageRepoHistory', {
+            const resp = await this.rpc.sendRpc('getImageRepoHistory', neutron.getImageRepoHistory.create({
                 "types": ["image", "video"],
                 "version": version,
                 "lastId": lastId,
                 "count": count
-            });
+            }));
 
             console.log('getImageRepoHistory response:', resp);
 

@@ -3,6 +3,12 @@
  * Creates a data channel on a given RTCPeerConnection and provides
  * JSON-RPC-like request/response semantics over that datachannel.
  */
+
+import { v4 as uuidv4 } from 'uuid';
+
+import { neutron } from '../proto/neutron_pb.js';
+const RemoteMessage = neutron.RemoteMessage;
+
 export default class WebRTCDataChannelRPC {
     constructor(pc, label = 'rpc', options = { ordered: true, maxRetransmits: 3 }, defaultTimeout = 10000) {
         this.pc = pc;
@@ -17,28 +23,7 @@ export default class WebRTCDataChannelRPC {
         this._rpcHandlers = {}; // cmd -> handler
         this._rpcDefaultTimeout = defaultTimeout; // ms
 
-        // Try to import protobuf library for parsing protobuf messages
-        this._protobuf = null;
-        this._RemoteMessage = null;
-        this._initProtobuf();
-
         this.createDataChannel()
-    }
-
-    // Initialize protobuf library if available
-    _initProtobuf() {
-        try {
-            // Try to import from global scope or module
-            if (typeof neutron !== 'undefined') {
-                this._protobuf = neutron;
-                this._RemoteMessage = neutron.RemoteMessage;
-            } else if (typeof window !== 'undefined' && window.neutron) {
-                this._protobuf = window.neutron;
-                this._RemoteMessage = window.neutron.RemoteMessage;
-            }
-        } catch (e) {
-            console.warn('Failed to initialize protobuf library:', e);
-        }
     }
 
     generateRpcId() {
@@ -49,9 +34,8 @@ export default class WebRTCDataChannelRPC {
         this._rpcHandlers[cmd] = fn;
     }
 
-    sendRpc(cmd, data = {}, timeoutMs) {
+    sendRpc(cmd, data, timeoutMs) {
         const id = this.generateRpcId();
-        const msg = { type: cmd, id: id, data: data };
         const timeout = typeof timeoutMs === 'number' ? timeoutMs : this._rpcDefaultTimeout;
 
         return new Promise((resolve, reject) => {
@@ -61,7 +45,23 @@ export default class WebRTCDataChannelRPC {
             }, timeout);
 
             this._rpcPending.set(id, { resolve, reject, timer });
-            this.sendMessage(msg);
+
+            try {
+                const payload_type = data.constructor.name.charAt(0).toLowerCase() + data.constructor.name.slice(1);
+                const remoteMsg = new RemoteMessage();
+                remoteMsg.type = cmd;
+                remoteMsg.source = this.clientId;
+                remoteMsg.id = id;
+                remoteMsg.destination = this.storageServerId;
+                remoteMsg[payload_type] = data;
+
+                const encodedMsg = RemoteMessage.encode(remoteMsg).finish();
+
+                this.sendMessage(encodedMsg);
+            } catch (e) {
+                console.error('Failed to create or send protobuf RPC message:', e);
+                reject(new Error('Failed to create protobuf message: ' + e.message));
+            }
         });
     }
 
@@ -94,78 +94,49 @@ export default class WebRTCDataChannelRPC {
 
         dc.onmessage = (event) => {
             let msg = null;
+            console.log('Received message on data channel:', event.data);
+            try {
+                const remoteMsg = RemoteMessage.decode(new Uint8Array(event.data));
 
-            // First try to parse as protobuf if we have the library
-            if (this._RemoteMessage && (event.data instanceof ArrayBuffer || event.data instanceof Uint8Array)) {
-                try {
-                    const remoteMsg = this._RemoteMessage.decode(new Uint8Array(event.data));
+                // Check if this is a response message
+                if (remoteMsg.type === '@response') {
+                    const pending = this._rpcPending.get(remoteMsg.id);
+                    if (pending) {
+                        clearTimeout(pending.timer);
+                        this._rpcPending.delete(remoteMsg.id);
 
-                    // Check if this is a response message
-                    if (remoteMsg.type === '@response') {
-                        const pending = this._rpcPending.get(remoteMsg.id);
-                        if (pending) {
-                            clearTimeout(pending.timer);
-                            this._rpcPending.delete(remoteMsg.id);
+                        // Extract payload based on message type
+                        let payload = null;
+                        let error = null;
 
-                            // Extract payload based on message type
-                            let payload = null;
-                            let error = null;
-
-                            // Check for error message first
-                            if (remoteMsg.error) {
-                                // This is an error response
-                                error = remoteMsg.error.error || 'Unknown error';
-                                payload = remoteMsg.error.toObject ? remoteMsg.error.toObject() : {};
-                            } else {
-                                // Extract payload based on message type
-                                payload = this._extractPayloadFromRemoteMessage(remoteMsg);
-                            }
-
-                            if (error) {
-                                pending.reject(new Error(error));
-                            } else {
-                                pending.resolve(payload);
-                            }
+                        // Check for error message first
+                        if (remoteMsg.error) {
+                            // This is an error response
+                            error = remoteMsg.error.error || 'Unknown error';
                         } else {
-                            console.warn('No pending RPC for id', remoteMsg.id);
+                            // Extract payload based on message type
+                            payload = remoteMsg[remoteMsg.payload]
                         }
-                        return;
+
+                        if (error) {
+                            pending.reject(new Error(error));
+                        } else {
+                            pending.resolve(payload);
+                        }
+                    } else {
+                        console.warn('No pending RPC for id', remoteMsg.id);
                     }
-
-                    // For non-response messages, convert to JSON format
-                    msg = {
-                        type: remoteMsg.type,
-                        id: remoteMsg.id,
-                        data: this._extractPayloadFromRemoteMessage(remoteMsg)
-                    };
-                } catch (err) {
-                    console.warn('Failed to parse protobuf message, falling back to JSON:', err);
-                }
-            }
-
-            // If not protobuf or parsing failed, try JSON
-            if (!msg) {
-                try {
-                    msg = JSON.parse(event.data);
-                } catch (err) {
-                    console.warn('Received non-JSON message:', event.data);
                     return;
                 }
-            }
 
-            if (msg.type === '@response') {
-                const pending = this._rpcPending.get(msg.id);
-                if (pending) {
-                    clearTimeout(pending.timer);
-                    this._rpcPending.delete(msg.id);
-                    if (msg.data && msg.data.error) {
-                        pending.reject(new Error(msg.data.error));
-                    } else {
-                        pending.resolve(msg.data);
-                    }
-                } else {
-                    console.warn('No pending RPC for id', msg.id);
-                }
+                // For non-response messages, convert to JSON format for handler compatibility
+                msg = {
+                    type: remoteMsg.type,
+                    id: remoteMsg.id,
+                    data: remoteMsg[remoteMsg.payload]
+                };
+            } catch (err) {
+                console.error('Failed to parse protobuf message:', err);
                 return;
             }
 
@@ -188,7 +159,8 @@ export default class WebRTCDataChannelRPC {
     sendMessage(message) {
         if (this.dc && this.dc.readyState === 'open') {
             try {
-                this.dc.send(JSON.stringify(message));
+                // Create and send protobuf message
+                this.dc.send(message);
             } catch (e) {
                 console.error('Failed to send message over datachannel:', e);
                 this.dataChannelQueue.push(message);
@@ -200,51 +172,17 @@ export default class WebRTCDataChannelRPC {
 
     flushQueue() {
         while (this.dataChannelQueue.length > 0 && this.dc && this.dc.readyState === 'open') {
-            const message = this.dataChannelQueue.shift();
             try {
-                this.dc.send(JSON.stringify(message));
+                const remoteMsg = this.dataChannelQueue.shift();
+                this.dc.send(remoteMsg);
+
             } catch (e) {
                 console.error('Failed to flush queued message:', e);
                 // push back and break to avoid tight loop
-                this.dataChannelQueue.unshift(message);
+                this.dataChannelQueue.unshift(remoteMsg);
                 break;
             }
         }
-    }
-
-    // Extract payload from RemoteMessage based on its type
-    _extractPayloadFromRemoteMessage(remoteMsg) {
-        if (!remoteMsg) return {};
-
-        // Check for error message first
-        if (remoteMsg.error) {
-            return remoteMsg.error.toObject ? remoteMsg.error.toObject() : {};
-        }
-
-        // Extract payload based on message type
-        let payload = {};
-
-        // Check all possible payload types
-        if (remoteMsg.listFilesResponse) {
-            payload = remoteMsg.listFilesResponse.toObject ? remoteMsg.listFilesResponse.toObject() : {};
-        } else if (remoteMsg.getFileInfoResponse) {
-            payload = remoteMsg.getFileInfoResponse.toObject ? remoteMsg.getFileInfoResponse.toObject() : {};
-        } else if (remoteMsg.prepareFileReceiveResponse) {
-            payload = remoteMsg.prepareFileReceiveResponse.toObject ? remoteMsg.prepareFileReceiveResponse.toObject() : {};
-        } else if (remoteMsg.getThumbnailResponse) {
-            payload = remoteMsg.getThumbnailResponse.toObject ? remoteMsg.getThumbnailResponse.toObject() : {};
-        } else if (remoteMsg.getFileSystemVersionResponse) {
-            payload = remoteMsg.getFileSystemVersionResponse.toObject ? remoteMsg.getFileSystemVersionResponse.toObject() : {};
-        } else if (remoteMsg.imageRepoHistoryResponse) {
-            payload = remoteMsg.imageRepoHistoryResponse.toObject ? remoteMsg.imageRepoHistoryResponse.toObject() : {};
-        } else if (remoteMsg.playVideoResponse) {
-            payload = remoteMsg.playVideoResponse.toObject ? remoteMsg.playVideoResponse.toObject() : {};
-        } else if (remoteMsg.payload) {
-            // Fallback for other payload types
-            payload = remoteMsg.payload.toObject ? remoteMsg.payload.toObject() : {};
-        }
-
-        return payload;
     }
 }
 

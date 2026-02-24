@@ -170,6 +170,8 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 			continue
 		}
 
+		log.Infof("Received signal: type=%s, source=%s, id=%s", signal.Type, signal.Source, signal.Id)
+
 		switch signal.Type {
 		case "authorizen":
 			// Extract login request from payload
@@ -327,8 +329,6 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		})
 
 		dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-			log.Infof("Received: %s", string(msg.Data))
-
 			if dataChannel.Label() == "rpc" {
 				var m neutronproto.RemoteMessage
 				// WebRTC数据通道使用protobuf二进制格式
@@ -337,13 +337,19 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					return
 				}
 
+				log.Infof("Received RPC message: type=%s, source=%s, id=%s, payload=%v",
+					m.Type, m.Source, m.Id, m.Payload)
+
 				var response any
 				if api, ok := s.fileAPIS[m.Type]; ok {
 					response, err = api(s, remoteClient, m.GetPayload())
 					if err != nil {
 						log.Warnf("File API %s error: %v", m.Type, err)
 						// Convert error to appropriate response type
-						response = s.createErrorResponse(m.Type, err.Error())
+						response = &neutronproto.ErrorMessage{
+							Success: false,
+							Error:   err.Error(),
+						}
 					}
 
 				} else {
@@ -472,20 +478,6 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 	}
 
 	return nil
-}
-
-// createErrorResponse creates an ErrorMessage for error responses
-func (s *RemoteStorageServer) createErrorResponse(apiType string, errorMsg string) *neutronproto.ErrorMessage {
-	// Create details struct with API type information
-	details, _ := structpb.NewStruct(map[string]interface{}{
-		"api_type": apiType,
-	})
-
-	return &neutronproto.ErrorMessage{
-		Success: false,
-		Error:   errorMsg,
-		Details: details,
-	}
 }
 
 // createResponseMessage creates a RemoteMessage with appropriate payload based on response type

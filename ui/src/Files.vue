@@ -499,8 +499,10 @@ async function loadFiles(path = '/') {
   
   try {
     const list = await fileAPI.listFiles(path)
+    console.log(list)
+    console.log(list.files)
     // 为每个文件添加thumbUrl属性
-    const processedList = list.map(file => ({
+    const processedList = list.files.map(file => ({
       ...file,
       thumbUrl: null // 初始化为null，懒加载时再设置
     }))

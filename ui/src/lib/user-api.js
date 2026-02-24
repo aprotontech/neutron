@@ -33,8 +33,6 @@ export default class UserAPI {
             })
 
             if (resp.status === 200) {
-
-                // 处理protobuf二进制响应
                 const responseBuffer = await resp.arrayBuffer();
                 const responseData = new Uint8Array(responseBuffer);
 
