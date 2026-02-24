@@ -135,6 +135,9 @@ export class FileSizeFormatter {
 export class DateFormatter {
     static format(date) {
         if (!date) return '-';
+        if (date < 10000000000) {
+            date = date * 1000;
+        }
         const d = new Date(date);
         const pad = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;

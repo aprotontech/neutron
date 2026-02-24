@@ -164,7 +164,7 @@
                 <div class="file-icon">{{ getFileIcon(file) }}</div>
                 <div class="file-name">{{ file.name }}</div>
                 <div class="file-size">{{ formatSize(file.size) }}</div>
-                <div class="file-modified">{{ formatDate(file.modTime) }}</div>
+                <div class="file-modified">{{ formatDate(file.mtime) }}</div>
               </div>
             </div>
           </div>
@@ -499,11 +499,11 @@ async function loadFiles(path = '/') {
   
   try {
     const list = await fileAPI.listFiles(path)
-    console.log(list)
-    console.log(list.files)
     // 为每个文件添加thumbUrl属性
+    const sep = path == '/' ? '' : '/';
     const processedList = list.files.map(file => ({
       ...file,
+      path: path + sep + file.name,
       thumbUrl: null // 初始化为null，懒加载时再设置
     }))
     files.value = processedList.sort((a,b) => {

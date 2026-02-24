@@ -345,7 +345,7 @@ export default class WebRTCClient extends BaseClient {
 
     async getImageRepoHistory(version, lastId, count) {
         try {
-            const resp = await this.rpc.sendRpc('getImageRepoHistory', neutron.getImageRepoHistory.create({
+            const resp = await this.rpc.sendRpc('getImageRepoHistory', neutron.ImageRepoHistoryRequest.create({
                 "types": ["image", "video"],
                 "version": version,
                 "lastId": lastId,
