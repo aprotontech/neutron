@@ -141,17 +141,31 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 
 	for {
 
-		_, msg, err := s.conn.ReadMessage()
+		messageType, msg, err := s.conn.ReadMessage()
 		if err != nil {
 			log.Warnf("Read error:", err)
 			return err
 		}
 
-		log.Infof("Received message: %s", string(msg))
+		log.Infof("Received message type: %d, length: %d", messageType, len(msg))
 
 		var signal neutronproto.RemoteMessage
-		if err := protojson.Unmarshal(msg, &signal); err != nil {
-			log.Warnf("Unmarshal error:", err)
+
+		// 根据消息类型进行解析
+		if messageType == websocket.BinaryMessage {
+			// 二进制消息：protobuf格式
+			if err := proto.Unmarshal(msg, &signal); err != nil {
+				log.Warnf("protobuf unmarshal error:", err)
+				continue
+			}
+		} else if messageType == websocket.TextMessage {
+			// 文本消息：JSON格式（向后兼容）
+			if err := protojson.Unmarshal(msg, &signal); err != nil {
+				log.Warnf("JSON unmarshal error:", err)
+				continue
+			}
+		} else {
+			log.Warnf("unsupported message type: %d", messageType)
 			continue
 		}
 
@@ -201,14 +215,14 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 						Payload:     responsePayload,
 					}
 
-					data, err := protojson.Marshal(responseMsg)
+					data, err := proto.Marshal(responseMsg)
 					if err == nil {
-						if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+						if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 							log.Warnf("Write regist message error: %v", err)
 							return err
 						}
 					} else {
-						log.Warnf("Marshal regist message error: %v", err)
+						log.Warnf("protobuf marshal regist message error: %v", err)
 					}
 				} else {
 					log.Warnf("check login data error: %v", err)
@@ -222,20 +236,33 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 				continue
 			}
 
-			fields := signal.Payload.Fields
-			sdp := ""
-			if sdpVal, ok := fields["sdp"]; ok {
-				if s, ok := sdpVal.GetKind().(*structpb.Value_StringValue); ok {
-					sdp = s.StringValue
-				}
-			}
-
-			if sdp != "" {
-				if err := s.setupRemoteConnection(signal.Source, sdp); err != nil {
-					log.Warnf("Setup remote connection error:", err)
+			// Try to unmarshal as WebRTCOfferContent
+			var offerContent neutronproto.WebRTCOfferContent
+			if err := protojson.Unmarshal([]byte(signal.Payload.String()), &offerContent); err == nil {
+				if offerContent.Sdp != "" {
+					if err := s.setupRemoteConnection(signal.Source, offerContent.Sdp); err != nil {
+						log.Warnf("Setup remote connection error: %v", err)
+					}
+				} else {
+					log.Warnf("Get remote offer error: sdp empty")
 				}
 			} else {
-				log.Warnf("Get remote offer error: sdp not found")
+				// Fallback to old format
+				fields := signal.Payload.Fields
+				sdp := ""
+				if sdpVal, ok := fields["sdp"]; ok {
+					if s, ok := sdpVal.GetKind().(*structpb.Value_StringValue); ok {
+						sdp = s.StringValue
+					}
+				}
+
+				if sdp != "" {
+					if err := s.setupRemoteConnection(signal.Source, sdp); err != nil {
+						log.Warnf("Setup remote connection error: %v", err)
+					}
+				} else {
+					log.Warnf("Get remote offer error: sdp not found")
+				}
 			}
 
 		case "candidate":
@@ -245,26 +272,45 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 				continue
 			}
 
-			fields := signal.Payload.Fields
-			candidateStr := ""
-			if candidateVal, ok := fields["candidate"]; ok {
-				if c, ok := candidateVal.GetKind().(*structpb.Value_StringValue); ok {
-					candidateStr = c.StringValue
-				}
-			}
-
-			if candidateStr != "" {
-				candidate := webrtc.ICECandidateInit{
-					Candidate: candidateStr,
-				}
-
-				if pc, exists := s.remoteClients[signal.Source]; exists {
-					if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
-						log.Warnf("AddICECandidate error: %v", err)
+			// Try to unmarshal as WebRTCCandidateContent
+			var candidateContent neutronproto.WebRTCCandidateContent
+			if err := protojson.Unmarshal([]byte(signal.Payload.String()), &candidateContent); err == nil {
+				if candidateContent.Candidate != "" {
+					candidate := webrtc.ICECandidateInit{
+						Candidate: candidateContent.Candidate,
 					}
+
+					if pc, exists := s.remoteClients[signal.Source]; exists {
+						if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
+							log.Warnf("AddICECandidate error: %v", err)
+						}
+					}
+				} else {
+					log.Warnf("Get remote candidate error: candidate empty")
 				}
 			} else {
-				log.Warnf("Get remote candidate error: candidate not found")
+				// Fallback to old format
+				fields := signal.Payload.Fields
+				candidateStr := ""
+				if candidateVal, ok := fields["candidate"]; ok {
+					if c, ok := candidateVal.GetKind().(*structpb.Value_StringValue); ok {
+						candidateStr = c.StringValue
+					}
+				}
+
+				if candidateStr != "" {
+					candidate := webrtc.ICECandidateInit{
+						Candidate: candidateStr,
+					}
+
+					if pc, exists := s.remoteClients[signal.Source]; exists {
+						if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
+							log.Warnf("AddICECandidate error: %v", err)
+						}
+					}
+				} else {
+					log.Warnf("Get remote candidate error: candidate not found")
+				}
 			}
 		}
 	}
@@ -343,8 +389,9 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 
 			if dataChannel.Label() == "rpc" {
 				var m neutronproto.RemoteMessage
-				if err := protojson.Unmarshal(msg.Data, &m); err != nil {
-					log.Warnf("Unmarshal data channel message error: %v", err)
+				// WebRTC数据通道使用protobuf二进制格式
+				if err := proto.Unmarshal(msg.Data, &m); err != nil {
+					log.Warnf("protobuf unmarshal data channel message error: %v", err)
 					return
 				}
 
@@ -388,12 +435,12 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					Payload:     responsePayload,
 				}
 
-				res, err := protojson.Marshal(resMsg)
+				res, err := proto.Marshal(resMsg)
 				if err != nil {
-					log.Warnf("Marshal file list message error: %v", err)
+					log.Warnf("protobuf marshal file list message error: %v", err)
 					return
 				}
-				if err := dataChannel.SendText(string(res)); err != nil {
+				if err := dataChannel.Send(res); err != nil {
 					log.Warnf("Send file list message error: %v", err)
 				}
 				log.Debugf("send msg done %v", response)
@@ -419,11 +466,17 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		if candidate != nil && !s.combineAnswerCandidates {
 			log.Infof("OnICECandidate %v", candidate)
 
-			// Create candidate payload
-			candidatePayload := &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"candidate": structpb.NewStringValue(candidate.ToJSON().Candidate),
-				},
+			// Create candidate payload using WebRTCCandidateContent
+			candidateContent := &neutronproto.WebRTCCandidateContent{
+				Candidate: candidate.ToJSON().Candidate,
+			}
+			
+			candidatePayload, err := structpb.NewStruct(map[string]interface{}{
+				"candidate": candidateContent.Candidate,
+			})
+			if err != nil {
+				log.Warnf("Create candidate payload error: %v", err)
+				return
 			}
 
 			candidateMsg := &neutronproto.RemoteMessage{
@@ -433,10 +486,10 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 				Payload:     candidatePayload,
 			}
 
-			data, err := protojson.Marshal(candidateMsg)
+			data, err := proto.Marshal(candidateMsg)
 			if err != nil {
-				log.Warnf("Marshal candidate message error: %v", err)
-			} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Warnf("protobuf marshal candidate message error: %v", err)
+			} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 				log.Warnf("Write candidate error: %v", err)
 			}
 		}
@@ -461,7 +514,7 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		answerPayload := &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				"sdp":  structpb.NewStringValue(peerConnection.LocalDescription().SDP),
-				"type": structpb.NewStringValue(string(peerConnection.LocalDescription().Type)),
+				"type": structpb.NewStringValue(peerConnection.LocalDescription().Type.String()),
 			},
 		}
 
@@ -472,10 +525,10 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 			Payload:     answerPayload,
 		}
 
-		data, err := protojson.Marshal(answerMsg)
+		data, err := proto.Marshal(answerMsg)
 		if err != nil {
-			log.Warnf("Marshal answer message error: %v", err)
-		} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Warnf("protobuf marshal answer message error: %v", err)
+		} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	} else {
@@ -493,10 +546,10 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 			Payload:     answerPayload,
 		}
 
-		data, err := protojson.Marshal(answerMsg)
+		data, err := proto.Marshal(answerMsg)
 		if err != nil {
-			log.Warnf("Marshal answer message error: %v", err)
-		} else if err := s.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Warnf("protobuf marshal answer message error: %v", err)
+		} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	}

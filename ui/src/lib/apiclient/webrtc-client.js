@@ -136,7 +136,8 @@ export default class WebRTCClient extends BaseClient {
 
                         // Create protobuf message
                         const msg = this.remoteMessage('candidate', this.clientId, this.storageServerId, null, payload);
-                        this.signalingSocket.send(msg.serializeBinary());
+                        const encodedMsg = RemoteMessage.encode(msg).finish();
+                        this.signalingSocket.send(encodedMsg);
                     }
                 };
 

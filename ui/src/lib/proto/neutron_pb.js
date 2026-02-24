@@ -414,6 +414,7 @@ export const neutron = $root.neutron = (() => {
          * Properties of an ImageRepoHistoryRequest.
          * @memberof neutron
          * @interface IImageRepoHistoryRequest
+         * @property {Array.<string>|null} [types] ImageRepoHistoryRequest types
          * @property {number|Long|null} [lastId] ImageRepoHistoryRequest lastId
          * @property {number|null} [count] ImageRepoHistoryRequest count
          * @property {string|null} [version] ImageRepoHistoryRequest version
@@ -428,11 +429,20 @@ export const neutron = $root.neutron = (() => {
          * @param {neutron.IImageRepoHistoryRequest=} [properties] Properties to set
          */
         function ImageRepoHistoryRequest(properties) {
+            this.types = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
+
+        /**
+         * ImageRepoHistoryRequest types.
+         * @member {Array.<string>} types
+         * @memberof neutron.ImageRepoHistoryRequest
+         * @instance
+         */
+        ImageRepoHistoryRequest.prototype.types = $util.emptyArray;
 
         /**
          * ImageRepoHistoryRequest lastId.
@@ -482,12 +492,15 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
+            if (message.types != null && message.types.length)
+                for (let i = 0; i < message.types.length; ++i)
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.types[i]);
             if (message.lastId != null && Object.hasOwnProperty.call(message, "lastId"))
-                writer.uint32(/* id 1, wireType 0 =*/8).int64(message.lastId);
+                writer.uint32(/* id 2, wireType 0 =*/16).int64(message.lastId);
             if (message.count != null && Object.hasOwnProperty.call(message, "count"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.count);
+                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.count);
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.version);
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.version);
             return writer;
         };
 
@@ -525,14 +538,20 @@ export const neutron = $root.neutron = (() => {
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.lastId = reader.int64();
+                        if (!(message.types && message.types.length))
+                            message.types = [];
+                        message.types.push(reader.string());
                         break;
                     }
                 case 2: {
-                        message.count = reader.int32();
+                        message.lastId = reader.int64();
                         break;
                     }
                 case 3: {
+                        message.count = reader.int32();
+                        break;
+                    }
+                case 4: {
                         message.version = reader.string();
                         break;
                     }
@@ -571,6 +590,13 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryRequest.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
+            if (message.types != null && message.hasOwnProperty("types")) {
+                if (!Array.isArray(message.types))
+                    return "types: array expected";
+                for (let i = 0; i < message.types.length; ++i)
+                    if (!$util.isString(message.types[i]))
+                        return "types: string[] expected";
+            }
             if (message.lastId != null && message.hasOwnProperty("lastId"))
                 if (!$util.isInteger(message.lastId) && !(message.lastId && $util.isInteger(message.lastId.low) && $util.isInteger(message.lastId.high)))
                     return "lastId: integer|Long expected";
@@ -595,6 +621,13 @@ export const neutron = $root.neutron = (() => {
             if (object instanceof $root.neutron.ImageRepoHistoryRequest)
                 return object;
             let message = new $root.neutron.ImageRepoHistoryRequest();
+            if (object.types) {
+                if (!Array.isArray(object.types))
+                    throw TypeError(".neutron.ImageRepoHistoryRequest.types: array expected");
+                message.types = [];
+                for (let i = 0; i < object.types.length; ++i)
+                    message.types[i] = String(object.types[i]);
+            }
             if (object.lastId != null)
                 if ($util.Long)
                     (message.lastId = $util.Long.fromValue(object.lastId)).unsigned = false;
@@ -624,6 +657,8 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
+            if (options.arrays || options.defaults)
+                object.types = [];
             if (options.defaults) {
                 if ($util.Long) {
                     let long = new $util.Long(0, 0, false);
@@ -632,6 +667,11 @@ export const neutron = $root.neutron = (() => {
                     object.lastId = options.longs === String ? "0" : 0;
                 object.count = 0;
                 object.version = "";
+            }
+            if (message.types && message.types.length) {
+                object.types = [];
+                for (let j = 0; j < message.types.length; ++j)
+                    object.types[j] = message.types[j];
             }
             if (message.lastId != null && message.hasOwnProperty("lastId"))
                 if (typeof message.lastId === "number")
@@ -3671,6 +3711,978 @@ export const neutron = $root.neutron = (() => {
         return GetFileSystemVersionResponse;
     })();
 
+    neutron.GetThumbnailRequest = (function() {
+
+        /**
+         * Properties of a GetThumbnailRequest.
+         * @memberof neutron
+         * @interface IGetThumbnailRequest
+         * @property {string|null} [path] GetThumbnailRequest path
+         * @property {number|Long|null} [size] GetThumbnailRequest size
+         */
+
+        /**
+         * Constructs a new GetThumbnailRequest.
+         * @memberof neutron
+         * @classdesc Represents a GetThumbnailRequest.
+         * @implements IGetThumbnailRequest
+         * @constructor
+         * @param {neutron.IGetThumbnailRequest=} [properties] Properties to set
+         */
+        function GetThumbnailRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetThumbnailRequest path.
+         * @member {string} path
+         * @memberof neutron.GetThumbnailRequest
+         * @instance
+         */
+        GetThumbnailRequest.prototype.path = "";
+
+        /**
+         * GetThumbnailRequest size.
+         * @member {number|Long} size
+         * @memberof neutron.GetThumbnailRequest
+         * @instance
+         */
+        GetThumbnailRequest.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+        /**
+         * Creates a new GetThumbnailRequest instance using the specified properties.
+         * @function create
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {neutron.IGetThumbnailRequest=} [properties] Properties to set
+         * @returns {neutron.GetThumbnailRequest} GetThumbnailRequest instance
+         */
+        GetThumbnailRequest.create = function create(properties) {
+            return new GetThumbnailRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetThumbnailRequest message. Does not implicitly {@link neutron.GetThumbnailRequest.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {neutron.IGetThumbnailRequest} message GetThumbnailRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetThumbnailRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.path != null && Object.hasOwnProperty.call(message, "path"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.path);
+            if (message.size != null && Object.hasOwnProperty.call(message, "size"))
+                writer.uint32(/* id 2, wireType 0 =*/16).int64(message.size);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetThumbnailRequest message, length delimited. Does not implicitly {@link neutron.GetThumbnailRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {neutron.IGetThumbnailRequest} message GetThumbnailRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetThumbnailRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetThumbnailRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.GetThumbnailRequest} GetThumbnailRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetThumbnailRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.GetThumbnailRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.path = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.size = reader.int64();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetThumbnailRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.GetThumbnailRequest} GetThumbnailRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetThumbnailRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetThumbnailRequest message.
+         * @function verify
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetThumbnailRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.path != null && message.hasOwnProperty("path"))
+                if (!$util.isString(message.path))
+                    return "path: string expected";
+            if (message.size != null && message.hasOwnProperty("size"))
+                if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
+                    return "size: integer|Long expected";
+            return null;
+        };
+
+        /**
+         * Creates a GetThumbnailRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.GetThumbnailRequest} GetThumbnailRequest
+         */
+        GetThumbnailRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.GetThumbnailRequest)
+                return object;
+            let message = new $root.neutron.GetThumbnailRequest();
+            if (object.path != null)
+                message.path = String(object.path);
+            if (object.size != null)
+                if ($util.Long)
+                    (message.size = $util.Long.fromValue(object.size)).unsigned = false;
+                else if (typeof object.size === "string")
+                    message.size = parseInt(object.size, 10);
+                else if (typeof object.size === "number")
+                    message.size = object.size;
+                else if (typeof object.size === "object")
+                    message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetThumbnailRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {neutron.GetThumbnailRequest} message GetThumbnailRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetThumbnailRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.path = "";
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                } else
+                    object.size = options.longs === String ? "0" : 0;
+            }
+            if (message.path != null && message.hasOwnProperty("path"))
+                object.path = message.path;
+            if (message.size != null && message.hasOwnProperty("size"))
+                if (typeof message.size === "number")
+                    object.size = options.longs === String ? String(message.size) : message.size;
+                else
+                    object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
+            return object;
+        };
+
+        /**
+         * Converts this GetThumbnailRequest to JSON.
+         * @function toJSON
+         * @memberof neutron.GetThumbnailRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetThumbnailRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetThumbnailRequest
+         * @function getTypeUrl
+         * @memberof neutron.GetThumbnailRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetThumbnailRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.GetThumbnailRequest";
+        };
+
+        return GetThumbnailRequest;
+    })();
+
+    neutron.GetThumbnailResponse = (function() {
+
+        /**
+         * Properties of a GetThumbnailResponse.
+         * @memberof neutron
+         * @interface IGetThumbnailResponse
+         * @property {string|null} [id] GetThumbnailResponse id
+         * @property {string|null} [error] GetThumbnailResponse error
+         */
+
+        /**
+         * Constructs a new GetThumbnailResponse.
+         * @memberof neutron
+         * @classdesc Represents a GetThumbnailResponse.
+         * @implements IGetThumbnailResponse
+         * @constructor
+         * @param {neutron.IGetThumbnailResponse=} [properties] Properties to set
+         */
+        function GetThumbnailResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetThumbnailResponse id.
+         * @member {string} id
+         * @memberof neutron.GetThumbnailResponse
+         * @instance
+         */
+        GetThumbnailResponse.prototype.id = "";
+
+        /**
+         * GetThumbnailResponse error.
+         * @member {string} error
+         * @memberof neutron.GetThumbnailResponse
+         * @instance
+         */
+        GetThumbnailResponse.prototype.error = "";
+
+        /**
+         * Creates a new GetThumbnailResponse instance using the specified properties.
+         * @function create
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {neutron.IGetThumbnailResponse=} [properties] Properties to set
+         * @returns {neutron.GetThumbnailResponse} GetThumbnailResponse instance
+         */
+        GetThumbnailResponse.create = function create(properties) {
+            return new GetThumbnailResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetThumbnailResponse message. Does not implicitly {@link neutron.GetThumbnailResponse.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {neutron.IGetThumbnailResponse} message GetThumbnailResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetThumbnailResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetThumbnailResponse message, length delimited. Does not implicitly {@link neutron.GetThumbnailResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {neutron.IGetThumbnailResponse} message GetThumbnailResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetThumbnailResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetThumbnailResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.GetThumbnailResponse} GetThumbnailResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetThumbnailResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.GetThumbnailResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.id = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.error = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetThumbnailResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.GetThumbnailResponse} GetThumbnailResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetThumbnailResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetThumbnailResponse message.
+         * @function verify
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetThumbnailResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.id != null && message.hasOwnProperty("id"))
+                if (!$util.isString(message.id))
+                    return "id: string expected";
+            if (message.error != null && message.hasOwnProperty("error"))
+                if (!$util.isString(message.error))
+                    return "error: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a GetThumbnailResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.GetThumbnailResponse} GetThumbnailResponse
+         */
+        GetThumbnailResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.GetThumbnailResponse)
+                return object;
+            let message = new $root.neutron.GetThumbnailResponse();
+            if (object.id != null)
+                message.id = String(object.id);
+            if (object.error != null)
+                message.error = String(object.error);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetThumbnailResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {neutron.GetThumbnailResponse} message GetThumbnailResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetThumbnailResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.id = "";
+                object.error = "";
+            }
+            if (message.id != null && message.hasOwnProperty("id"))
+                object.id = message.id;
+            if (message.error != null && message.hasOwnProperty("error"))
+                object.error = message.error;
+            return object;
+        };
+
+        /**
+         * Converts this GetThumbnailResponse to JSON.
+         * @function toJSON
+         * @memberof neutron.GetThumbnailResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetThumbnailResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetThumbnailResponse
+         * @function getTypeUrl
+         * @memberof neutron.GetThumbnailResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetThumbnailResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.GetThumbnailResponse";
+        };
+
+        return GetThumbnailResponse;
+    })();
+
+    neutron.PlayVideoRequest = (function() {
+
+        /**
+         * Properties of a PlayVideoRequest.
+         * @memberof neutron
+         * @interface IPlayVideoRequest
+         * @property {string|null} [path] PlayVideoRequest path
+         */
+
+        /**
+         * Constructs a new PlayVideoRequest.
+         * @memberof neutron
+         * @classdesc Represents a PlayVideoRequest.
+         * @implements IPlayVideoRequest
+         * @constructor
+         * @param {neutron.IPlayVideoRequest=} [properties] Properties to set
+         */
+        function PlayVideoRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PlayVideoRequest path.
+         * @member {string} path
+         * @memberof neutron.PlayVideoRequest
+         * @instance
+         */
+        PlayVideoRequest.prototype.path = "";
+
+        /**
+         * Creates a new PlayVideoRequest instance using the specified properties.
+         * @function create
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {neutron.IPlayVideoRequest=} [properties] Properties to set
+         * @returns {neutron.PlayVideoRequest} PlayVideoRequest instance
+         */
+        PlayVideoRequest.create = function create(properties) {
+            return new PlayVideoRequest(properties);
+        };
+
+        /**
+         * Encodes the specified PlayVideoRequest message. Does not implicitly {@link neutron.PlayVideoRequest.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {neutron.IPlayVideoRequest} message PlayVideoRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PlayVideoRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.path != null && Object.hasOwnProperty.call(message, "path"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.path);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified PlayVideoRequest message, length delimited. Does not implicitly {@link neutron.PlayVideoRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {neutron.IPlayVideoRequest} message PlayVideoRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PlayVideoRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a PlayVideoRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.PlayVideoRequest} PlayVideoRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PlayVideoRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.PlayVideoRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.path = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a PlayVideoRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.PlayVideoRequest} PlayVideoRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PlayVideoRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a PlayVideoRequest message.
+         * @function verify
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        PlayVideoRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.path != null && message.hasOwnProperty("path"))
+                if (!$util.isString(message.path))
+                    return "path: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a PlayVideoRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.PlayVideoRequest} PlayVideoRequest
+         */
+        PlayVideoRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.PlayVideoRequest)
+                return object;
+            let message = new $root.neutron.PlayVideoRequest();
+            if (object.path != null)
+                message.path = String(object.path);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a PlayVideoRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {neutron.PlayVideoRequest} message PlayVideoRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        PlayVideoRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.path = "";
+            if (message.path != null && message.hasOwnProperty("path"))
+                object.path = message.path;
+            return object;
+        };
+
+        /**
+         * Converts this PlayVideoRequest to JSON.
+         * @function toJSON
+         * @memberof neutron.PlayVideoRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        PlayVideoRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for PlayVideoRequest
+         * @function getTypeUrl
+         * @memberof neutron.PlayVideoRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PlayVideoRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.PlayVideoRequest";
+        };
+
+        return PlayVideoRequest;
+    })();
+
+    neutron.PlayVideoResponse = (function() {
+
+        /**
+         * Properties of a PlayVideoResponse.
+         * @memberof neutron
+         * @interface IPlayVideoResponse
+         * @property {boolean|null} [success] PlayVideoResponse success
+         * @property {string|null} [error] PlayVideoResponse error
+         * @property {Object.<string,google.protobuf.IValue>|null} [videoInfo] PlayVideoResponse videoInfo
+         */
+
+        /**
+         * Constructs a new PlayVideoResponse.
+         * @memberof neutron
+         * @classdesc Represents a PlayVideoResponse.
+         * @implements IPlayVideoResponse
+         * @constructor
+         * @param {neutron.IPlayVideoResponse=} [properties] Properties to set
+         */
+        function PlayVideoResponse(properties) {
+            this.videoInfo = {};
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PlayVideoResponse success.
+         * @member {boolean} success
+         * @memberof neutron.PlayVideoResponse
+         * @instance
+         */
+        PlayVideoResponse.prototype.success = false;
+
+        /**
+         * PlayVideoResponse error.
+         * @member {string} error
+         * @memberof neutron.PlayVideoResponse
+         * @instance
+         */
+        PlayVideoResponse.prototype.error = "";
+
+        /**
+         * PlayVideoResponse videoInfo.
+         * @member {Object.<string,google.protobuf.IValue>} videoInfo
+         * @memberof neutron.PlayVideoResponse
+         * @instance
+         */
+        PlayVideoResponse.prototype.videoInfo = $util.emptyObject;
+
+        /**
+         * Creates a new PlayVideoResponse instance using the specified properties.
+         * @function create
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {neutron.IPlayVideoResponse=} [properties] Properties to set
+         * @returns {neutron.PlayVideoResponse} PlayVideoResponse instance
+         */
+        PlayVideoResponse.create = function create(properties) {
+            return new PlayVideoResponse(properties);
+        };
+
+        /**
+         * Encodes the specified PlayVideoResponse message. Does not implicitly {@link neutron.PlayVideoResponse.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {neutron.IPlayVideoResponse} message PlayVideoResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PlayVideoResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
+                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
+            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
+            if (message.videoInfo != null && Object.hasOwnProperty.call(message, "videoInfo"))
+                for (let keys = Object.keys(message.videoInfo), i = 0; i < keys.length; ++i) {
+                    writer.uint32(/* id 3, wireType 2 =*/26).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
+                    $root.google.protobuf.Value.encode(message.videoInfo[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
+                }
+            return writer;
+        };
+
+        /**
+         * Encodes the specified PlayVideoResponse message, length delimited. Does not implicitly {@link neutron.PlayVideoResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {neutron.IPlayVideoResponse} message PlayVideoResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PlayVideoResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a PlayVideoResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.PlayVideoResponse} PlayVideoResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PlayVideoResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.PlayVideoResponse(), key, value;
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.success = reader.bool();
+                        break;
+                    }
+                case 2: {
+                        message.error = reader.string();
+                        break;
+                    }
+                case 3: {
+                        if (message.videoInfo === $util.emptyObject)
+                            message.videoInfo = {};
+                        let end2 = reader.uint32() + reader.pos;
+                        key = "";
+                        value = null;
+                        while (reader.pos < end2) {
+                            let tag2 = reader.uint32();
+                            switch (tag2 >>> 3) {
+                            case 1:
+                                key = reader.string();
+                                break;
+                            case 2:
+                                value = $root.google.protobuf.Value.decode(reader, reader.uint32());
+                                break;
+                            default:
+                                reader.skipType(tag2 & 7);
+                                break;
+                            }
+                        }
+                        message.videoInfo[key] = value;
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a PlayVideoResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.PlayVideoResponse} PlayVideoResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PlayVideoResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a PlayVideoResponse message.
+         * @function verify
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        PlayVideoResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.success != null && message.hasOwnProperty("success"))
+                if (typeof message.success !== "boolean")
+                    return "success: boolean expected";
+            if (message.error != null && message.hasOwnProperty("error"))
+                if (!$util.isString(message.error))
+                    return "error: string expected";
+            if (message.videoInfo != null && message.hasOwnProperty("videoInfo")) {
+                if (!$util.isObject(message.videoInfo))
+                    return "videoInfo: object expected";
+                let key = Object.keys(message.videoInfo);
+                for (let i = 0; i < key.length; ++i) {
+                    let error = $root.google.protobuf.Value.verify(message.videoInfo[key[i]]);
+                    if (error)
+                        return "videoInfo." + error;
+                }
+            }
+            return null;
+        };
+
+        /**
+         * Creates a PlayVideoResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.PlayVideoResponse} PlayVideoResponse
+         */
+        PlayVideoResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.PlayVideoResponse)
+                return object;
+            let message = new $root.neutron.PlayVideoResponse();
+            if (object.success != null)
+                message.success = Boolean(object.success);
+            if (object.error != null)
+                message.error = String(object.error);
+            if (object.videoInfo) {
+                if (typeof object.videoInfo !== "object")
+                    throw TypeError(".neutron.PlayVideoResponse.videoInfo: object expected");
+                message.videoInfo = {};
+                for (let keys = Object.keys(object.videoInfo), i = 0; i < keys.length; ++i) {
+                    if (typeof object.videoInfo[keys[i]] !== "object")
+                        throw TypeError(".neutron.PlayVideoResponse.videoInfo: object expected");
+                    message.videoInfo[keys[i]] = $root.google.protobuf.Value.fromObject(object.videoInfo[keys[i]]);
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a PlayVideoResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {neutron.PlayVideoResponse} message PlayVideoResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        PlayVideoResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.objects || options.defaults)
+                object.videoInfo = {};
+            if (options.defaults) {
+                object.success = false;
+                object.error = "";
+            }
+            if (message.success != null && message.hasOwnProperty("success"))
+                object.success = message.success;
+            if (message.error != null && message.hasOwnProperty("error"))
+                object.error = message.error;
+            let keys2;
+            if (message.videoInfo && (keys2 = Object.keys(message.videoInfo)).length) {
+                object.videoInfo = {};
+                for (let j = 0; j < keys2.length; ++j)
+                    object.videoInfo[keys2[j]] = $root.google.protobuf.Value.toObject(message.videoInfo[keys2[j]], options);
+            }
+            return object;
+        };
+
+        /**
+         * Converts this PlayVideoResponse to JSON.
+         * @function toJSON
+         * @memberof neutron.PlayVideoResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        PlayVideoResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for PlayVideoResponse
+         * @function getTypeUrl
+         * @memberof neutron.PlayVideoResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PlayVideoResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.PlayVideoResponse";
+        };
+
+        return PlayVideoResponse;
+    })();
+
     neutron.RemoteMessage = (function() {
 
         /**
@@ -3974,27 +4986,27 @@ export const neutron = $root.neutron = (() => {
         return RemoteMessage;
     })();
 
-    neutron.Candidate = (function() {
+    neutron.LoginRequest = (function() {
 
         /**
-         * Properties of a Candidate.
+         * Properties of a LoginRequest.
          * @memberof neutron
-         * @interface ICandidate
-         * @property {string|null} [candidate] Candidate candidate
-         * @property {string|null} [sdpMid] Candidate sdpMid
-         * @property {number|null} [sdpMLineIndex] Candidate sdpMLineIndex
-         * @property {string|null} [usernameFragment] Candidate usernameFragment
+         * @interface ILoginRequest
+         * @property {string|null} [clientId] LoginRequest clientId
+         * @property {string|null} [username] LoginRequest username
+         * @property {string|null} [password] LoginRequest password
+         * @property {string|null} [storageServerId] LoginRequest storageServerId
          */
 
         /**
-         * Constructs a new Candidate.
+         * Constructs a new LoginRequest.
          * @memberof neutron
-         * @classdesc Represents a Candidate.
-         * @implements ICandidate
+         * @classdesc Represents a LoginRequest.
+         * @implements ILoginRequest
          * @constructor
-         * @param {neutron.ICandidate=} [properties] Properties to set
+         * @param {neutron.ILoginRequest=} [properties] Properties to set
          */
-        function Candidate(properties) {
+        function LoginRequest(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -4002,119 +5014,119 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * Candidate candidate.
-         * @member {string} candidate
-         * @memberof neutron.Candidate
+         * LoginRequest clientId.
+         * @member {string} clientId
+         * @memberof neutron.LoginRequest
          * @instance
          */
-        Candidate.prototype.candidate = "";
+        LoginRequest.prototype.clientId = "";
 
         /**
-         * Candidate sdpMid.
-         * @member {string} sdpMid
-         * @memberof neutron.Candidate
+         * LoginRequest username.
+         * @member {string} username
+         * @memberof neutron.LoginRequest
          * @instance
          */
-        Candidate.prototype.sdpMid = "";
+        LoginRequest.prototype.username = "";
 
         /**
-         * Candidate sdpMLineIndex.
-         * @member {number} sdpMLineIndex
-         * @memberof neutron.Candidate
+         * LoginRequest password.
+         * @member {string} password
+         * @memberof neutron.LoginRequest
          * @instance
          */
-        Candidate.prototype.sdpMLineIndex = 0;
+        LoginRequest.prototype.password = "";
 
         /**
-         * Candidate usernameFragment.
-         * @member {string} usernameFragment
-         * @memberof neutron.Candidate
+         * LoginRequest storageServerId.
+         * @member {string} storageServerId
+         * @memberof neutron.LoginRequest
          * @instance
          */
-        Candidate.prototype.usernameFragment = "";
+        LoginRequest.prototype.storageServerId = "";
 
         /**
-         * Creates a new Candidate instance using the specified properties.
+         * Creates a new LoginRequest instance using the specified properties.
          * @function create
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
-         * @param {neutron.ICandidate=} [properties] Properties to set
-         * @returns {neutron.Candidate} Candidate instance
+         * @param {neutron.ILoginRequest=} [properties] Properties to set
+         * @returns {neutron.LoginRequest} LoginRequest instance
          */
-        Candidate.create = function create(properties) {
-            return new Candidate(properties);
+        LoginRequest.create = function create(properties) {
+            return new LoginRequest(properties);
         };
 
         /**
-         * Encodes the specified Candidate message. Does not implicitly {@link neutron.Candidate.verify|verify} messages.
+         * Encodes the specified LoginRequest message. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
          * @function encode
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
-         * @param {neutron.ICandidate} message Candidate message or plain object to encode
+         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        Candidate.encode = function encode(message, writer) {
+        LoginRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.candidate != null && Object.hasOwnProperty.call(message, "candidate"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.candidate);
-            if (message.sdpMid != null && Object.hasOwnProperty.call(message, "sdpMid"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.sdpMid);
-            if (message.sdpMLineIndex != null && Object.hasOwnProperty.call(message, "sdpMLineIndex"))
-                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.sdpMLineIndex);
-            if (message.usernameFragment != null && Object.hasOwnProperty.call(message, "usernameFragment"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.usernameFragment);
+            if (message.clientId != null && Object.hasOwnProperty.call(message, "clientId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.clientId);
+            if (message.username != null && Object.hasOwnProperty.call(message, "username"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.username);
+            if (message.password != null && Object.hasOwnProperty.call(message, "password"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.password);
+            if (message.storageServerId != null && Object.hasOwnProperty.call(message, "storageServerId"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.storageServerId);
             return writer;
         };
 
         /**
-         * Encodes the specified Candidate message, length delimited. Does not implicitly {@link neutron.Candidate.verify|verify} messages.
+         * Encodes the specified LoginRequest message, length delimited. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
-         * @param {neutron.ICandidate} message Candidate message or plain object to encode
+         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        Candidate.encodeDelimited = function encodeDelimited(message, writer) {
+        LoginRequest.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a Candidate message from the specified reader or buffer.
+         * Decodes a LoginRequest message from the specified reader or buffer.
          * @function decode
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.Candidate} Candidate
+         * @returns {neutron.LoginRequest} LoginRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        Candidate.decode = function decode(reader, length, error) {
+        LoginRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.Candidate();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginRequest();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.candidate = reader.string();
+                        message.clientId = reader.string();
                         break;
                     }
                 case 2: {
-                        message.sdpMid = reader.string();
+                        message.username = reader.string();
                         break;
                     }
                 case 3: {
-                        message.sdpMLineIndex = reader.int32();
+                        message.password = reader.string();
                         break;
                     }
                 case 4: {
-                        message.usernameFragment = reader.string();
+                        message.storageServerId = reader.string();
                         break;
                     }
                 default:
@@ -4126,149 +5138,149 @@ export const neutron = $root.neutron = (() => {
         };
 
         /**
-         * Decodes a Candidate message from the specified reader or buffer, length delimited.
+         * Decodes a LoginRequest message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.Candidate} Candidate
+         * @returns {neutron.LoginRequest} LoginRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        Candidate.decodeDelimited = function decodeDelimited(reader) {
+        LoginRequest.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a Candidate message.
+         * Verifies a LoginRequest message.
          * @function verify
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        Candidate.verify = function verify(message) {
+        LoginRequest.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.candidate != null && message.hasOwnProperty("candidate"))
-                if (!$util.isString(message.candidate))
-                    return "candidate: string expected";
-            if (message.sdpMid != null && message.hasOwnProperty("sdpMid"))
-                if (!$util.isString(message.sdpMid))
-                    return "sdpMid: string expected";
-            if (message.sdpMLineIndex != null && message.hasOwnProperty("sdpMLineIndex"))
-                if (!$util.isInteger(message.sdpMLineIndex))
-                    return "sdpMLineIndex: integer expected";
-            if (message.usernameFragment != null && message.hasOwnProperty("usernameFragment"))
-                if (!$util.isString(message.usernameFragment))
-                    return "usernameFragment: string expected";
+            if (message.clientId != null && message.hasOwnProperty("clientId"))
+                if (!$util.isString(message.clientId))
+                    return "clientId: string expected";
+            if (message.username != null && message.hasOwnProperty("username"))
+                if (!$util.isString(message.username))
+                    return "username: string expected";
+            if (message.password != null && message.hasOwnProperty("password"))
+                if (!$util.isString(message.password))
+                    return "password: string expected";
+            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
+                if (!$util.isString(message.storageServerId))
+                    return "storageServerId: string expected";
             return null;
         };
 
         /**
-         * Creates a Candidate message from a plain object. Also converts values to their respective internal types.
+         * Creates a LoginRequest message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.Candidate} Candidate
+         * @returns {neutron.LoginRequest} LoginRequest
          */
-        Candidate.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.Candidate)
+        LoginRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.LoginRequest)
                 return object;
-            let message = new $root.neutron.Candidate();
-            if (object.candidate != null)
-                message.candidate = String(object.candidate);
-            if (object.sdpMid != null)
-                message.sdpMid = String(object.sdpMid);
-            if (object.sdpMLineIndex != null)
-                message.sdpMLineIndex = object.sdpMLineIndex | 0;
-            if (object.usernameFragment != null)
-                message.usernameFragment = String(object.usernameFragment);
+            let message = new $root.neutron.LoginRequest();
+            if (object.clientId != null)
+                message.clientId = String(object.clientId);
+            if (object.username != null)
+                message.username = String(object.username);
+            if (object.password != null)
+                message.password = String(object.password);
+            if (object.storageServerId != null)
+                message.storageServerId = String(object.storageServerId);
             return message;
         };
 
         /**
-         * Creates a plain object from a Candidate message. Also converts values to other types if specified.
+         * Creates a plain object from a LoginRequest message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
-         * @param {neutron.Candidate} message Candidate
+         * @param {neutron.LoginRequest} message LoginRequest
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        Candidate.toObject = function toObject(message, options) {
+        LoginRequest.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
             if (options.defaults) {
-                object.candidate = "";
-                object.sdpMid = "";
-                object.sdpMLineIndex = 0;
-                object.usernameFragment = "";
+                object.clientId = "";
+                object.username = "";
+                object.password = "";
+                object.storageServerId = "";
             }
-            if (message.candidate != null && message.hasOwnProperty("candidate"))
-                object.candidate = message.candidate;
-            if (message.sdpMid != null && message.hasOwnProperty("sdpMid"))
-                object.sdpMid = message.sdpMid;
-            if (message.sdpMLineIndex != null && message.hasOwnProperty("sdpMLineIndex"))
-                object.sdpMLineIndex = message.sdpMLineIndex;
-            if (message.usernameFragment != null && message.hasOwnProperty("usernameFragment"))
-                object.usernameFragment = message.usernameFragment;
+            if (message.clientId != null && message.hasOwnProperty("clientId"))
+                object.clientId = message.clientId;
+            if (message.username != null && message.hasOwnProperty("username"))
+                object.username = message.username;
+            if (message.password != null && message.hasOwnProperty("password"))
+                object.password = message.password;
+            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
+                object.storageServerId = message.storageServerId;
             return object;
         };
 
         /**
-         * Converts this Candidate to JSON.
+         * Converts this LoginRequest to JSON.
          * @function toJSON
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        Candidate.prototype.toJSON = function toJSON() {
+        LoginRequest.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for Candidate
+         * Gets the default type url for LoginRequest
          * @function getTypeUrl
-         * @memberof neutron.Candidate
+         * @memberof neutron.LoginRequest
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        Candidate.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        LoginRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/neutron.Candidate";
+            return typeUrlPrefix + "/neutron.LoginRequest";
         };
 
-        return Candidate;
+        return LoginRequest;
     })();
 
-    neutron.WebRTCOffer = (function() {
+    neutron.LoginResponse = (function() {
 
         /**
-         * Properties of a WebRTCOffer.
+         * Properties of a LoginResponse.
          * @memberof neutron
-         * @interface IWebRTCOffer
-         * @property {string|null} [sdp] WebRTCOffer sdp
-         * @property {Array.<neutron.ICandidate>|null} [candidates] WebRTCOffer candidates
+         * @interface ILoginResponse
+         * @property {boolean|null} [success] LoginResponse success
+         * @property {string|null} [message] LoginResponse message
+         * @property {string|null} [token] LoginResponse token
          */
 
         /**
-         * Constructs a new WebRTCOffer.
+         * Constructs a new LoginResponse.
          * @memberof neutron
-         * @classdesc Represents a WebRTCOffer.
-         * @implements IWebRTCOffer
+         * @classdesc Represents a LoginResponse.
+         * @implements ILoginResponse
          * @constructor
-         * @param {neutron.IWebRTCOffer=} [properties] Properties to set
+         * @param {neutron.ILoginResponse=} [properties] Properties to set
          */
-        function WebRTCOffer(properties) {
-            this.candidates = [];
+        function LoginResponse(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -4276,927 +5288,90 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * WebRTCOffer sdp.
-         * @member {string} sdp
-         * @memberof neutron.WebRTCOffer
-         * @instance
-         */
-        WebRTCOffer.prototype.sdp = "";
-
-        /**
-         * WebRTCOffer candidates.
-         * @member {Array.<neutron.ICandidate>} candidates
-         * @memberof neutron.WebRTCOffer
-         * @instance
-         */
-        WebRTCOffer.prototype.candidates = $util.emptyArray;
-
-        /**
-         * Creates a new WebRTCOffer instance using the specified properties.
-         * @function create
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {neutron.IWebRTCOffer=} [properties] Properties to set
-         * @returns {neutron.WebRTCOffer} WebRTCOffer instance
-         */
-        WebRTCOffer.create = function create(properties) {
-            return new WebRTCOffer(properties);
-        };
-
-        /**
-         * Encodes the specified WebRTCOffer message. Does not implicitly {@link neutron.WebRTCOffer.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {neutron.IWebRTCOffer} message WebRTCOffer message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        WebRTCOffer.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.sdp != null && Object.hasOwnProperty.call(message, "sdp"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sdp);
-            if (message.candidates != null && message.candidates.length)
-                for (let i = 0; i < message.candidates.length; ++i)
-                    $root.neutron.Candidate.encode(message.candidates[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            return writer;
-        };
-
-        /**
-         * Encodes the specified WebRTCOffer message, length delimited. Does not implicitly {@link neutron.WebRTCOffer.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {neutron.IWebRTCOffer} message WebRTCOffer message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        WebRTCOffer.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a WebRTCOffer message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.WebRTCOffer} WebRTCOffer
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        WebRTCOffer.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCOffer();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.sdp = reader.string();
-                        break;
-                    }
-                case 2: {
-                        if (!(message.candidates && message.candidates.length))
-                            message.candidates = [];
-                        message.candidates.push($root.neutron.Candidate.decode(reader, reader.uint32()));
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a WebRTCOffer message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.WebRTCOffer} WebRTCOffer
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        WebRTCOffer.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a WebRTCOffer message.
-         * @function verify
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        WebRTCOffer.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.sdp != null && message.hasOwnProperty("sdp"))
-                if (!$util.isString(message.sdp))
-                    return "sdp: string expected";
-            if (message.candidates != null && message.hasOwnProperty("candidates")) {
-                if (!Array.isArray(message.candidates))
-                    return "candidates: array expected";
-                for (let i = 0; i < message.candidates.length; ++i) {
-                    let error = $root.neutron.Candidate.verify(message.candidates[i]);
-                    if (error)
-                        return "candidates." + error;
-                }
-            }
-            return null;
-        };
-
-        /**
-         * Creates a WebRTCOffer message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.WebRTCOffer} WebRTCOffer
-         */
-        WebRTCOffer.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.WebRTCOffer)
-                return object;
-            let message = new $root.neutron.WebRTCOffer();
-            if (object.sdp != null)
-                message.sdp = String(object.sdp);
-            if (object.candidates) {
-                if (!Array.isArray(object.candidates))
-                    throw TypeError(".neutron.WebRTCOffer.candidates: array expected");
-                message.candidates = [];
-                for (let i = 0; i < object.candidates.length; ++i) {
-                    if (typeof object.candidates[i] !== "object")
-                        throw TypeError(".neutron.WebRTCOffer.candidates: object expected");
-                    message.candidates[i] = $root.neutron.Candidate.fromObject(object.candidates[i]);
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a WebRTCOffer message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {neutron.WebRTCOffer} message WebRTCOffer
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        WebRTCOffer.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.arrays || options.defaults)
-                object.candidates = [];
-            if (options.defaults)
-                object.sdp = "";
-            if (message.sdp != null && message.hasOwnProperty("sdp"))
-                object.sdp = message.sdp;
-            if (message.candidates && message.candidates.length) {
-                object.candidates = [];
-                for (let j = 0; j < message.candidates.length; ++j)
-                    object.candidates[j] = $root.neutron.Candidate.toObject(message.candidates[j], options);
-            }
-            return object;
-        };
-
-        /**
-         * Converts this WebRTCOffer to JSON.
-         * @function toJSON
-         * @memberof neutron.WebRTCOffer
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        WebRTCOffer.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for WebRTCOffer
-         * @function getTypeUrl
-         * @memberof neutron.WebRTCOffer
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        WebRTCOffer.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.WebRTCOffer";
-        };
-
-        return WebRTCOffer;
-    })();
-
-    neutron.WebRTCAnswer = (function() {
-
-        /**
-         * Properties of a WebRTCAnswer.
-         * @memberof neutron
-         * @interface IWebRTCAnswer
-         * @property {string|null} [sdp] WebRTCAnswer sdp
-         * @property {Array.<neutron.ICandidate>|null} [candidates] WebRTCAnswer candidates
-         */
-
-        /**
-         * Constructs a new WebRTCAnswer.
-         * @memberof neutron
-         * @classdesc Represents a WebRTCAnswer.
-         * @implements IWebRTCAnswer
-         * @constructor
-         * @param {neutron.IWebRTCAnswer=} [properties] Properties to set
-         */
-        function WebRTCAnswer(properties) {
-            this.candidates = [];
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * WebRTCAnswer sdp.
-         * @member {string} sdp
-         * @memberof neutron.WebRTCAnswer
-         * @instance
-         */
-        WebRTCAnswer.prototype.sdp = "";
-
-        /**
-         * WebRTCAnswer candidates.
-         * @member {Array.<neutron.ICandidate>} candidates
-         * @memberof neutron.WebRTCAnswer
-         * @instance
-         */
-        WebRTCAnswer.prototype.candidates = $util.emptyArray;
-
-        /**
-         * Creates a new WebRTCAnswer instance using the specified properties.
-         * @function create
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {neutron.IWebRTCAnswer=} [properties] Properties to set
-         * @returns {neutron.WebRTCAnswer} WebRTCAnswer instance
-         */
-        WebRTCAnswer.create = function create(properties) {
-            return new WebRTCAnswer(properties);
-        };
-
-        /**
-         * Encodes the specified WebRTCAnswer message. Does not implicitly {@link neutron.WebRTCAnswer.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {neutron.IWebRTCAnswer} message WebRTCAnswer message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        WebRTCAnswer.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.sdp != null && Object.hasOwnProperty.call(message, "sdp"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sdp);
-            if (message.candidates != null && message.candidates.length)
-                for (let i = 0; i < message.candidates.length; ++i)
-                    $root.neutron.Candidate.encode(message.candidates[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            return writer;
-        };
-
-        /**
-         * Encodes the specified WebRTCAnswer message, length delimited. Does not implicitly {@link neutron.WebRTCAnswer.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {neutron.IWebRTCAnswer} message WebRTCAnswer message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        WebRTCAnswer.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a WebRTCAnswer message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.WebRTCAnswer} WebRTCAnswer
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        WebRTCAnswer.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCAnswer();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.sdp = reader.string();
-                        break;
-                    }
-                case 2: {
-                        if (!(message.candidates && message.candidates.length))
-                            message.candidates = [];
-                        message.candidates.push($root.neutron.Candidate.decode(reader, reader.uint32()));
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a WebRTCAnswer message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.WebRTCAnswer} WebRTCAnswer
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        WebRTCAnswer.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a WebRTCAnswer message.
-         * @function verify
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        WebRTCAnswer.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.sdp != null && message.hasOwnProperty("sdp"))
-                if (!$util.isString(message.sdp))
-                    return "sdp: string expected";
-            if (message.candidates != null && message.hasOwnProperty("candidates")) {
-                if (!Array.isArray(message.candidates))
-                    return "candidates: array expected";
-                for (let i = 0; i < message.candidates.length; ++i) {
-                    let error = $root.neutron.Candidate.verify(message.candidates[i]);
-                    if (error)
-                        return "candidates." + error;
-                }
-            }
-            return null;
-        };
-
-        /**
-         * Creates a WebRTCAnswer message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.WebRTCAnswer} WebRTCAnswer
-         */
-        WebRTCAnswer.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.WebRTCAnswer)
-                return object;
-            let message = new $root.neutron.WebRTCAnswer();
-            if (object.sdp != null)
-                message.sdp = String(object.sdp);
-            if (object.candidates) {
-                if (!Array.isArray(object.candidates))
-                    throw TypeError(".neutron.WebRTCAnswer.candidates: array expected");
-                message.candidates = [];
-                for (let i = 0; i < object.candidates.length; ++i) {
-                    if (typeof object.candidates[i] !== "object")
-                        throw TypeError(".neutron.WebRTCAnswer.candidates: object expected");
-                    message.candidates[i] = $root.neutron.Candidate.fromObject(object.candidates[i]);
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a WebRTCAnswer message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {neutron.WebRTCAnswer} message WebRTCAnswer
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        WebRTCAnswer.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.arrays || options.defaults)
-                object.candidates = [];
-            if (options.defaults)
-                object.sdp = "";
-            if (message.sdp != null && message.hasOwnProperty("sdp"))
-                object.sdp = message.sdp;
-            if (message.candidates && message.candidates.length) {
-                object.candidates = [];
-                for (let j = 0; j < message.candidates.length; ++j)
-                    object.candidates[j] = $root.neutron.Candidate.toObject(message.candidates[j], options);
-            }
-            return object;
-        };
-
-        /**
-         * Converts this WebRTCAnswer to JSON.
-         * @function toJSON
-         * @memberof neutron.WebRTCAnswer
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        WebRTCAnswer.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for WebRTCAnswer
-         * @function getTypeUrl
-         * @memberof neutron.WebRTCAnswer
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        WebRTCAnswer.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.WebRTCAnswer";
-        };
-
-        return WebRTCAnswer;
-    })();
-
-    neutron.FileTransferRequest = (function() {
-
-        /**
-         * Properties of a FileTransferRequest.
-         * @memberof neutron
-         * @interface IFileTransferRequest
-         * @property {string|null} [path] FileTransferRequest path
-         * @property {string|null} [label] FileTransferRequest label
-         * @property {number|Long|null} [offset] FileTransferRequest offset
-         * @property {number|Long|null} [size] FileTransferRequest size
-         * @property {string|null} [mimeType] FileTransferRequest mimeType
-         */
-
-        /**
-         * Constructs a new FileTransferRequest.
-         * @memberof neutron
-         * @classdesc Represents a FileTransferRequest.
-         * @implements IFileTransferRequest
-         * @constructor
-         * @param {neutron.IFileTransferRequest=} [properties] Properties to set
-         */
-        function FileTransferRequest(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * FileTransferRequest path.
-         * @member {string} path
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         */
-        FileTransferRequest.prototype.path = "";
-
-        /**
-         * FileTransferRequest label.
-         * @member {string} label
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         */
-        FileTransferRequest.prototype.label = "";
-
-        /**
-         * FileTransferRequest offset.
-         * @member {number|Long} offset
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         */
-        FileTransferRequest.prototype.offset = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
-
-        /**
-         * FileTransferRequest size.
-         * @member {number|Long} size
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         */
-        FileTransferRequest.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
-
-        /**
-         * FileTransferRequest mimeType.
-         * @member {string} mimeType
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         */
-        FileTransferRequest.prototype.mimeType = "";
-
-        /**
-         * Creates a new FileTransferRequest instance using the specified properties.
-         * @function create
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {neutron.IFileTransferRequest=} [properties] Properties to set
-         * @returns {neutron.FileTransferRequest} FileTransferRequest instance
-         */
-        FileTransferRequest.create = function create(properties) {
-            return new FileTransferRequest(properties);
-        };
-
-        /**
-         * Encodes the specified FileTransferRequest message. Does not implicitly {@link neutron.FileTransferRequest.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {neutron.IFileTransferRequest} message FileTransferRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        FileTransferRequest.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.path != null && Object.hasOwnProperty.call(message, "path"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.path);
-            if (message.label != null && Object.hasOwnProperty.call(message, "label"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.label);
-            if (message.offset != null && Object.hasOwnProperty.call(message, "offset"))
-                writer.uint32(/* id 3, wireType 0 =*/24).int64(message.offset);
-            if (message.size != null && Object.hasOwnProperty.call(message, "size"))
-                writer.uint32(/* id 4, wireType 0 =*/32).int64(message.size);
-            if (message.mimeType != null && Object.hasOwnProperty.call(message, "mimeType"))
-                writer.uint32(/* id 5, wireType 2 =*/42).string(message.mimeType);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified FileTransferRequest message, length delimited. Does not implicitly {@link neutron.FileTransferRequest.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {neutron.IFileTransferRequest} message FileTransferRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        FileTransferRequest.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a FileTransferRequest message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.FileTransferRequest} FileTransferRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        FileTransferRequest.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.FileTransferRequest();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.path = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.label = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.offset = reader.int64();
-                        break;
-                    }
-                case 4: {
-                        message.size = reader.int64();
-                        break;
-                    }
-                case 5: {
-                        message.mimeType = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a FileTransferRequest message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.FileTransferRequest} FileTransferRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        FileTransferRequest.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a FileTransferRequest message.
-         * @function verify
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        FileTransferRequest.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.path != null && message.hasOwnProperty("path"))
-                if (!$util.isString(message.path))
-                    return "path: string expected";
-            if (message.label != null && message.hasOwnProperty("label"))
-                if (!$util.isString(message.label))
-                    return "label: string expected";
-            if (message.offset != null && message.hasOwnProperty("offset"))
-                if (!$util.isInteger(message.offset) && !(message.offset && $util.isInteger(message.offset.low) && $util.isInteger(message.offset.high)))
-                    return "offset: integer|Long expected";
-            if (message.size != null && message.hasOwnProperty("size"))
-                if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
-                    return "size: integer|Long expected";
-            if (message.mimeType != null && message.hasOwnProperty("mimeType"))
-                if (!$util.isString(message.mimeType))
-                    return "mimeType: string expected";
-            return null;
-        };
-
-        /**
-         * Creates a FileTransferRequest message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.FileTransferRequest} FileTransferRequest
-         */
-        FileTransferRequest.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.FileTransferRequest)
-                return object;
-            let message = new $root.neutron.FileTransferRequest();
-            if (object.path != null)
-                message.path = String(object.path);
-            if (object.label != null)
-                message.label = String(object.label);
-            if (object.offset != null)
-                if ($util.Long)
-                    (message.offset = $util.Long.fromValue(object.offset)).unsigned = false;
-                else if (typeof object.offset === "string")
-                    message.offset = parseInt(object.offset, 10);
-                else if (typeof object.offset === "number")
-                    message.offset = object.offset;
-                else if (typeof object.offset === "object")
-                    message.offset = new $util.LongBits(object.offset.low >>> 0, object.offset.high >>> 0).toNumber();
-            if (object.size != null)
-                if ($util.Long)
-                    (message.size = $util.Long.fromValue(object.size)).unsigned = false;
-                else if (typeof object.size === "string")
-                    message.size = parseInt(object.size, 10);
-                else if (typeof object.size === "number")
-                    message.size = object.size;
-                else if (typeof object.size === "object")
-                    message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
-            if (object.mimeType != null)
-                message.mimeType = String(object.mimeType);
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a FileTransferRequest message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {neutron.FileTransferRequest} message FileTransferRequest
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        FileTransferRequest.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults) {
-                object.path = "";
-                object.label = "";
-                if ($util.Long) {
-                    let long = new $util.Long(0, 0, false);
-                    object.offset = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                } else
-                    object.offset = options.longs === String ? "0" : 0;
-                if ($util.Long) {
-                    let long = new $util.Long(0, 0, false);
-                    object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                } else
-                    object.size = options.longs === String ? "0" : 0;
-                object.mimeType = "";
-            }
-            if (message.path != null && message.hasOwnProperty("path"))
-                object.path = message.path;
-            if (message.label != null && message.hasOwnProperty("label"))
-                object.label = message.label;
-            if (message.offset != null && message.hasOwnProperty("offset"))
-                if (typeof message.offset === "number")
-                    object.offset = options.longs === String ? String(message.offset) : message.offset;
-                else
-                    object.offset = options.longs === String ? $util.Long.prototype.toString.call(message.offset) : options.longs === Number ? new $util.LongBits(message.offset.low >>> 0, message.offset.high >>> 0).toNumber() : message.offset;
-            if (message.size != null && message.hasOwnProperty("size"))
-                if (typeof message.size === "number")
-                    object.size = options.longs === String ? String(message.size) : message.size;
-                else
-                    object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
-            if (message.mimeType != null && message.hasOwnProperty("mimeType"))
-                object.mimeType = message.mimeType;
-            return object;
-        };
-
-        /**
-         * Converts this FileTransferRequest to JSON.
-         * @function toJSON
-         * @memberof neutron.FileTransferRequest
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        FileTransferRequest.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for FileTransferRequest
-         * @function getTypeUrl
-         * @memberof neutron.FileTransferRequest
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        FileTransferRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.FileTransferRequest";
-        };
-
-        return FileTransferRequest;
-    })();
-
-    neutron.FileTransferResponse = (function() {
-
-        /**
-         * Properties of a FileTransferResponse.
-         * @memberof neutron
-         * @interface IFileTransferResponse
-         * @property {boolean|null} [success] FileTransferResponse success
-         * @property {number|Long|null} [size] FileTransferResponse size
-         * @property {string|null} [error] FileTransferResponse error
-         * @property {string|null} [id] FileTransferResponse id
-         */
-
-        /**
-         * Constructs a new FileTransferResponse.
-         * @memberof neutron
-         * @classdesc Represents a FileTransferResponse.
-         * @implements IFileTransferResponse
-         * @constructor
-         * @param {neutron.IFileTransferResponse=} [properties] Properties to set
-         */
-        function FileTransferResponse(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * FileTransferResponse success.
+         * LoginResponse success.
          * @member {boolean} success
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @instance
          */
-        FileTransferResponse.prototype.success = false;
+        LoginResponse.prototype.success = false;
 
         /**
-         * FileTransferResponse size.
-         * @member {number|Long} size
-         * @memberof neutron.FileTransferResponse
+         * LoginResponse message.
+         * @member {string} message
+         * @memberof neutron.LoginResponse
          * @instance
          */
-        FileTransferResponse.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+        LoginResponse.prototype.message = "";
 
         /**
-         * FileTransferResponse error.
-         * @member {string} error
-         * @memberof neutron.FileTransferResponse
+         * LoginResponse token.
+         * @member {string} token
+         * @memberof neutron.LoginResponse
          * @instance
          */
-        FileTransferResponse.prototype.error = "";
+        LoginResponse.prototype.token = "";
 
         /**
-         * FileTransferResponse id.
-         * @member {string} id
-         * @memberof neutron.FileTransferResponse
-         * @instance
-         */
-        FileTransferResponse.prototype.id = "";
-
-        /**
-         * Creates a new FileTransferResponse instance using the specified properties.
+         * Creates a new LoginResponse instance using the specified properties.
          * @function create
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
-         * @param {neutron.IFileTransferResponse=} [properties] Properties to set
-         * @returns {neutron.FileTransferResponse} FileTransferResponse instance
+         * @param {neutron.ILoginResponse=} [properties] Properties to set
+         * @returns {neutron.LoginResponse} LoginResponse instance
          */
-        FileTransferResponse.create = function create(properties) {
-            return new FileTransferResponse(properties);
+        LoginResponse.create = function create(properties) {
+            return new LoginResponse(properties);
         };
 
         /**
-         * Encodes the specified FileTransferResponse message. Does not implicitly {@link neutron.FileTransferResponse.verify|verify} messages.
+         * Encodes the specified LoginResponse message. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
          * @function encode
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
-         * @param {neutron.IFileTransferResponse} message FileTransferResponse message or plain object to encode
+         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        FileTransferResponse.encode = function encode(message, writer) {
+        LoginResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.success != null && Object.hasOwnProperty.call(message, "success"))
                 writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
-            if (message.size != null && Object.hasOwnProperty.call(message, "size"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int64(message.size);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.error);
-            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.id);
+            if (message.message != null && Object.hasOwnProperty.call(message, "message"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.message);
+            if (message.token != null && Object.hasOwnProperty.call(message, "token"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.token);
             return writer;
         };
 
         /**
-         * Encodes the specified FileTransferResponse message, length delimited. Does not implicitly {@link neutron.FileTransferResponse.verify|verify} messages.
+         * Encodes the specified LoginResponse message, length delimited. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
-         * @param {neutron.IFileTransferResponse} message FileTransferResponse message or plain object to encode
+         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        FileTransferResponse.encodeDelimited = function encodeDelimited(message, writer) {
+        LoginResponse.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a FileTransferResponse message from the specified reader or buffer.
+         * Decodes a LoginResponse message from the specified reader or buffer.
          * @function decode
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.FileTransferResponse} FileTransferResponse
+         * @returns {neutron.LoginResponse} LoginResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        FileTransferResponse.decode = function decode(reader, length, error) {
+        LoginResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.FileTransferResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginResponse();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -5207,15 +5382,11 @@ export const neutron = $root.neutron = (() => {
                         break;
                     }
                 case 2: {
-                        message.size = reader.int64();
+                        message.message = reader.string();
                         break;
                     }
                 case 3: {
-                        message.error = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.id = reader.string();
+                        message.token = reader.string();
                         break;
                     }
                 default:
@@ -5227,162 +5398,139 @@ export const neutron = $root.neutron = (() => {
         };
 
         /**
-         * Decodes a FileTransferResponse message from the specified reader or buffer, length delimited.
+         * Decodes a LoginResponse message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.FileTransferResponse} FileTransferResponse
+         * @returns {neutron.LoginResponse} LoginResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        FileTransferResponse.decodeDelimited = function decodeDelimited(reader) {
+        LoginResponse.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a FileTransferResponse message.
+         * Verifies a LoginResponse message.
          * @function verify
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        FileTransferResponse.verify = function verify(message) {
+        LoginResponse.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
             if (message.success != null && message.hasOwnProperty("success"))
                 if (typeof message.success !== "boolean")
                     return "success: boolean expected";
-            if (message.size != null && message.hasOwnProperty("size"))
-                if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
-                    return "size: integer|Long expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
-            if (message.id != null && message.hasOwnProperty("id"))
-                if (!$util.isString(message.id))
-                    return "id: string expected";
+            if (message.message != null && message.hasOwnProperty("message"))
+                if (!$util.isString(message.message))
+                    return "message: string expected";
+            if (message.token != null && message.hasOwnProperty("token"))
+                if (!$util.isString(message.token))
+                    return "token: string expected";
             return null;
         };
 
         /**
-         * Creates a FileTransferResponse message from a plain object. Also converts values to their respective internal types.
+         * Creates a LoginResponse message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.FileTransferResponse} FileTransferResponse
+         * @returns {neutron.LoginResponse} LoginResponse
          */
-        FileTransferResponse.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.FileTransferResponse)
+        LoginResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.LoginResponse)
                 return object;
-            let message = new $root.neutron.FileTransferResponse();
+            let message = new $root.neutron.LoginResponse();
             if (object.success != null)
                 message.success = Boolean(object.success);
-            if (object.size != null)
-                if ($util.Long)
-                    (message.size = $util.Long.fromValue(object.size)).unsigned = false;
-                else if (typeof object.size === "string")
-                    message.size = parseInt(object.size, 10);
-                else if (typeof object.size === "number")
-                    message.size = object.size;
-                else if (typeof object.size === "object")
-                    message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
-            if (object.error != null)
-                message.error = String(object.error);
-            if (object.id != null)
-                message.id = String(object.id);
+            if (object.message != null)
+                message.message = String(object.message);
+            if (object.token != null)
+                message.token = String(object.token);
             return message;
         };
 
         /**
-         * Creates a plain object from a FileTransferResponse message. Also converts values to other types if specified.
+         * Creates a plain object from a LoginResponse message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
-         * @param {neutron.FileTransferResponse} message FileTransferResponse
+         * @param {neutron.LoginResponse} message LoginResponse
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        FileTransferResponse.toObject = function toObject(message, options) {
+        LoginResponse.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
             if (options.defaults) {
                 object.success = false;
-                if ($util.Long) {
-                    let long = new $util.Long(0, 0, false);
-                    object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                } else
-                    object.size = options.longs === String ? "0" : 0;
-                object.error = "";
-                object.id = "";
+                object.message = "";
+                object.token = "";
             }
             if (message.success != null && message.hasOwnProperty("success"))
                 object.success = message.success;
-            if (message.size != null && message.hasOwnProperty("size"))
-                if (typeof message.size === "number")
-                    object.size = options.longs === String ? String(message.size) : message.size;
-                else
-                    object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
-            if (message.id != null && message.hasOwnProperty("id"))
-                object.id = message.id;
+            if (message.message != null && message.hasOwnProperty("message"))
+                object.message = message.message;
+            if (message.token != null && message.hasOwnProperty("token"))
+                object.token = message.token;
             return object;
         };
 
         /**
-         * Converts this FileTransferResponse to JSON.
+         * Converts this LoginResponse to JSON.
          * @function toJSON
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        FileTransferResponse.prototype.toJSON = function toJSON() {
+        LoginResponse.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for FileTransferResponse
+         * Gets the default type url for LoginResponse
          * @function getTypeUrl
-         * @memberof neutron.FileTransferResponse
+         * @memberof neutron.LoginResponse
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        FileTransferResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        LoginResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/neutron.FileTransferResponse";
+            return typeUrlPrefix + "/neutron.LoginResponse";
         };
 
-        return FileTransferResponse;
+        return LoginResponse;
     })();
 
-    neutron.ThumbnailRequest = (function() {
+    neutron.WebRTCOfferContent = (function() {
 
         /**
-         * Properties of a ThumbnailRequest.
+         * Properties of a WebRTCOfferContent.
          * @memberof neutron
-         * @interface IThumbnailRequest
-         * @property {string|null} [path] ThumbnailRequest path
-         * @property {number|null} [maxSize] ThumbnailRequest maxSize
+         * @interface IWebRTCOfferContent
+         * @property {string|null} [sdp] WebRTCOfferContent sdp
          */
 
         /**
-         * Constructs a new ThumbnailRequest.
+         * Constructs a new WebRTCOfferContent.
          * @memberof neutron
-         * @classdesc Represents a ThumbnailRequest.
-         * @implements IThumbnailRequest
+         * @classdesc Represents a WebRTCOfferContent.
+         * @implements IWebRTCOfferContent
          * @constructor
-         * @param {neutron.IThumbnailRequest=} [properties] Properties to set
+         * @param {neutron.IWebRTCOfferContent=} [properties] Properties to set
          */
-        function ThumbnailRequest(properties) {
+        function WebRTCOfferContent(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -5390,91 +5538,77 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * ThumbnailRequest path.
-         * @member {string} path
-         * @memberof neutron.ThumbnailRequest
+         * WebRTCOfferContent sdp.
+         * @member {string} sdp
+         * @memberof neutron.WebRTCOfferContent
          * @instance
          */
-        ThumbnailRequest.prototype.path = "";
+        WebRTCOfferContent.prototype.sdp = "";
 
         /**
-         * ThumbnailRequest maxSize.
-         * @member {number} maxSize
-         * @memberof neutron.ThumbnailRequest
-         * @instance
-         */
-        ThumbnailRequest.prototype.maxSize = 0;
-
-        /**
-         * Creates a new ThumbnailRequest instance using the specified properties.
+         * Creates a new WebRTCOfferContent instance using the specified properties.
          * @function create
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
-         * @param {neutron.IThumbnailRequest=} [properties] Properties to set
-         * @returns {neutron.ThumbnailRequest} ThumbnailRequest instance
+         * @param {neutron.IWebRTCOfferContent=} [properties] Properties to set
+         * @returns {neutron.WebRTCOfferContent} WebRTCOfferContent instance
          */
-        ThumbnailRequest.create = function create(properties) {
-            return new ThumbnailRequest(properties);
+        WebRTCOfferContent.create = function create(properties) {
+            return new WebRTCOfferContent(properties);
         };
 
         /**
-         * Encodes the specified ThumbnailRequest message. Does not implicitly {@link neutron.ThumbnailRequest.verify|verify} messages.
+         * Encodes the specified WebRTCOfferContent message. Does not implicitly {@link neutron.WebRTCOfferContent.verify|verify} messages.
          * @function encode
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
-         * @param {neutron.IThumbnailRequest} message ThumbnailRequest message or plain object to encode
+         * @param {neutron.IWebRTCOfferContent} message WebRTCOfferContent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        ThumbnailRequest.encode = function encode(message, writer) {
+        WebRTCOfferContent.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.path != null && Object.hasOwnProperty.call(message, "path"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.path);
-            if (message.maxSize != null && Object.hasOwnProperty.call(message, "maxSize"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.maxSize);
+            if (message.sdp != null && Object.hasOwnProperty.call(message, "sdp"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sdp);
             return writer;
         };
 
         /**
-         * Encodes the specified ThumbnailRequest message, length delimited. Does not implicitly {@link neutron.ThumbnailRequest.verify|verify} messages.
+         * Encodes the specified WebRTCOfferContent message, length delimited. Does not implicitly {@link neutron.WebRTCOfferContent.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
-         * @param {neutron.IThumbnailRequest} message ThumbnailRequest message or plain object to encode
+         * @param {neutron.IWebRTCOfferContent} message WebRTCOfferContent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        ThumbnailRequest.encodeDelimited = function encodeDelimited(message, writer) {
+        WebRTCOfferContent.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a ThumbnailRequest message from the specified reader or buffer.
+         * Decodes a WebRTCOfferContent message from the specified reader or buffer.
          * @function decode
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.ThumbnailRequest} ThumbnailRequest
+         * @returns {neutron.WebRTCOfferContent} WebRTCOfferContent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        ThumbnailRequest.decode = function decode(reader, length, error) {
+        WebRTCOfferContent.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.ThumbnailRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCOfferContent();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.path = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.maxSize = reader.int32();
+                        message.sdp = reader.string();
                         break;
                     }
                 default:
@@ -5486,134 +5620,122 @@ export const neutron = $root.neutron = (() => {
         };
 
         /**
-         * Decodes a ThumbnailRequest message from the specified reader or buffer, length delimited.
+         * Decodes a WebRTCOfferContent message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.ThumbnailRequest} ThumbnailRequest
+         * @returns {neutron.WebRTCOfferContent} WebRTCOfferContent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        ThumbnailRequest.decodeDelimited = function decodeDelimited(reader) {
+        WebRTCOfferContent.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a ThumbnailRequest message.
+         * Verifies a WebRTCOfferContent message.
          * @function verify
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        ThumbnailRequest.verify = function verify(message) {
+        WebRTCOfferContent.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.path != null && message.hasOwnProperty("path"))
-                if (!$util.isString(message.path))
-                    return "path: string expected";
-            if (message.maxSize != null && message.hasOwnProperty("maxSize"))
-                if (!$util.isInteger(message.maxSize))
-                    return "maxSize: integer expected";
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                if (!$util.isString(message.sdp))
+                    return "sdp: string expected";
             return null;
         };
 
         /**
-         * Creates a ThumbnailRequest message from a plain object. Also converts values to their respective internal types.
+         * Creates a WebRTCOfferContent message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.ThumbnailRequest} ThumbnailRequest
+         * @returns {neutron.WebRTCOfferContent} WebRTCOfferContent
          */
-        ThumbnailRequest.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.ThumbnailRequest)
+        WebRTCOfferContent.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.WebRTCOfferContent)
                 return object;
-            let message = new $root.neutron.ThumbnailRequest();
-            if (object.path != null)
-                message.path = String(object.path);
-            if (object.maxSize != null)
-                message.maxSize = object.maxSize | 0;
+            let message = new $root.neutron.WebRTCOfferContent();
+            if (object.sdp != null)
+                message.sdp = String(object.sdp);
             return message;
         };
 
         /**
-         * Creates a plain object from a ThumbnailRequest message. Also converts values to other types if specified.
+         * Creates a plain object from a WebRTCOfferContent message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
-         * @param {neutron.ThumbnailRequest} message ThumbnailRequest
+         * @param {neutron.WebRTCOfferContent} message WebRTCOfferContent
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        ThumbnailRequest.toObject = function toObject(message, options) {
+        WebRTCOfferContent.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
-                object.path = "";
-                object.maxSize = 0;
-            }
-            if (message.path != null && message.hasOwnProperty("path"))
-                object.path = message.path;
-            if (message.maxSize != null && message.hasOwnProperty("maxSize"))
-                object.maxSize = message.maxSize;
+            if (options.defaults)
+                object.sdp = "";
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                object.sdp = message.sdp;
             return object;
         };
 
         /**
-         * Converts this ThumbnailRequest to JSON.
+         * Converts this WebRTCOfferContent to JSON.
          * @function toJSON
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        ThumbnailRequest.prototype.toJSON = function toJSON() {
+        WebRTCOfferContent.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for ThumbnailRequest
+         * Gets the default type url for WebRTCOfferContent
          * @function getTypeUrl
-         * @memberof neutron.ThumbnailRequest
+         * @memberof neutron.WebRTCOfferContent
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        ThumbnailRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        WebRTCOfferContent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/neutron.ThumbnailRequest";
+            return typeUrlPrefix + "/neutron.WebRTCOfferContent";
         };
 
-        return ThumbnailRequest;
+        return WebRTCOfferContent;
     })();
 
-    neutron.ThumbnailResponse = (function() {
+    neutron.WebRTCAnswerContent = (function() {
 
         /**
-         * Properties of a ThumbnailResponse.
+         * Properties of a WebRTCAnswerContent.
          * @memberof neutron
-         * @interface IThumbnailResponse
-         * @property {string|null} [id] ThumbnailResponse id
-         * @property {number|null} [width] ThumbnailResponse width
-         * @property {number|null} [height] ThumbnailResponse height
-         * @property {string|null} [error] ThumbnailResponse error
+         * @interface IWebRTCAnswerContent
+         * @property {string|null} [sdp] WebRTCAnswerContent sdp
          */
 
         /**
-         * Constructs a new ThumbnailResponse.
+         * Constructs a new WebRTCAnswerContent.
          * @memberof neutron
-         * @classdesc Represents a ThumbnailResponse.
-         * @implements IThumbnailResponse
+         * @classdesc Represents a WebRTCAnswerContent.
+         * @implements IWebRTCAnswerContent
          * @constructor
-         * @param {neutron.IThumbnailResponse=} [properties] Properties to set
+         * @param {neutron.IWebRTCAnswerContent=} [properties] Properties to set
          */
-        function ThumbnailResponse(properties) {
+        function WebRTCAnswerContent(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -5621,119 +5743,77 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * ThumbnailResponse id.
-         * @member {string} id
-         * @memberof neutron.ThumbnailResponse
+         * WebRTCAnswerContent sdp.
+         * @member {string} sdp
+         * @memberof neutron.WebRTCAnswerContent
          * @instance
          */
-        ThumbnailResponse.prototype.id = "";
+        WebRTCAnswerContent.prototype.sdp = "";
 
         /**
-         * ThumbnailResponse width.
-         * @member {number} width
-         * @memberof neutron.ThumbnailResponse
-         * @instance
-         */
-        ThumbnailResponse.prototype.width = 0;
-
-        /**
-         * ThumbnailResponse height.
-         * @member {number} height
-         * @memberof neutron.ThumbnailResponse
-         * @instance
-         */
-        ThumbnailResponse.prototype.height = 0;
-
-        /**
-         * ThumbnailResponse error.
-         * @member {string} error
-         * @memberof neutron.ThumbnailResponse
-         * @instance
-         */
-        ThumbnailResponse.prototype.error = "";
-
-        /**
-         * Creates a new ThumbnailResponse instance using the specified properties.
+         * Creates a new WebRTCAnswerContent instance using the specified properties.
          * @function create
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
-         * @param {neutron.IThumbnailResponse=} [properties] Properties to set
-         * @returns {neutron.ThumbnailResponse} ThumbnailResponse instance
+         * @param {neutron.IWebRTCAnswerContent=} [properties] Properties to set
+         * @returns {neutron.WebRTCAnswerContent} WebRTCAnswerContent instance
          */
-        ThumbnailResponse.create = function create(properties) {
-            return new ThumbnailResponse(properties);
+        WebRTCAnswerContent.create = function create(properties) {
+            return new WebRTCAnswerContent(properties);
         };
 
         /**
-         * Encodes the specified ThumbnailResponse message. Does not implicitly {@link neutron.ThumbnailResponse.verify|verify} messages.
+         * Encodes the specified WebRTCAnswerContent message. Does not implicitly {@link neutron.WebRTCAnswerContent.verify|verify} messages.
          * @function encode
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
-         * @param {neutron.IThumbnailResponse} message ThumbnailResponse message or plain object to encode
+         * @param {neutron.IWebRTCAnswerContent} message WebRTCAnswerContent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        ThumbnailResponse.encode = function encode(message, writer) {
+        WebRTCAnswerContent.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
-            if (message.width != null && Object.hasOwnProperty.call(message, "width"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.width);
-            if (message.height != null && Object.hasOwnProperty.call(message, "height"))
-                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.height);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.error);
+            if (message.sdp != null && Object.hasOwnProperty.call(message, "sdp"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sdp);
             return writer;
         };
 
         /**
-         * Encodes the specified ThumbnailResponse message, length delimited. Does not implicitly {@link neutron.ThumbnailResponse.verify|verify} messages.
+         * Encodes the specified WebRTCAnswerContent message, length delimited. Does not implicitly {@link neutron.WebRTCAnswerContent.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
-         * @param {neutron.IThumbnailResponse} message ThumbnailResponse message or plain object to encode
+         * @param {neutron.IWebRTCAnswerContent} message WebRTCAnswerContent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        ThumbnailResponse.encodeDelimited = function encodeDelimited(message, writer) {
+        WebRTCAnswerContent.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a ThumbnailResponse message from the specified reader or buffer.
+         * Decodes a WebRTCAnswerContent message from the specified reader or buffer.
          * @function decode
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.ThumbnailResponse} ThumbnailResponse
+         * @returns {neutron.WebRTCAnswerContent} WebRTCAnswerContent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        ThumbnailResponse.decode = function decode(reader, length, error) {
+        WebRTCAnswerContent.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.ThumbnailResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCAnswerContent();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.id = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.width = reader.int32();
-                        break;
-                    }
-                case 3: {
-                        message.height = reader.int32();
-                        break;
-                    }
-                case 4: {
-                        message.error = reader.string();
+                        message.sdp = reader.string();
                         break;
                     }
                 default:
@@ -5745,127 +5825,536 @@ export const neutron = $root.neutron = (() => {
         };
 
         /**
-         * Decodes a ThumbnailResponse message from the specified reader or buffer, length delimited.
+         * Decodes a WebRTCAnswerContent message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.ThumbnailResponse} ThumbnailResponse
+         * @returns {neutron.WebRTCAnswerContent} WebRTCAnswerContent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        ThumbnailResponse.decodeDelimited = function decodeDelimited(reader) {
+        WebRTCAnswerContent.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a ThumbnailResponse message.
+         * Verifies a WebRTCAnswerContent message.
          * @function verify
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        ThumbnailResponse.verify = function verify(message) {
+        WebRTCAnswerContent.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.id != null && message.hasOwnProperty("id"))
-                if (!$util.isString(message.id))
-                    return "id: string expected";
-            if (message.width != null && message.hasOwnProperty("width"))
-                if (!$util.isInteger(message.width))
-                    return "width: integer expected";
-            if (message.height != null && message.hasOwnProperty("height"))
-                if (!$util.isInteger(message.height))
-                    return "height: integer expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                if (!$util.isString(message.sdp))
+                    return "sdp: string expected";
             return null;
         };
 
         /**
-         * Creates a ThumbnailResponse message from a plain object. Also converts values to their respective internal types.
+         * Creates a WebRTCAnswerContent message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.ThumbnailResponse} ThumbnailResponse
+         * @returns {neutron.WebRTCAnswerContent} WebRTCAnswerContent
          */
-        ThumbnailResponse.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.ThumbnailResponse)
+        WebRTCAnswerContent.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.WebRTCAnswerContent)
                 return object;
-            let message = new $root.neutron.ThumbnailResponse();
-            if (object.id != null)
-                message.id = String(object.id);
-            if (object.width != null)
-                message.width = object.width | 0;
-            if (object.height != null)
-                message.height = object.height | 0;
-            if (object.error != null)
-                message.error = String(object.error);
+            let message = new $root.neutron.WebRTCAnswerContent();
+            if (object.sdp != null)
+                message.sdp = String(object.sdp);
             return message;
         };
 
         /**
-         * Creates a plain object from a ThumbnailResponse message. Also converts values to other types if specified.
+         * Creates a plain object from a WebRTCAnswerContent message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
-         * @param {neutron.ThumbnailResponse} message ThumbnailResponse
+         * @param {neutron.WebRTCAnswerContent} message WebRTCAnswerContent
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        ThumbnailResponse.toObject = function toObject(message, options) {
+        WebRTCAnswerContent.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
-                object.id = "";
-                object.width = 0;
-                object.height = 0;
-                object.error = "";
-            }
-            if (message.id != null && message.hasOwnProperty("id"))
-                object.id = message.id;
-            if (message.width != null && message.hasOwnProperty("width"))
-                object.width = message.width;
-            if (message.height != null && message.hasOwnProperty("height"))
-                object.height = message.height;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
+            if (options.defaults)
+                object.sdp = "";
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                object.sdp = message.sdp;
             return object;
         };
 
         /**
-         * Converts this ThumbnailResponse to JSON.
+         * Converts this WebRTCAnswerContent to JSON.
          * @function toJSON
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        ThumbnailResponse.prototype.toJSON = function toJSON() {
+        WebRTCAnswerContent.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for ThumbnailResponse
+         * Gets the default type url for WebRTCAnswerContent
          * @function getTypeUrl
-         * @memberof neutron.ThumbnailResponse
+         * @memberof neutron.WebRTCAnswerContent
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        ThumbnailResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        WebRTCAnswerContent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/neutron.ThumbnailResponse";
+            return typeUrlPrefix + "/neutron.WebRTCAnswerContent";
         };
 
-        return ThumbnailResponse;
+        return WebRTCAnswerContent;
+    })();
+
+    neutron.WebRTCAnswerCandidatesContent = (function() {
+
+        /**
+         * Properties of a WebRTCAnswerCandidatesContent.
+         * @memberof neutron
+         * @interface IWebRTCAnswerCandidatesContent
+         * @property {string|null} [sdp] WebRTCAnswerCandidatesContent sdp
+         * @property {string|null} [type] WebRTCAnswerCandidatesContent type
+         */
+
+        /**
+         * Constructs a new WebRTCAnswerCandidatesContent.
+         * @memberof neutron
+         * @classdesc Represents a WebRTCAnswerCandidatesContent.
+         * @implements IWebRTCAnswerCandidatesContent
+         * @constructor
+         * @param {neutron.IWebRTCAnswerCandidatesContent=} [properties] Properties to set
+         */
+        function WebRTCAnswerCandidatesContent(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * WebRTCAnswerCandidatesContent sdp.
+         * @member {string} sdp
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @instance
+         */
+        WebRTCAnswerCandidatesContent.prototype.sdp = "";
+
+        /**
+         * WebRTCAnswerCandidatesContent type.
+         * @member {string} type
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @instance
+         */
+        WebRTCAnswerCandidatesContent.prototype.type = "";
+
+        /**
+         * Creates a new WebRTCAnswerCandidatesContent instance using the specified properties.
+         * @function create
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {neutron.IWebRTCAnswerCandidatesContent=} [properties] Properties to set
+         * @returns {neutron.WebRTCAnswerCandidatesContent} WebRTCAnswerCandidatesContent instance
+         */
+        WebRTCAnswerCandidatesContent.create = function create(properties) {
+            return new WebRTCAnswerCandidatesContent(properties);
+        };
+
+        /**
+         * Encodes the specified WebRTCAnswerCandidatesContent message. Does not implicitly {@link neutron.WebRTCAnswerCandidatesContent.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {neutron.IWebRTCAnswerCandidatesContent} message WebRTCAnswerCandidatesContent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        WebRTCAnswerCandidatesContent.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.sdp != null && Object.hasOwnProperty.call(message, "sdp"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sdp);
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.type);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified WebRTCAnswerCandidatesContent message, length delimited. Does not implicitly {@link neutron.WebRTCAnswerCandidatesContent.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {neutron.IWebRTCAnswerCandidatesContent} message WebRTCAnswerCandidatesContent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        WebRTCAnswerCandidatesContent.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a WebRTCAnswerCandidatesContent message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.WebRTCAnswerCandidatesContent} WebRTCAnswerCandidatesContent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        WebRTCAnswerCandidatesContent.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCAnswerCandidatesContent();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.sdp = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.type = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a WebRTCAnswerCandidatesContent message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.WebRTCAnswerCandidatesContent} WebRTCAnswerCandidatesContent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        WebRTCAnswerCandidatesContent.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a WebRTCAnswerCandidatesContent message.
+         * @function verify
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        WebRTCAnswerCandidatesContent.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                if (!$util.isString(message.sdp))
+                    return "sdp: string expected";
+            if (message.type != null && message.hasOwnProperty("type"))
+                if (!$util.isString(message.type))
+                    return "type: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a WebRTCAnswerCandidatesContent message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.WebRTCAnswerCandidatesContent} WebRTCAnswerCandidatesContent
+         */
+        WebRTCAnswerCandidatesContent.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.WebRTCAnswerCandidatesContent)
+                return object;
+            let message = new $root.neutron.WebRTCAnswerCandidatesContent();
+            if (object.sdp != null)
+                message.sdp = String(object.sdp);
+            if (object.type != null)
+                message.type = String(object.type);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a WebRTCAnswerCandidatesContent message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {neutron.WebRTCAnswerCandidatesContent} message WebRTCAnswerCandidatesContent
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        WebRTCAnswerCandidatesContent.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.sdp = "";
+                object.type = "";
+            }
+            if (message.sdp != null && message.hasOwnProperty("sdp"))
+                object.sdp = message.sdp;
+            if (message.type != null && message.hasOwnProperty("type"))
+                object.type = message.type;
+            return object;
+        };
+
+        /**
+         * Converts this WebRTCAnswerCandidatesContent to JSON.
+         * @function toJSON
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        WebRTCAnswerCandidatesContent.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for WebRTCAnswerCandidatesContent
+         * @function getTypeUrl
+         * @memberof neutron.WebRTCAnswerCandidatesContent
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        WebRTCAnswerCandidatesContent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.WebRTCAnswerCandidatesContent";
+        };
+
+        return WebRTCAnswerCandidatesContent;
+    })();
+
+    neutron.WebRTCCandidateContent = (function() {
+
+        /**
+         * Properties of a WebRTCCandidateContent.
+         * @memberof neutron
+         * @interface IWebRTCCandidateContent
+         * @property {string|null} [candidate] WebRTCCandidateContent candidate
+         */
+
+        /**
+         * Constructs a new WebRTCCandidateContent.
+         * @memberof neutron
+         * @classdesc Represents a WebRTCCandidateContent.
+         * @implements IWebRTCCandidateContent
+         * @constructor
+         * @param {neutron.IWebRTCCandidateContent=} [properties] Properties to set
+         */
+        function WebRTCCandidateContent(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * WebRTCCandidateContent candidate.
+         * @member {string} candidate
+         * @memberof neutron.WebRTCCandidateContent
+         * @instance
+         */
+        WebRTCCandidateContent.prototype.candidate = "";
+
+        /**
+         * Creates a new WebRTCCandidateContent instance using the specified properties.
+         * @function create
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {neutron.IWebRTCCandidateContent=} [properties] Properties to set
+         * @returns {neutron.WebRTCCandidateContent} WebRTCCandidateContent instance
+         */
+        WebRTCCandidateContent.create = function create(properties) {
+            return new WebRTCCandidateContent(properties);
+        };
+
+        /**
+         * Encodes the specified WebRTCCandidateContent message. Does not implicitly {@link neutron.WebRTCCandidateContent.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {neutron.IWebRTCCandidateContent} message WebRTCCandidateContent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        WebRTCCandidateContent.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.candidate != null && Object.hasOwnProperty.call(message, "candidate"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.candidate);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified WebRTCCandidateContent message, length delimited. Does not implicitly {@link neutron.WebRTCCandidateContent.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {neutron.IWebRTCCandidateContent} message WebRTCCandidateContent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        WebRTCCandidateContent.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a WebRTCCandidateContent message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.WebRTCCandidateContent} WebRTCCandidateContent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        WebRTCCandidateContent.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.WebRTCCandidateContent();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.candidate = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a WebRTCCandidateContent message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.WebRTCCandidateContent} WebRTCCandidateContent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        WebRTCCandidateContent.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a WebRTCCandidateContent message.
+         * @function verify
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        WebRTCCandidateContent.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.candidate != null && message.hasOwnProperty("candidate"))
+                if (!$util.isString(message.candidate))
+                    return "candidate: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a WebRTCCandidateContent message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.WebRTCCandidateContent} WebRTCCandidateContent
+         */
+        WebRTCCandidateContent.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.WebRTCCandidateContent)
+                return object;
+            let message = new $root.neutron.WebRTCCandidateContent();
+            if (object.candidate != null)
+                message.candidate = String(object.candidate);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a WebRTCCandidateContent message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {neutron.WebRTCCandidateContent} message WebRTCCandidateContent
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        WebRTCCandidateContent.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.candidate = "";
+            if (message.candidate != null && message.hasOwnProperty("candidate"))
+                object.candidate = message.candidate;
+            return object;
+        };
+
+        /**
+         * Converts this WebRTCCandidateContent to JSON.
+         * @function toJSON
+         * @memberof neutron.WebRTCCandidateContent
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        WebRTCCandidateContent.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for WebRTCCandidateContent
+         * @function getTypeUrl
+         * @memberof neutron.WebRTCCandidateContent
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        WebRTCCandidateContent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.WebRTCCandidateContent";
+        };
+
+        return WebRTCCandidateContent;
     })();
 
     return neutron;

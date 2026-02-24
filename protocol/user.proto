@@ -16,12 +16,3 @@ message LoginResponse {
     string message = 2;
     string token = 3;
 }
-
-message WebRTCOfferContent {
-    string sdp = 1;
-}
-
-message WebRTCCandidateContent {
-    string candidate = 1;
-}
-

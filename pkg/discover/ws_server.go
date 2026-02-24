@@ -141,10 +141,10 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *neutronproto.LoginRequest,
 				log.Warnf("callack failed %v", err)
 			}
 		} else {
-			// Re-marshal the message for forwarding
-			msgBytes, err := protojson.Marshal(signal)
+			// Marshal the message as protobuf binary for forwarding
+			msgBytes, err := protobuf.Marshal(signal)
 			if err != nil {
-				log.Warnf("marshal message for forwarding failed %v", err)
+				log.Warnf("protobuf marshal message for forwarding failed %v", err)
 			} else if err := s.forward(signal.Destination, msgBytes); err != nil {
 				log.Warnf("forward failed %v", err)
 			}
@@ -174,14 +174,26 @@ func (s *DiscoverServer) doWebSocketTraffic(userData *neutronproto.LoginRequest,
 }
 
 func (s *DiscoverServer) readMessage(conn *websocket.Conn) (*neutronproto.RemoteMessage, error) {
-	_, msg, err := conn.ReadMessage()
+	messageType, msg, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
 
 	var signal neutronproto.RemoteMessage
-	if err := protojson.Unmarshal(msg, &signal); err != nil {
-		return nil, fmt.Errorf("Unmarshal error: %v", err)
+
+	// 根据消息类型进行解析
+	if messageType == websocket.BinaryMessage {
+		// 二进制消息：protobuf格式
+		if err := protobuf.Unmarshal(msg, &signal); err != nil {
+			return nil, fmt.Errorf("protobuf unmarshal error: %v", err)
+		}
+	} else if messageType == websocket.TextMessage {
+		// 文本消息：JSON格式（向后兼容）
+		if err := protojson.Unmarshal(msg, &signal); err != nil {
+			return nil, fmt.Errorf("JSON unmarshal error: %v", err)
+		}
+	} else {
+		return nil, fmt.Errorf("unsupported message type: %d", messageType)
 	}
 
 	return &signal, nil
@@ -227,7 +239,8 @@ func (s *DiscoverServer) forward(destination string, data []byte) error {
 		return fmt.Errorf("client %s not found", destination)
 	}
 
-	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	// 发送二进制消息（protobuf格式）
+	if err := conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 		return fmt.Errorf("write error: %v", err)
 	}
 
@@ -344,12 +357,13 @@ func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *DiscoverServer) callClient(userId string, msg *neutronproto.RemoteMessage, timeout time.Duration) (*neutronproto.RemoteMessage, error) {
+func (s *DiscoverServer) callClient(userId string, msg *neutronproto.RemoteMessage,
+	timeout time.Duration) (*neutronproto.RemoteMessage, error) {
 	ch := make(chan *neutronproto.RemoteMessage, 1)
 
-	content, err := protojson.Marshal(msg)
+	content, err := protobuf.Marshal(msg)
 	if err != nil {
-		return nil, errors.New("encode message failed")
+		return nil, errors.New("protobuf encode message failed")
 	}
 
 	_ = s.registCallback(msg.Id, &ch)

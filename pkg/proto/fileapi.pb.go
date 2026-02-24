@@ -108,9 +108,10 @@ func (x *FileInformation) GetExifData() map[string]*_struct.Value {
 
 type ImageRepoHistoryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	LastId        int64                  `protobuf:"varint,1,opt,name=last_id,json=lastId,proto3" json:"last_id,omitempty"`
-	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
-	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	Types         []string               `protobuf:"bytes,1,rep,name=types,proto3" json:"types,omitempty"`
+	LastId        int64                  `protobuf:"varint,2,opt,name=last_id,json=lastId,proto3" json:"last_id,omitempty"`
+	Count         int32                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Version       string                 `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -143,6 +144,13 @@ func (x *ImageRepoHistoryRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ImageRepoHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ImageRepoHistoryRequest) Descriptor() ([]byte, []int) {
 	return file_fileapi_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ImageRepoHistoryRequest) GetTypes() []string {
+	if x != nil {
+		return x.Types
+	}
+	return nil
 }
 
 func (x *ImageRepoHistoryRequest) GetLastId() int64 {
@@ -839,6 +847,218 @@ func (x *GetFileSystemVersionResponse) GetError() string {
 	return ""
 }
 
+// Get thumbnail request
+type GetThumbnailRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"` // optional, default 200
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetThumbnailRequest) Reset() {
+	*x = GetThumbnailRequest{}
+	mi := &file_fileapi_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetThumbnailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetThumbnailRequest) ProtoMessage() {}
+
+func (x *GetThumbnailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetThumbnailRequest.ProtoReflect.Descriptor instead.
+func (*GetThumbnailRequest) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetThumbnailRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *GetThumbnailRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+// Get thumbnail response
+type GetThumbnailResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // thumbnail ID for data channel
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetThumbnailResponse) Reset() {
+	*x = GetThumbnailResponse{}
+	mi := &file_fileapi_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetThumbnailResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetThumbnailResponse) ProtoMessage() {}
+
+func (x *GetThumbnailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetThumbnailResponse.ProtoReflect.Descriptor instead.
+func (*GetThumbnailResponse) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetThumbnailResponse) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GetThumbnailResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+// Play video request
+type PlayVideoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlayVideoRequest) Reset() {
+	*x = PlayVideoRequest{}
+	mi := &file_fileapi_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlayVideoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlayVideoRequest) ProtoMessage() {}
+
+func (x *PlayVideoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlayVideoRequest.ProtoReflect.Descriptor instead.
+func (*PlayVideoRequest) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *PlayVideoRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+// Play video response
+type PlayVideoResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Success       bool                      `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                    `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	VideoInfo     map[string]*_struct.Value `protobuf:"bytes,3,rep,name=video_info,json=videoInfo,proto3" json:"video_info,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // optional video information
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlayVideoResponse) Reset() {
+	*x = PlayVideoResponse{}
+	mi := &file_fileapi_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlayVideoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlayVideoResponse) ProtoMessage() {}
+
+func (x *PlayVideoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlayVideoResponse.ProtoReflect.Descriptor instead.
+func (*PlayVideoResponse) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *PlayVideoResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *PlayVideoResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *PlayVideoResponse) GetVideoInfo() map[string]*_struct.Value {
+	if x != nil {
+		return x.VideoInfo
+	}
+	return nil
+}
+
 var File_fileapi_proto protoreflect.FileDescriptor
 
 const file_fileapi_proto_rawDesc = "" +
@@ -853,11 +1073,12 @@ const file_fileapi_proto_rawDesc = "" +
 	"\texif_data\x18\x06 \x03(\v2&.neutron.FileInformation.ExifDataEntryR\bexifData\x1aS\n" +
 	"\rExifDataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"b\n" +
-	"\x17ImageRepoHistoryRequest\x12\x17\n" +
-	"\alast_id\x18\x01 \x01(\x03R\x06lastId\x12\x14\n" +
-	"\x05count\x18\x02 \x01(\x05R\x05count\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\"\x97\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"x\n" +
+	"\x17ImageRepoHistoryRequest\x12\x14\n" +
+	"\x05types\x18\x01 \x03(\tR\x05types\x12\x17\n" +
+	"\alast_id\x18\x02 \x01(\x03R\x06lastId\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\tR\aversion\"\x97\x01\n" +
 	"\x14ImageRepoHistoryItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
@@ -898,7 +1119,23 @@ const file_fileapi_proto_rawDesc = "" +
 	"\x1bGetFileSystemVersionRequest\"N\n" +
 	"\x1cGetFileSystemVersionResponse\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05errorB&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
+	"\x05error\x18\x02 \x01(\tR\x05error\"=\n" +
+	"\x13GetThumbnailRequest\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"<\n" +
+	"\x14GetThumbnailResponse\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"&\n" +
+	"\x10PlayVideoRequest\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"\xe3\x01\n" +
+	"\x11PlayVideoResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12H\n" +
+	"\n" +
+	"video_info\x18\x03 \x03(\v2).neutron.PlayVideoResponse.VideoInfoEntryR\tvideoInfo\x1aT\n" +
+	"\x0eVideoInfoEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
 
 var (
 	file_fileapi_proto_rawDescOnce sync.Once
@@ -912,7 +1149,7 @@ func file_fileapi_proto_rawDescGZIP() []byte {
 	return file_fileapi_proto_rawDescData
 }
 
-var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_fileapi_proto_goTypes = []any{
 	(*FileInformation)(nil),              // 0: neutron.FileInformation
 	(*ImageRepoHistoryRequest)(nil),      // 1: neutron.ImageRepoHistoryRequest
@@ -928,23 +1165,30 @@ var file_fileapi_proto_goTypes = []any{
 	(*ListFilesResponse)(nil),            // 11: neutron.ListFilesResponse
 	(*GetFileSystemVersionRequest)(nil),  // 12: neutron.GetFileSystemVersionRequest
 	(*GetFileSystemVersionResponse)(nil), // 13: neutron.GetFileSystemVersionResponse
-	nil,                                  // 14: neutron.FileInformation.ExifDataEntry
-	(*_struct.Struct)(nil),               // 15: google.protobuf.Struct
-	(*_struct.Value)(nil),                // 16: google.protobuf.Value
+	(*GetThumbnailRequest)(nil),          // 14: neutron.GetThumbnailRequest
+	(*GetThumbnailResponse)(nil),         // 15: neutron.GetThumbnailResponse
+	(*PlayVideoRequest)(nil),             // 16: neutron.PlayVideoRequest
+	(*PlayVideoResponse)(nil),            // 17: neutron.PlayVideoResponse
+	nil,                                  // 18: neutron.FileInformation.ExifDataEntry
+	nil,                                  // 19: neutron.PlayVideoResponse.VideoInfoEntry
+	(*_struct.Struct)(nil),               // 20: google.protobuf.Struct
+	(*_struct.Value)(nil),                // 21: google.protobuf.Value
 }
 var file_fileapi_proto_depIdxs = []int32{
-	14, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
+	18, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
 	2,  // 1: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
-	15, // 2: neutron.FileOperationRequest.params:type_name -> google.protobuf.Struct
-	15, // 3: neutron.FileOperationResponse.result:type_name -> google.protobuf.Struct
+	20, // 2: neutron.FileOperationRequest.params:type_name -> google.protobuf.Struct
+	20, // 3: neutron.FileOperationResponse.result:type_name -> google.protobuf.Struct
 	0,  // 4: neutron.GetFileInfoResponse.file_info:type_name -> neutron.FileInformation
 	0,  // 5: neutron.ListFilesResponse.files:type_name -> neutron.FileInformation
-	16, // 6: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	19, // 6: neutron.PlayVideoResponse.video_info:type_name -> neutron.PlayVideoResponse.VideoInfoEntry
+	21, // 7: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
+	21, // 8: neutron.PlayVideoResponse.VideoInfoEntry.value:type_name -> google.protobuf.Value
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_fileapi_proto_init() }
@@ -958,7 +1202,7 @@ func file_fileapi_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fileapi_proto_rawDesc), len(file_fileapi_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

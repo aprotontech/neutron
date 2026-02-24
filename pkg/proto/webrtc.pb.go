@@ -7,7 +7,6 @@
 package proto
 
 import (
-	_ "github.com/golang/protobuf/ptypes/struct"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -22,31 +21,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Candidate message for ICE candidates
-type Candidate struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Candidate        string                 `protobuf:"bytes,1,opt,name=candidate,proto3" json:"candidate,omitempty"`
-	SdpMid           string                 `protobuf:"bytes,2,opt,name=sdp_mid,json=sdpMid,proto3" json:"sdp_mid,omitempty"`
-	SdpMLineIndex    int32                  `protobuf:"varint,3,opt,name=sdp_m_line_index,json=sdpMLineIndex,proto3" json:"sdp_m_line_index,omitempty"`
-	UsernameFragment string                 `protobuf:"bytes,4,opt,name=username_fragment,json=usernameFragment,proto3" json:"username_fragment,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+type WebRTCOfferContent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sdp           string                 `protobuf:"bytes,1,opt,name=sdp,proto3" json:"sdp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Candidate) Reset() {
-	*x = Candidate{}
+func (x *WebRTCOfferContent) Reset() {
+	*x = WebRTCOfferContent{}
 	mi := &file_webrtc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Candidate) String() string {
+func (x *WebRTCOfferContent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Candidate) ProtoMessage() {}
+func (*WebRTCOfferContent) ProtoMessage() {}
 
-func (x *Candidate) ProtoReflect() protoreflect.Message {
+func (x *WebRTCOfferContent) ProtoReflect() protoreflect.Message {
 	mi := &file_webrtc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -58,62 +53,39 @@ func (x *Candidate) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Candidate.ProtoReflect.Descriptor instead.
-func (*Candidate) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebRTCOfferContent.ProtoReflect.Descriptor instead.
+func (*WebRTCOfferContent) Descriptor() ([]byte, []int) {
 	return file_webrtc_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Candidate) GetCandidate() string {
+func (x *WebRTCOfferContent) GetSdp() string {
 	if x != nil {
-		return x.Candidate
+		return x.Sdp
 	}
 	return ""
 }
 
-func (x *Candidate) GetSdpMid() string {
-	if x != nil {
-		return x.SdpMid
-	}
-	return ""
-}
-
-func (x *Candidate) GetSdpMLineIndex() int32 {
-	if x != nil {
-		return x.SdpMLineIndex
-	}
-	return 0
-}
-
-func (x *Candidate) GetUsernameFragment() string {
-	if x != nil {
-		return x.UsernameFragment
-	}
-	return ""
-}
-
-// WebRTC signaling messages
-type WebRTCOffer struct {
+type WebRTCAnswerContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Sdp           string                 `protobuf:"bytes,1,opt,name=sdp,proto3" json:"sdp,omitempty"`
-	Candidates    []*Candidate           `protobuf:"bytes,2,rep,name=candidates,proto3" json:"candidates,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WebRTCOffer) Reset() {
-	*x = WebRTCOffer{}
+func (x *WebRTCAnswerContent) Reset() {
+	*x = WebRTCAnswerContent{}
 	mi := &file_webrtc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WebRTCOffer) String() string {
+func (x *WebRTCAnswerContent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WebRTCOffer) ProtoMessage() {}
+func (*WebRTCAnswerContent) ProtoMessage() {}
 
-func (x *WebRTCOffer) ProtoReflect() protoreflect.Message {
+func (x *WebRTCAnswerContent) ProtoReflect() protoreflect.Message {
 	mi := &file_webrtc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -125,47 +97,40 @@ func (x *WebRTCOffer) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WebRTCOffer.ProtoReflect.Descriptor instead.
-func (*WebRTCOffer) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebRTCAnswerContent.ProtoReflect.Descriptor instead.
+func (*WebRTCAnswerContent) Descriptor() ([]byte, []int) {
 	return file_webrtc_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *WebRTCOffer) GetSdp() string {
+func (x *WebRTCAnswerContent) GetSdp() string {
 	if x != nil {
 		return x.Sdp
 	}
 	return ""
 }
 
-func (x *WebRTCOffer) GetCandidates() []*Candidate {
-	if x != nil {
-		return x.Candidates
-	}
-	return nil
-}
-
-type WebRTCAnswer struct {
+type WebRTCAnswerCandidatesContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Sdp           string                 `protobuf:"bytes,1,opt,name=sdp,proto3" json:"sdp,omitempty"`
-	Candidates    []*Candidate           `protobuf:"bytes,2,rep,name=candidates,proto3" json:"candidates,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WebRTCAnswer) Reset() {
-	*x = WebRTCAnswer{}
+func (x *WebRTCAnswerCandidatesContent) Reset() {
+	*x = WebRTCAnswerCandidatesContent{}
 	mi := &file_webrtc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WebRTCAnswer) String() string {
+func (x *WebRTCAnswerCandidatesContent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WebRTCAnswer) ProtoMessage() {}
+func (*WebRTCAnswerCandidatesContent) ProtoMessage() {}
 
-func (x *WebRTCAnswer) ProtoReflect() protoreflect.Message {
+func (x *WebRTCAnswerCandidatesContent) ProtoReflect() protoreflect.Message {
 	mi := &file_webrtc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -177,51 +142,46 @@ func (x *WebRTCAnswer) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WebRTCAnswer.ProtoReflect.Descriptor instead.
-func (*WebRTCAnswer) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebRTCAnswerCandidatesContent.ProtoReflect.Descriptor instead.
+func (*WebRTCAnswerCandidatesContent) Descriptor() ([]byte, []int) {
 	return file_webrtc_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *WebRTCAnswer) GetSdp() string {
+func (x *WebRTCAnswerCandidatesContent) GetSdp() string {
 	if x != nil {
 		return x.Sdp
 	}
 	return ""
 }
 
-func (x *WebRTCAnswer) GetCandidates() []*Candidate {
+func (x *WebRTCAnswerCandidatesContent) GetType() string {
 	if x != nil {
-		return x.Candidates
+		return x.Type
 	}
-	return nil
+	return ""
 }
 
-// WebRTC file transfer request
-type FileTransferRequest struct {
+type WebRTCCandidateContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	Offset        int64                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Size          int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
-	MimeType      string                 `protobuf:"bytes,5,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	Candidate     string                 `protobuf:"bytes,1,opt,name=candidate,proto3" json:"candidate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FileTransferRequest) Reset() {
-	*x = FileTransferRequest{}
+func (x *WebRTCCandidateContent) Reset() {
+	*x = WebRTCCandidateContent{}
 	mi := &file_webrtc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FileTransferRequest) String() string {
+func (x *WebRTCCandidateContent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FileTransferRequest) ProtoMessage() {}
+func (*WebRTCCandidateContent) ProtoMessage() {}
 
-func (x *FileTransferRequest) ProtoReflect() protoreflect.Message {
+func (x *WebRTCCandidateContent) ProtoReflect() protoreflect.Message {
 	mi := &file_webrtc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -233,233 +193,14 @@ func (x *FileTransferRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FileTransferRequest.ProtoReflect.Descriptor instead.
-func (*FileTransferRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use WebRTCCandidateContent.ProtoReflect.Descriptor instead.
+func (*WebRTCCandidateContent) Descriptor() ([]byte, []int) {
 	return file_webrtc_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *FileTransferRequest) GetPath() string {
+func (x *WebRTCCandidateContent) GetCandidate() string {
 	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *FileTransferRequest) GetLabel() string {
-	if x != nil {
-		return x.Label
-	}
-	return ""
-}
-
-func (x *FileTransferRequest) GetOffset() int64 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-func (x *FileTransferRequest) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *FileTransferRequest) GetMimeType() string {
-	if x != nil {
-		return x.MimeType
-	}
-	return ""
-}
-
-// WebRTC file transfer response
-type FileTransferResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
-	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FileTransferResponse) Reset() {
-	*x = FileTransferResponse{}
-	mi := &file_webrtc_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FileTransferResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FileTransferResponse) ProtoMessage() {}
-
-func (x *FileTransferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_webrtc_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FileTransferResponse.ProtoReflect.Descriptor instead.
-func (*FileTransferResponse) Descriptor() ([]byte, []int) {
-	return file_webrtc_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *FileTransferResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *FileTransferResponse) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *FileTransferResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
-}
-
-func (x *FileTransferResponse) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// Thumbnail request
-type ThumbnailRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	MaxSize       int32                  `protobuf:"varint,2,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ThumbnailRequest) Reset() {
-	*x = ThumbnailRequest{}
-	mi := &file_webrtc_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ThumbnailRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ThumbnailRequest) ProtoMessage() {}
-
-func (x *ThumbnailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_webrtc_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ThumbnailRequest.ProtoReflect.Descriptor instead.
-func (*ThumbnailRequest) Descriptor() ([]byte, []int) {
-	return file_webrtc_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *ThumbnailRequest) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *ThumbnailRequest) GetMaxSize() int32 {
-	if x != nil {
-		return x.MaxSize
-	}
-	return 0
-}
-
-// Thumbnail response
-type ThumbnailResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Width         int32                  `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
-	Height        int32                  `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
-	Error         string                 `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ThumbnailResponse) Reset() {
-	*x = ThumbnailResponse{}
-	mi := &file_webrtc_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ThumbnailResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ThumbnailResponse) ProtoMessage() {}
-
-func (x *ThumbnailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_webrtc_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ThumbnailResponse.ProtoReflect.Descriptor instead.
-func (*ThumbnailResponse) Descriptor() ([]byte, []int) {
-	return file_webrtc_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ThumbnailResponse) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *ThumbnailResponse) GetWidth() int32 {
-	if x != nil {
-		return x.Width
-	}
-	return 0
-}
-
-func (x *ThumbnailResponse) GetHeight() int32 {
-	if x != nil {
-		return x.Height
-	}
-	return 0
-}
-
-func (x *ThumbnailResponse) GetError() string {
-	if x != nil {
-		return x.Error
+		return x.Candidate
 	}
 	return ""
 }
@@ -468,41 +209,16 @@ var File_webrtc_proto protoreflect.FileDescriptor
 
 const file_webrtc_proto_rawDesc = "" +
 	"\n" +
-	"\fwebrtc.proto\x12\aneutron\x1a\x1cgoogle/protobuf/struct.proto\"\x98\x01\n" +
-	"\tCandidate\x12\x1c\n" +
-	"\tcandidate\x18\x01 \x01(\tR\tcandidate\x12\x17\n" +
-	"\asdp_mid\x18\x02 \x01(\tR\x06sdpMid\x12'\n" +
-	"\x10sdp_m_line_index\x18\x03 \x01(\x05R\rsdpMLineIndex\x12+\n" +
-	"\x11username_fragment\x18\x04 \x01(\tR\x10usernameFragment\"S\n" +
-	"\vWebRTCOffer\x12\x10\n" +
-	"\x03sdp\x18\x01 \x01(\tR\x03sdp\x122\n" +
-	"\n" +
-	"candidates\x18\x02 \x03(\v2\x12.neutron.CandidateR\n" +
-	"candidates\"T\n" +
-	"\fWebRTCAnswer\x12\x10\n" +
-	"\x03sdp\x18\x01 \x01(\tR\x03sdp\x122\n" +
-	"\n" +
-	"candidates\x18\x02 \x03(\v2\x12.neutron.CandidateR\n" +
-	"candidates\"\x88\x01\n" +
-	"\x13FileTransferRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x03R\x06offset\x12\x12\n" +
-	"\x04size\x18\x04 \x01(\x03R\x04size\x12\x1b\n" +
-	"\tmime_type\x18\x05 \x01(\tR\bmimeType\"j\n" +
-	"\x14FileTransferResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\x12\x0e\n" +
-	"\x02id\x18\x04 \x01(\tR\x02id\"A\n" +
-	"\x10ThumbnailRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12\x19\n" +
-	"\bmax_size\x18\x02 \x01(\x05R\amaxSize\"g\n" +
-	"\x11ThumbnailResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05width\x18\x02 \x01(\x05R\x05width\x12\x16\n" +
-	"\x06height\x18\x03 \x01(\x05R\x06height\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05errorB(H\x01Z$github.com/aproton/neutron/pkg/protob\x06proto3"
+	"\fwebrtc.proto\x12\aneutron\"&\n" +
+	"\x12WebRTCOfferContent\x12\x10\n" +
+	"\x03sdp\x18\x01 \x01(\tR\x03sdp\"'\n" +
+	"\x13WebRTCAnswerContent\x12\x10\n" +
+	"\x03sdp\x18\x01 \x01(\tR\x03sdp\"E\n" +
+	"\x1dWebRTCAnswerCandidatesContent\x12\x10\n" +
+	"\x03sdp\x18\x01 \x01(\tR\x03sdp\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\"6\n" +
+	"\x16WebRTCCandidateContent\x12\x1c\n" +
+	"\tcandidate\x18\x01 \x01(\tR\tcandidateB&Z$github.com/aproton/neutron/pkg/protob\x06proto3"
 
 var (
 	file_webrtc_proto_rawDescOnce sync.Once
@@ -516,24 +232,19 @@ func file_webrtc_proto_rawDescGZIP() []byte {
 	return file_webrtc_proto_rawDescData
 }
 
-var file_webrtc_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_webrtc_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_webrtc_proto_goTypes = []any{
-	(*Candidate)(nil),            // 0: neutron.Candidate
-	(*WebRTCOffer)(nil),          // 1: neutron.WebRTCOffer
-	(*WebRTCAnswer)(nil),         // 2: neutron.WebRTCAnswer
-	(*FileTransferRequest)(nil),  // 3: neutron.FileTransferRequest
-	(*FileTransferResponse)(nil), // 4: neutron.FileTransferResponse
-	(*ThumbnailRequest)(nil),     // 5: neutron.ThumbnailRequest
-	(*ThumbnailResponse)(nil),    // 6: neutron.ThumbnailResponse
+	(*WebRTCOfferContent)(nil),            // 0: neutron.WebRTCOfferContent
+	(*WebRTCAnswerContent)(nil),           // 1: neutron.WebRTCAnswerContent
+	(*WebRTCAnswerCandidatesContent)(nil), // 2: neutron.WebRTCAnswerCandidatesContent
+	(*WebRTCCandidateContent)(nil),        // 3: neutron.WebRTCCandidateContent
 }
 var file_webrtc_proto_depIdxs = []int32{
-	0, // 0: neutron.WebRTCOffer.candidates:type_name -> neutron.Candidate
-	0, // 1: neutron.WebRTCAnswer.candidates:type_name -> neutron.Candidate
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_webrtc_proto_init() }
@@ -547,7 +258,7 @@ func file_webrtc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_webrtc_proto_rawDesc), len(file_webrtc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

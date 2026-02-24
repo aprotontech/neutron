@@ -15,9 +15,17 @@ endif
 
 all: neutron
 
-proto:
+
+goproto:
+	@echo "generating protobuf go files using protoc"
+	@cd protocol && protoc --go_out=../pkg/proto/ --go_opt=paths=source_relative ./*.proto
+
+jsproto:
 	@echo "generating protobuf javascript files using protobufjs"
 	@cd ui && npm run proto
+
+proto: goproto jsproto
+	@echo "protobuf files generated"
 
 neutron:
 	@echo "building ./cmd/neutron/ --> ./build/bin/neutron"
