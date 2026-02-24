@@ -44,9 +44,7 @@ message FileOperationRequest {
 }
 
 message FileOperationResponse {
-    bool success = 1;
     google.protobuf.Struct result = 2;
-    string error = 3;
 }
 
 // Prepare file receive request (used in WebRTC)
@@ -59,9 +57,7 @@ message PrepareFileReceiveRequest {
 
 // Prepare file receive response
 message PrepareFileReceiveResponse {
-    bool success = 1;
     int64 size = 2;
-    string error = 3;
 }
 
 // Get file info request
@@ -72,7 +68,6 @@ message GetFileInfoRequest {
 // Get file info response
 message GetFileInfoResponse {
     FileInformation file_info = 1;
-    string error = 2;
 }
 
 // List files request
@@ -83,7 +78,6 @@ message ListFilesRequest {
 // List files response
 message ListFilesResponse {
     repeated FileInformation files = 1;
-    string error = 2;
 }
 
 // Get file system version request
@@ -94,7 +88,6 @@ message GetFileSystemVersionRequest {
 // Get file system version response
 message GetFileSystemVersionResponse {
     string version = 1;
-    string error = 2;
 }
 
 // Get thumbnail request
@@ -106,7 +99,6 @@ message GetThumbnailRequest {
 // Get thumbnail response
 message GetThumbnailResponse {
     string id = 1; // thumbnail ID for data channel
-    string error = 2;
 }
 
 // Play video request
@@ -116,7 +108,5 @@ message PlayVideoRequest {
 
 // Play video response
 message PlayVideoResponse {
-    bool success = 1;
-    string error = 2;
     map<string, google.protobuf.Value> video_info = 3; // optional video information
 }

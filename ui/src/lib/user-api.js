@@ -1,6 +1,7 @@
 
 import TransferClient from './transfer.js';
 import { RuntimeVariables } from './helpers.js'
+import { neutron } from './proto/neutron_pb.js';
 
 export default class UserAPI {
     constructor() {
@@ -13,23 +14,37 @@ export default class UserAPI {
     static async login(username, password, storageServerID, rememberPassword = false) {
         try {
             const login_api_path = RuntimeVariables.getHttpAPIPrefix() + '/api/login'
+
+            // 创建 LoginRequest protobuf 消息
+            const loginRequest = neutron.LoginRequest.create({
+                clientId: RuntimeVariables.getClientID(),
+                username: username,
+                password: password,
+                storageServerId: storageServerID
+            });
+
+            // 编码为二进制数据
+            const requestData = neutron.LoginRequest.encode(loginRequest).finish();
+
             const resp = await fetch(login_api_path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: username,
-                    password: password,
-                    clientID: RuntimeVariables.getClientID(),
-                    storageServerID: storageServerID
-                })
+                headers: { 'Content-Type': 'application/x-protobuf' },
+                body: requestData
             })
 
             if (resp.status === 200) {
-                const data = await resp.json()
-                if (data && data.token) {
+
+                // 处理protobuf二进制响应
+                const responseBuffer = await resp.arrayBuffer();
+                const responseData = new Uint8Array(responseBuffer);
+
+                // 解码 LoginResponse protobuf 消息
+                const loginResponse = neutron.LoginResponse.decode(responseData);
+
+                if (loginResponse && loginResponse.token) {
                     // 根据rememberPassword参数决定是否保存密码
                     const passwordToSave = rememberPassword ? password : ""
-                    RuntimeVariables.updateAfterLogin(username, storageServerID, data.token, passwordToSave)
+                    RuntimeVariables.updateAfterLogin(username, storageServerID, loginResponse.token, passwordToSave)
                     return true
                 }
                 return '登录成功，但未返回 token'

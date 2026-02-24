@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -147,7 +148,7 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 			return err
 		}
 
-		log.Infof("Received message type: %d, length: %d", messageType, len(msg))
+		log.Debugf("Received message type: %d, length: %d", messageType, len(msg))
 
 		var signal neutronproto.RemoteMessage
 
@@ -172,39 +173,23 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 		switch signal.Type {
 		case "authorizen":
 			// Extract login request from payload
-			if signal.Payload == nil {
-				log.Warnf("authorizen payload is empty")
+			loginReq := signal.GetLoginRequest()
+			if loginReq == nil {
+				log.Warnf("authorizen payload is empty or not a LoginRequest")
 				continue
 			}
 
-			// Extract fields from struct
-			fields := signal.Payload.Fields
-			username := ""
-			password := ""
-
-			if usernameVal, ok := fields["username"]; ok {
-				if u, ok := usernameVal.GetKind().(*structpb.Value_StringValue); ok {
-					username = u.StringValue
-				}
-			}
-			if passwordVal, ok := fields["password"]; ok {
-				if p, ok := passwordVal.GetKind().(*structpb.Value_StringValue); ok {
-					password = p.StringValue
-				}
-			}
+			username := loginReq.GetUsername()
+			password := loginReq.GetPassword()
 
 			if username != "" && password != "" {
 				ok, err := CheckPassword(username, password)
 				if ok || err != nil {
 					token := md5.Sum([]byte(uuid.NewString()))
 
-					// Create response payload
-					responsePayload := &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"success": structpb.NewBoolValue(true),
-							"message": structpb.NewStringValue("success"),
-							"token":   structpb.NewStringValue(hex.EncodeToString(token[:])),
-						},
+					// Create LoginResponse payload
+					loginResp := &neutronproto.LoginResponse{
+						Token: hex.EncodeToString(token[:]),
 					}
 
 					responseMsg := &neutronproto.RemoteMessage{
@@ -212,7 +197,10 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 						Source:      s.config.DiscoverClient.StorageServerID,
 						Destination: signal.Source,
 						Id:          signal.Id,
-						Payload:     responsePayload,
+					}
+					// Set LoginResponse as payload
+					responseMsg.Payload = &neutronproto.RemoteMessage_LoginResponse{
+						LoginResponse: loginResp,
 					}
 
 					data, err := proto.Marshal(responseMsg)
@@ -231,86 +219,40 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 
 		case "offer":
 			// Extract offer SDP from payload
-			if signal.Payload == nil {
-				log.Warnf("offer payload is empty")
+			offerContent := signal.GetWebrtcOfferContent()
+			if offerContent == nil {
+				log.Warnf("offer payload is empty or not a WebRTCOfferContent")
 				continue
 			}
 
-			// Try to unmarshal as WebRTCOfferContent
-			var offerContent neutronproto.WebRTCOfferContent
-			if err := protojson.Unmarshal([]byte(signal.Payload.String()), &offerContent); err == nil {
-				if offerContent.Sdp != "" {
-					if err := s.setupRemoteConnection(signal.Source, offerContent.Sdp); err != nil {
-						log.Warnf("Setup remote connection error: %v", err)
-					}
-				} else {
-					log.Warnf("Get remote offer error: sdp empty")
+			if offerContent.Sdp != "" {
+				if err := s.setupRemoteConnection(signal.Source, offerContent.Sdp); err != nil {
+					log.Warnf("Setup remote connection error: %v", err)
 				}
 			} else {
-				// Fallback to old format
-				fields := signal.Payload.Fields
-				sdp := ""
-				if sdpVal, ok := fields["sdp"]; ok {
-					if s, ok := sdpVal.GetKind().(*structpb.Value_StringValue); ok {
-						sdp = s.StringValue
-					}
-				}
-
-				if sdp != "" {
-					if err := s.setupRemoteConnection(signal.Source, sdp); err != nil {
-						log.Warnf("Setup remote connection error: %v", err)
-					}
-				} else {
-					log.Warnf("Get remote offer error: sdp not found")
-				}
+				log.Warnf("Get remote offer error: sdp empty")
 			}
 
 		case "candidate":
 			// Extract candidate from payload
-			if signal.Payload == nil {
-				log.Warnf("candidate payload is empty")
+			candidateContent := signal.GetWebrtcCandidateContent()
+			if candidateContent == nil {
+				log.Warnf("candidate payload is empty or not a WebRTCCandidateContent")
 				continue
 			}
 
-			// Try to unmarshal as WebRTCCandidateContent
-			var candidateContent neutronproto.WebRTCCandidateContent
-			if err := protojson.Unmarshal([]byte(signal.Payload.String()), &candidateContent); err == nil {
-				if candidateContent.Candidate != "" {
-					candidate := webrtc.ICECandidateInit{
-						Candidate: candidateContent.Candidate,
-					}
+			if candidateContent.Candidate != "" {
+				candidate := webrtc.ICECandidateInit{
+					Candidate: candidateContent.Candidate,
+				}
 
-					if pc, exists := s.remoteClients[signal.Source]; exists {
-						if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
-							log.Warnf("AddICECandidate error: %v", err)
-						}
+				if pc, exists := s.remoteClients[signal.Source]; exists {
+					if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
+						log.Warnf("AddICECandidate error: %v", err)
 					}
-				} else {
-					log.Warnf("Get remote candidate error: candidate empty")
 				}
 			} else {
-				// Fallback to old format
-				fields := signal.Payload.Fields
-				candidateStr := ""
-				if candidateVal, ok := fields["candidate"]; ok {
-					if c, ok := candidateVal.GetKind().(*structpb.Value_StringValue); ok {
-						candidateStr = c.StringValue
-					}
-				}
-
-				if candidateStr != "" {
-					candidate := webrtc.ICECandidateInit{
-						Candidate: candidateStr,
-					}
-
-					if pc, exists := s.remoteClients[signal.Source]; exists {
-						if err := pc.peerConnection.AddICECandidate(candidate); err != nil {
-							log.Warnf("AddICECandidate error: %v", err)
-						}
-					}
-				} else {
-					log.Warnf("Get remote candidate error: candidate not found")
-				}
+				log.Warnf("Get remote candidate error: candidate empty")
 			}
 		}
 	}
@@ -397,43 +339,21 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 
 				var response any
 				if api, ok := s.fileAPIS[m.Type]; ok {
-					// Convert payload to map[string]interface{} for API compatibility
-					var reqData map[string]interface{}
-					if m.Payload != nil {
-						reqData = m.Payload.AsMap()
-					}
-					response, err = api(s, remoteClient, reqData)
+					response, err = api(s, remoteClient, m.GetPayload())
 					if err != nil {
 						log.Warnf("File API %s error: %v", m.Type, err)
-						if response != nil {
-							response = map[string]interface{}{
-								"error": err.Error(),
-							}
-						}
+						// Convert error to appropriate response type
+						response = s.createErrorResponse(m.Type, err.Error())
 					}
+
 				} else {
-					response = map[string]interface{}{
-						"error": "unknown api " + m.Type,
+					response = &neutronproto.ErrorMessage{
+						Error: "unknown api " + m.Type,
 					}
 				}
 
-				// Convert response to struct
-				var responsePayload *structpb.Struct
-				if response != nil {
-					if respMap, ok := response.(map[string]interface{}); ok {
-						if s, err := structpb.NewStruct(respMap); err == nil {
-							responsePayload = s
-						}
-					}
-				}
-
-				resMsg := &neutronproto.RemoteMessage{
-					Type:        "@response",
-					Source:      s.config.DiscoverClient.StorageServerID,
-					Id:          m.Id,
-					Destination: source,
-					Payload:     responsePayload,
-				}
+				// Create response message
+				resMsg := s.createResponseMessage(response, m.Id, source)
 
 				res, err := proto.Marshal(resMsg)
 				if err != nil {
@@ -470,20 +390,15 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 			candidateContent := &neutronproto.WebRTCCandidateContent{
 				Candidate: candidate.ToJSON().Candidate,
 			}
-			
-			candidatePayload, err := structpb.NewStruct(map[string]interface{}{
-				"candidate": candidateContent.Candidate,
-			})
-			if err != nil {
-				log.Warnf("Create candidate payload error: %v", err)
-				return
-			}
 
 			candidateMsg := &neutronproto.RemoteMessage{
 				Type:        "candidate",
 				Source:      s.config.DiscoverClient.StorageServerID,
 				Destination: source,
-				Payload:     candidatePayload,
+			}
+			// Set WebRTCCandidateContent as payload
+			candidateMsg.Payload = &neutronproto.RemoteMessage_WebrtcCandidateContent{
+				WebrtcCandidateContent: candidateContent,
 			}
 
 			data, err := proto.Marshal(candidateMsg)
@@ -510,19 +425,20 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 	if s.combineAnswerCandidates {
 		<-gatherComplete
 
-		// Create answer+candidates payload
-		answerPayload := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"sdp":  structpb.NewStringValue(peerConnection.LocalDescription().SDP),
-				"type": structpb.NewStringValue(peerConnection.LocalDescription().Type.String()),
-			},
+		// Create answer+candidates payload using WebRTCAnswerCandidatesContent
+		answerCandidatesContent := &neutronproto.WebRTCAnswerCandidatesContent{
+			Sdp:  peerConnection.LocalDescription().SDP,
+			Type: peerConnection.LocalDescription().Type.String(),
 		}
 
 		answerMsg := &neutronproto.RemoteMessage{
 			Type:        "answer+candidates",
 			Source:      s.config.DiscoverClient.StorageServerID,
 			Destination: source,
-			Payload:     answerPayload,
+		}
+		// Set WebRTCAnswerCandidatesContent as payload
+		answerMsg.Payload = &neutronproto.RemoteMessage_WebrtcAnswerCandidatesContent{
+			WebrtcAnswerCandidatesContent: answerCandidatesContent,
 		}
 
 		data, err := proto.Marshal(answerMsg)
@@ -532,18 +448,19 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 			log.Warnf("Write answer error: %v", err)
 		}
 	} else {
-		// Create answer payload
-		answerPayload := &structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"sdp": structpb.NewStringValue(peerConnection.LocalDescription().SDP),
-			},
+		// Create answer payload using WebRTCAnswerContent
+		answerContent := &neutronproto.WebRTCAnswerContent{
+			Sdp: peerConnection.LocalDescription().SDP,
 		}
 
 		answerMsg := &neutronproto.RemoteMessage{
 			Type:        "answer",
 			Source:      s.config.DiscoverClient.StorageServerID,
 			Destination: source,
-			Payload:     answerPayload,
+		}
+		// Set WebRTCAnswerContent as payload
+		answerMsg.Payload = &neutronproto.RemoteMessage_WebrtcAnswerContent{
+			WebrtcAnswerContent: answerContent,
 		}
 
 		data, err := proto.Marshal(answerMsg)
@@ -555,4 +472,48 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 	}
 
 	return nil
+}
+
+// createErrorResponse creates an ErrorMessage for error responses
+func (s *RemoteStorageServer) createErrorResponse(apiType string, errorMsg string) *neutronproto.ErrorMessage {
+	// Create details struct with API type information
+	details, _ := structpb.NewStruct(map[string]interface{}{
+		"api_type": apiType,
+	})
+
+	return &neutronproto.ErrorMessage{
+		Success: false,
+		Error:   errorMsg,
+		Details: details,
+	}
+}
+
+// createResponseMessage creates a RemoteMessage with appropriate payload based on response type
+func (s *RemoteStorageServer) createResponseMessage(
+	response any, id string, source string) *neutronproto.RemoteMessage {
+	resMsg := &neutronproto.RemoteMessage{
+		Type:        "@response",
+		Source:      s.config.DiscoverClient.StorageServerID,
+		Id:          id,
+		Destination: source,
+	}
+
+	if err := neutronproto.SetRemoteMessagePayload(resMsg, response); err != nil {
+		log.Warnf("SetRemoteMessagePayload error: %v", err)
+		// Fallback to generic error response if payload setting fails
+		log.Warnf("failed to set response payload: %v", err)
+		resMsg.Payload = &neutronproto.RemoteMessage_Error{
+			Error: &neutronproto.ErrorMessage{
+				Success: false,
+				Error:   fmt.Sprintf("failed to set response payload: %v", err),
+				Details: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"original_response": structpb.NewStringValue(fmt.Sprintf("%v", response)),
+					},
+				},
+			},
+		}
+	}
+
+	return resMsg
 }

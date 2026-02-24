@@ -373,9 +373,7 @@ func (x *FileOperationRequest) GetParams() *_struct.Struct {
 
 type FileOperationResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	Result        *_struct.Struct        `protobuf:"bytes,2,opt,name=result,proto3" json:"result,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -410,25 +408,11 @@ func (*FileOperationResponse) Descriptor() ([]byte, []int) {
 	return file_fileapi_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *FileOperationResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
 func (x *FileOperationResponse) GetResult() *_struct.Struct {
 	if x != nil {
 		return x.Result
 	}
 	return nil
-}
-
-func (x *FileOperationResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 // Prepare file receive request (used in WebRTC)
@@ -503,9 +487,7 @@ func (x *PrepareFileReceiveRequest) GetSize() int64 {
 // Prepare file receive response
 type PrepareFileReceiveResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -540,25 +522,11 @@ func (*PrepareFileReceiveResponse) Descriptor() ([]byte, []int) {
 	return file_fileapi_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *PrepareFileReceiveResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
 func (x *PrepareFileReceiveResponse) GetSize() int64 {
 	if x != nil {
 		return x.Size
 	}
 	return 0
-}
-
-func (x *PrepareFileReceiveResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 // Get file info request
@@ -610,7 +578,6 @@ func (x *GetFileInfoRequest) GetPath() string {
 type GetFileInfoResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	FileInfo      *FileInformation       `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -650,13 +617,6 @@ func (x *GetFileInfoResponse) GetFileInfo() *FileInformation {
 		return x.FileInfo
 	}
 	return nil
-}
-
-func (x *GetFileInfoResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 // List files request
@@ -708,7 +668,6 @@ func (x *ListFilesRequest) GetPath() string {
 type ListFilesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Files         []*FileInformation     `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -748,13 +707,6 @@ func (x *ListFilesResponse) GetFiles() []*FileInformation {
 		return x.Files
 	}
 	return nil
-}
-
-func (x *ListFilesResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 // Get file system version request
@@ -798,7 +750,6 @@ func (*GetFileSystemVersionRequest) Descriptor() ([]byte, []int) {
 type GetFileSystemVersionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Version       string                 `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -836,13 +787,6 @@ func (*GetFileSystemVersionResponse) Descriptor() ([]byte, []int) {
 func (x *GetFileSystemVersionResponse) GetVersion() string {
 	if x != nil {
 		return x.Version
-	}
-	return ""
-}
-
-func (x *GetFileSystemVersionResponse) GetError() string {
-	if x != nil {
-		return x.Error
 	}
 	return ""
 }
@@ -904,7 +848,6 @@ func (x *GetThumbnailRequest) GetSize() int64 {
 type GetThumbnailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // thumbnail ID for data channel
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -942,13 +885,6 @@ func (*GetThumbnailResponse) Descriptor() ([]byte, []int) {
 func (x *GetThumbnailResponse) GetId() string {
 	if x != nil {
 		return x.Id
-	}
-	return ""
-}
-
-func (x *GetThumbnailResponse) GetError() string {
-	if x != nil {
-		return x.Error
 	}
 	return ""
 }
@@ -1001,8 +937,6 @@ func (x *PlayVideoRequest) GetPath() string {
 // Play video response
 type PlayVideoResponse struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Success       bool                      `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Error         string                    `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	VideoInfo     map[string]*_struct.Value `protobuf:"bytes,3,rep,name=video_info,json=videoInfo,proto3" json:"video_info,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // optional video information
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1036,20 +970,6 @@ func (x *PlayVideoResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PlayVideoResponse.ProtoReflect.Descriptor instead.
 func (*PlayVideoResponse) Descriptor() ([]byte, []int) {
 	return file_fileapi_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *PlayVideoResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *PlayVideoResponse) GetError() string {
-	if x != nil {
-		return x.Error
-	}
-	return ""
 }
 
 func (x *PlayVideoResponse) GetVideoInfo() map[string]*_struct.Value {
@@ -1092,45 +1012,35 @@ const file_fileapi_proto_rawDesc = "" +
 	"\x05items\x18\x03 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"e\n" +
 	"\x14FileOperationRequest\x12\x1c\n" +
 	"\toperation\x18\x01 \x01(\tR\toperation\x12/\n" +
-	"\x06params\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06params\"x\n" +
-	"\x15FileOperationResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12/\n" +
-	"\x06result\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06result\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"q\n" +
+	"\x06params\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06params\"H\n" +
+	"\x15FileOperationResponse\x12/\n" +
+	"\x06result\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06result\"q\n" +
 	"\x19PrepareFileReceiveRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x03R\x06offset\x12\x12\n" +
-	"\x04size\x18\x04 \x01(\x03R\x04size\"`\n" +
-	"\x1aPrepareFileReceiveResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"(\n" +
+	"\x04size\x18\x04 \x01(\x03R\x04size\"0\n" +
+	"\x1aPrepareFileReceiveResponse\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"(\n" +
 	"\x12GetFileInfoRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"b\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"L\n" +
 	"\x13GetFileInfoResponse\x125\n" +
-	"\tfile_info\x18\x01 \x01(\v2\x18.neutron.FileInformationR\bfileInfo\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"&\n" +
+	"\tfile_info\x18\x01 \x01(\v2\x18.neutron.FileInformationR\bfileInfo\"&\n" +
 	"\x10ListFilesRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"Y\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"C\n" +
 	"\x11ListFilesResponse\x12.\n" +
-	"\x05files\x18\x01 \x03(\v2\x18.neutron.FileInformationR\x05files\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\x1d\n" +
-	"\x1bGetFileSystemVersionRequest\"N\n" +
+	"\x05files\x18\x01 \x03(\v2\x18.neutron.FileInformationR\x05files\"\x1d\n" +
+	"\x1bGetFileSystemVersionRequest\"8\n" +
 	"\x1cGetFileSystemVersionResponse\x12\x18\n" +
-	"\aversion\x18\x01 \x01(\tR\aversion\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"=\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\"=\n" +
 	"\x13GetThumbnailRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\"<\n" +
+	"\x04size\x18\x02 \x01(\x03R\x04size\"&\n" +
 	"\x14GetThumbnailResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"&\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"&\n" +
 	"\x10PlayVideoRequest\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\"\xe3\x01\n" +
-	"\x11PlayVideoResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\x12H\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\"\xb3\x01\n" +
+	"\x11PlayVideoResponse\x12H\n" +
 	"\n" +
 	"video_info\x18\x03 \x03(\v2).neutron.PlayVideoResponse.VideoInfoEntryR\tvideoInfo\x1aT\n" +
 	"\x0eVideoInfoEntry\x12\x10\n" +

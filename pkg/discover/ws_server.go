@@ -15,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/patrickmn/go-cache"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	protobuf "google.golang.org/protobuf/proto"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils/log"
@@ -278,35 +278,34 @@ func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var loginInfo neutronproto.LoginRequest
-	if err := protojson.Unmarshal(body, &loginInfo); err != nil {
+	if err := proto.Unmarshal(body, &loginInfo); err != nil {
 		log.Warnf("decode login request failed %v", err)
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	// Send to StorageServer to check user/passwd
-	// Create payload for login request
-	payloadMap := map[string]interface{}{
-		"clientID":        loginInfo.ClientId,
-		"username":        loginInfo.Username,
-		"password":        loginInfo.Password,
-		"storageServerID": loginInfo.StorageServerId,
+	// Create LoginRequest payload
+	loginReq := &neutronproto.LoginRequest{
+		ClientId:        loginInfo.ClientId,
+		Username:        loginInfo.Username,
+		Password:        loginInfo.Password,
+		StorageServerId: loginInfo.StorageServerId,
 	}
 
-	structValue, err := structpb.NewStruct(payloadMap)
-	if err != nil {
-		log.Warnf("create struct failed %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	result, err := s.callClient(loginInfo.StorageServerId, &neutronproto.RemoteMessage{
+	// Create RemoteMessage with LoginRequest as payload
+	remoteMsg := &neutronproto.RemoteMessage{
 		Type:        "authorizen",
 		Source:      "discover",
 		Destination: loginInfo.StorageServerId,
 		Id:          uuid.NewString(),
-		Payload:     structValue,
-	}, 5*time.Second)
+	}
+	// Set LoginRequest as payload
+	remoteMsg.Payload = &neutronproto.RemoteMessage_LoginRequest{
+		LoginRequest: loginReq,
+	}
+
+	result, err := s.callClient(loginInfo.StorageServerId, remoteMsg, 5*time.Second)
 	if err != nil {
 		log.Warnf("call login user %s: %v", loginInfo.Username, err)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -314,44 +313,32 @@ func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract login response from payload
-	if result.Payload == nil {
-		log.Warnf("login response payload is empty")
+	// First check for error message
+	if errorMsg := result.GetError(); errorMsg != nil {
+		log.Warnf("login failed: %s", errorMsg.Error)
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Convert payload to LoginResponse
-	loginResponse := &neutronproto.LoginResponse{}
-	// Extract fields from struct
-	if result.Payload != nil {
-		fields := result.Payload.Fields
-		if successVal, ok := fields["success"]; ok {
-			if success, ok := successVal.GetKind().(*structpb.Value_BoolValue); ok {
-				loginResponse.Success = success.BoolValue
-			}
-		}
-		if messageVal, ok := fields["message"]; ok {
-			if message, ok := messageVal.GetKind().(*structpb.Value_StringValue); ok {
-				loginResponse.Message = message.StringValue
-			}
-		}
-		if tokenVal, ok := fields["token"]; ok {
-			if token, ok := tokenVal.GetKind().(*structpb.Value_StringValue); ok {
-				loginResponse.Token = token.StringValue
-			}
-		}
+	// Then check for LoginResponse
+	loginResponse := result.GetLoginResponse()
+	if loginResponse == nil {
+		log.Warnf("login response payload is empty or not a LoginResponse")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
-	if !loginResponse.Success {
-		log.Warnf("login failed %s", loginResponse.Message)
+	// Check if token is present
+	if loginResponse.Token == "" {
+		log.Warnf("login response token is empty")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	s.tokenCaches.Set(loginResponse.Token, &loginInfo, 0)
 
-	w.Header().Set("Content-Type", "application/json")
-	cnt, _ := protojson.Marshal(loginResponse)
+	w.Header().Set("Content-Type", "application/x-protobuf")
+	cnt, _ := proto.Marshal(loginResponse)
 	if _, err := w.Write(cnt); err != nil {
 		log.Warnf("Error writing response: %v", err)
 	}

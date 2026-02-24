@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -39,38 +40,13 @@ func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteC
 	}
 }
 
-// getInt64FromMap 从map中提取int64值，支持int、int64和float64类型
-func getInt64FromMap(m map[string]interface{}, key string, defaultValue interface{}) (int64, error) {
-	val, ok := m[key]
-	if !ok || val == nil {
-		if defaultValue != nil {
-			return int64(defaultValue.(int)), nil
-		}
-		return 0, os.ErrInvalid
-	}
-
-	switch v := val.(type) {
-	case int:
-		return int64(v), nil
-	case int64:
-		return v, nil
-	case float64:
-		return int64(v), nil
-	default:
-		log.Warnf("%s is invalid type: %T", key, v)
-		return 0, os.ErrInvalid
-	}
-}
-
 func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.ListFilesRequest)
+	realReq := req.(*neutronproto.RemoteMessage_ListFilesRequest).ListFilesRequest
 	folder := realReq.GetPath()
 
 	fs, err := fsm.filesystem.List(folder)
 	if err != nil {
-		return &neutronproto.ListFilesResponse{
-			Error: err.Error(),
-		}, nil
+		return nil, err
 	}
 
 	files := make([]*neutronproto.FileInformation, 0, len(fs))
@@ -89,20 +65,20 @@ func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 		files = append(files, fileInfo)
 	}
 
-	return &neutronproto.ListFilesResponse{
-		Files: files,
+	return &neutronproto.RemoteMessage_ListFilesResponse{
+		ListFilesResponse: &neutronproto.ListFilesResponse{
+			Files: files,
+		},
 	}, nil
 }
 
 func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.GetFileInfoRequest)
+	realReq := req.(*neutronproto.RemoteMessage_GetFileInfoRequest).GetFileInfoRequest
 	fpath := realReq.GetPath()
 
 	info, err := fsm.filesystem.Stat(fpath)
 	if err != nil {
-		return &neutronproto.GetFileInfoResponse{
-			Error: err.Error(),
-		}, nil
+		return nil, err
 	}
 
 	extraInfo, err := info.GetSystemExtraInfo()
@@ -134,13 +110,15 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 		ExifData: exifData,
 	}
 
-	return &neutronproto.GetFileInfoResponse{
-		FileInfo: fileInfo,
+	return &neutronproto.RemoteMessage_GetFileInfoResponse{
+		GetFileInfoResponse: &neutronproto.GetFileInfoResponse{
+			FileInfo: fileInfo,
+		},
 	}, nil
 }
 
 func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.PrepareFileReceiveRequest)
+	realReq := req.(*neutronproto.RemoteMessage_PrepareFileReceiveRequest).PrepareFileReceiveRequest
 	filePath := realReq.GetPath()
 	dcName := realReq.GetLabel()
 	offset := realReq.GetOffset()
@@ -152,24 +130,15 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 
 	fi, err := os.Stat(abspath)
 	if err != nil {
-		return &neutronproto.PrepareFileReceiveResponse{
-			Success: false,
-			Error:   err.Error(),
-		}, nil
+		return nil, err
 	}
 
 	if offset < 0 {
-		return &neutronproto.PrepareFileReceiveResponse{
-			Success: false,
-			Error:   "offset must be non-negative",
-		}, nil
+		return nil, fmt.Errorf("offset must be non-negative")
 	}
 
 	if offset > fi.Size() {
-		return &neutronproto.PrepareFileReceiveResponse{
-			Success: false,
-			Error:   "offset exceeds file size",
-		}, nil
+		return nil, fmt.Errorf("offset exceeds file size")
 	}
 
 	if size == -1 || offset+size > fi.Size() {
@@ -182,14 +151,15 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 		size:   size,
 	}
 
-	return &neutronproto.PrepareFileReceiveResponse{
-		Success: true,
-		Size:    size,
+	return &neutronproto.RemoteMessage_PrepareFileReceiveResponse{
+		PrepareFileReceiveResponse: &neutronproto.PrepareFileReceiveResponse{
+			Size: size,
+		},
 	}, nil
 }
 
 func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.GetThumbnailRequest)
+	realReq := req.(*neutronproto.RemoteMessage_GetThumbnailRequest).GetThumbnailRequest
 	filePath := realReq.GetPath()
 	size := realReq.GetSize()
 
@@ -254,13 +224,15 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 		}
 	}()
 
-	return &neutronproto.GetThumbnailResponse{
-		Id: hex.EncodeToString(id),
+	return &neutronproto.RemoteMessage_GetThumbnailResponse{
+		GetThumbnailResponse: &neutronproto.GetThumbnailResponse{
+			Id: hex.EncodeToString(id),
+		},
 	}, nil
 }
 
 func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.GetFileSystemVersionRequest)
+	realReq := req.(*neutronproto.RemoteMessage_GetFileSystemVersionRequest).GetFileSystemVersionRequest
 	_ = realReq // 不使用，但保持一致性
 	return &neutronproto.GetFileSystemVersionResponse{
 		Version: fsm.version,
@@ -268,7 +240,7 @@ func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, 
 }
 
 func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.ImageRepoHistoryRequest)
+	realReq := req.(*neutronproto.RemoteMessage_ImageRepoHistoryRequest).ImageRepoHistoryRequest
 	types := realReq.GetTypes()
 	lastID := realReq.GetLastId()
 	count := int64(realReq.GetCount())
@@ -277,13 +249,7 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 
 	imgs, total, err := fsm.repo.GetHistory(lastID, count)
 	if err != nil {
-		// 由于 ImageRepoHistoryResponse 没有 Error 字段，我们返回一个空的响应
-		// 在实际应用中，可能需要修改 proto 文件添加 Error 字段
-		return &neutronproto.ImageRepoHistoryResponse{
-			Total:   0,
-			Version: "1.0",
-			Items:   []*neutronproto.ImageRepoHistoryItem{},
-		}, err
+		return nil, err
 	}
 
 	// 转换 ImageRepoHistoryItem
@@ -300,25 +266,19 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 		items = append(items, item)
 	}
 
-	return &neutronproto.ImageRepoHistoryResponse{
-		Total:   int32(total),
-		Version: "1.0",
-		Items:   items,
+	return &neutronproto.RemoteMessage_ImageRepoHistoryResponse{
+		ImageRepoHistoryResponse: &neutronproto.ImageRepoHistoryResponse{
+			Total:   int32(total),
+			Version: "1.0",
+			Items:   items,
+		},
 	}, nil
 }
 
 func playVideo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
-	realReq := req.(*neutronproto.PlayVideoRequest)
+	realReq := req.(*neutronproto.RemoteMessage_PlayVideoRequest).PlayVideoRequest
 	_ = realReq // 不使用，但保持一致性
 
-	// 暂时返回未实现错误
-	videoInfo := make(map[string]*structpb.Value)
-	errorValue, _ := structpb.NewValue("not implemented")
-	videoInfo["error"] = errorValue
-
-	return &neutronproto.PlayVideoResponse{
-		Success:   false,
-		Error:     "not implemented",
-		VideoInfo: videoInfo,
-	}, nil
+	// 返回未实现错误
+	return nil, fmt.Errorf("not implemented")
 }

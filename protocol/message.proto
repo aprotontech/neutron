@@ -1,16 +1,60 @@
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
 import "google/protobuf/struct.proto";
+import "fileapi.proto";
+import "webrtc.proto";
+import "user.proto";
 
 option go_package = "github.com/aproton/neutron/pkg/proto";
 option optimize_for = SPEED;
 
 package neutron;
 
+message ErrorMessage {
+	bool success = 1;
+    string error = 2;
+	google.protobuf.Struct details = 3;
+}
+
 message RemoteMessage {
     string type = 1;
 	string source = 2;
 	string destination = 3;
 	string id = 4;
-    google.protobuf.Struct payload = 5;
+    oneof payload {
+		google.protobuf.Any any = 5;
+		bytes raw_data = 6;
+		ErrorMessage error = 7;
+		
+		// User authentication messages
+		LoginRequest login_request = 1000;
+		LoginResponse login_response = 1001;
+		
+		// File API messages
+		FileInformation file_information = 1501;
+		ImageRepoHistoryRequest image_repo_history_request = 1502;
+		ImageRepoHistoryItem image_repo_history_item = 1503;
+		ImageRepoHistoryResponse image_repo_history_response = 1504;
+		FileOperationRequest file_operation_request = 1505;
+		FileOperationResponse file_operation_response = 1506;
+		PrepareFileReceiveRequest prepare_file_receive_request = 1507;
+		PrepareFileReceiveResponse prepare_file_receive_response = 1508;
+		GetFileInfoRequest get_file_info_request = 1509;
+		GetFileInfoResponse get_file_info_response = 1510;
+		ListFilesRequest list_files_request = 1511;
+		ListFilesResponse list_files_response = 1512;
+		GetFileSystemVersionRequest get_file_system_version_request = 1513;
+		GetFileSystemVersionResponse get_file_system_version_response = 1514;
+		GetThumbnailRequest get_thumbnail_request = 1515;
+		GetThumbnailResponse get_thumbnail_response = 1516;
+		PlayVideoRequest play_video_request = 1517;
+		PlayVideoResponse play_video_response = 1518;
+		
+		// WebRTC messages
+		WebRTCOfferContent webrtc_offer_content = 2000;
+		WebRTCAnswerContent webrtc_answer_content = 2001;
+		WebRTCAnswerCandidatesContent webrtc_answer_candidates_content = 2002;
+		WebRTCCandidateContent webrtc_candidate_content = 2003;
+	}
 }

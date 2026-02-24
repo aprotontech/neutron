@@ -169,12 +169,50 @@ export default class WebRTCClient extends BaseClient {
                 if (message.data instanceof ArrayBuffer || message.data instanceof Uint8Array) {
                     // Parse as protobuf
                     const msg = RemoteMessage.decode(new Uint8Array(message.data));
+
+                    // Extract payload based on message type
+                    let payload = {};
+                    if (msg.error) {
+                        // Error message - extract error details
+                        payload = msg.error.toObject ? msg.error.toObject() : {};
+                        console.warn("Received error message:", payload);
+                    } else if (msg.webrtcAnswerContent) {
+                        payload = msg.webrtcAnswerContent.toObject();
+                    } else if (msg.webrtcCandidateContent) {
+                        payload = msg.webrtcCandidateContent.toObject();
+                    } else if (msg.webrtcAnswerCandidatesContent) {
+                        payload = msg.webrtcAnswerCandidatesContent.toObject();
+                    } else if (msg.webrtcOfferContent) {
+                        payload = msg.webrtcOfferContent.toObject();
+                    } else if (msg.loginResponse) {
+                        payload = msg.loginResponse.toObject();
+                    } else if (msg.loginRequest) {
+                        payload = msg.loginRequest.toObject();
+                    } else if (msg.listFilesResponse) {
+                        payload = msg.listFilesResponse.toObject ? msg.listFilesResponse.toObject() : {};
+                    } else if (msg.getFileInfoResponse) {
+                        payload = msg.getFileInfoResponse.toObject ? msg.getFileInfoResponse.toObject() : {};
+                    } else if (msg.prepareFileReceiveResponse) {
+                        payload = msg.prepareFileReceiveResponse.toObject ? msg.prepareFileReceiveResponse.toObject() : {};
+                    } else if (msg.getThumbnailResponse) {
+                        payload = msg.getThumbnailResponse.toObject ? msg.getThumbnailResponse.toObject() : {};
+                    } else if (msg.getFileSystemVersionResponse) {
+                        payload = msg.getFileSystemVersionResponse.toObject ? msg.getFileSystemVersionResponse.toObject() : {};
+                    } else if (msg.imageRepoHistoryResponse) {
+                        payload = msg.imageRepoHistoryResponse.toObject ? msg.imageRepoHistoryResponse.toObject() : {};
+                    } else if (msg.playVideoResponse) {
+                        payload = msg.playVideoResponse.toObject ? msg.playVideoResponse.toObject() : {};
+                    } else if (msg.payload) {
+                        // Fallback for other payload types
+                        payload = msg.payload.toObject ? msg.payload.toObject() : {};
+                    }
+
                     m = {
                         type: msg.type,
                         source: msg.source,
                         destination: msg.destination,
                         id: msg.id,
-                        payload: msg.payload ? msg.payload.toObject() : {}
+                        payload: payload
                     };
                     console.log("Parsed protobuf message:", m);
                 } else {
@@ -188,9 +226,11 @@ export default class WebRTCClient extends BaseClient {
                 }
 
                 if (m.type == "answer") {
+                    // payload should be WebRTCAnswerContent
+                    const answerContent = m.payload;
                     await this.pc.setRemoteDescription(new RTCSessionDescription({
                         type: 'answer',
-                        sdp: m.payload.data.sdp,
+                        sdp: answerContent.sdp,
                     }));
                     console.log("finished set answer")
 
@@ -199,14 +239,20 @@ export default class WebRTCClient extends BaseClient {
                         await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
                     }
                 } else if (m.type == "candidate") {
-                    const candidateData = m.payload.data;
+                    // payload should be WebRTCCandidateContent
+                    const candidateContent = m.payload;
                     if (this.pc.remoteDescription == null) {
-                        remoteCandidates.push(candidateData);
+                        remoteCandidates.push({ candidate: candidateContent.candidate });
                         return;
                     }
-                    await this.pc.addIceCandidate(new RTCIceCandidate(candidateData));
+                    await this.pc.addIceCandidate(new RTCIceCandidate({ candidate: candidateContent.candidate }));
                 } else if (m.type == "answer+candidates") {
-                    this.pc.setRemoteDescription(m.payload.data)
+                    // payload should be WebRTCAnswerCandidatesContent
+                    const answerCandidatesContent = m.payload;
+                    this.pc.setRemoteDescription(new RTCSessionDescription({
+                        type: answerCandidatesContent.type || 'answer',
+                        sdp: answerCandidatesContent.sdp,
+                    }))
                 }
             }
 

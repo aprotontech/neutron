@@ -7,6 +7,7 @@
 package proto
 
 import (
+	any1 "github.com/golang/protobuf/ptypes/any"
 	_struct "github.com/golang/protobuf/ptypes/struct"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -22,20 +23,109 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type RemoteMessage struct {
+type ErrorMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Source        string                 `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
-	Destination   string                 `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
-	Id            string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
-	Payload       *_struct.Struct        `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Details       *_struct.Struct        `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ErrorMessage) Reset() {
+	*x = ErrorMessage{}
+	mi := &file_message_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ErrorMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ErrorMessage) ProtoMessage() {}
+
+func (x *ErrorMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_message_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ErrorMessage.ProtoReflect.Descriptor instead.
+func (*ErrorMessage) Descriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ErrorMessage) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ErrorMessage) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *ErrorMessage) GetDetails() *_struct.Struct {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+type RemoteMessage struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Type        string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Source      string                 `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	Destination string                 `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
+	Id          string                 `protobuf:"bytes,4,opt,name=id,proto3" json:"id,omitempty"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*RemoteMessage_Any
+	//	*RemoteMessage_RawData
+	//	*RemoteMessage_Error
+	//	*RemoteMessage_LoginRequest
+	//	*RemoteMessage_LoginResponse
+	//	*RemoteMessage_FileInformation
+	//	*RemoteMessage_ImageRepoHistoryRequest
+	//	*RemoteMessage_ImageRepoHistoryItem
+	//	*RemoteMessage_ImageRepoHistoryResponse
+	//	*RemoteMessage_FileOperationRequest
+	//	*RemoteMessage_FileOperationResponse
+	//	*RemoteMessage_PrepareFileReceiveRequest
+	//	*RemoteMessage_PrepareFileReceiveResponse
+	//	*RemoteMessage_GetFileInfoRequest
+	//	*RemoteMessage_GetFileInfoResponse
+	//	*RemoteMessage_ListFilesRequest
+	//	*RemoteMessage_ListFilesResponse
+	//	*RemoteMessage_GetFileSystemVersionRequest
+	//	*RemoteMessage_GetFileSystemVersionResponse
+	//	*RemoteMessage_GetThumbnailRequest
+	//	*RemoteMessage_GetThumbnailResponse
+	//	*RemoteMessage_PlayVideoRequest
+	//	*RemoteMessage_PlayVideoResponse
+	//	*RemoteMessage_WebrtcOfferContent
+	//	*RemoteMessage_WebrtcAnswerContent
+	//	*RemoteMessage_WebrtcAnswerCandidatesContent
+	//	*RemoteMessage_WebrtcCandidateContent
+	Payload       isRemoteMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RemoteMessage) Reset() {
 	*x = RemoteMessage{}
-	mi := &file_message_proto_msgTypes[0]
+	mi := &file_message_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +137,7 @@ func (x *RemoteMessage) String() string {
 func (*RemoteMessage) ProtoMessage() {}
 
 func (x *RemoteMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[0]
+	mi := &file_message_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +150,7 @@ func (x *RemoteMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteMessage.ProtoReflect.Descriptor instead.
 func (*RemoteMessage) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{0}
+	return file_message_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RemoteMessage) GetType() string {
@@ -91,24 +181,468 @@ func (x *RemoteMessage) GetId() string {
 	return ""
 }
 
-func (x *RemoteMessage) GetPayload() *_struct.Struct {
+func (x *RemoteMessage) GetPayload() isRemoteMessage_Payload {
 	if x != nil {
 		return x.Payload
 	}
 	return nil
 }
 
+func (x *RemoteMessage) GetAny() *any1.Any {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_Any); ok {
+			return x.Any
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetRawData() []byte {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_RawData); ok {
+			return x.RawData
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetError() *ErrorMessage {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_Error); ok {
+			return x.Error
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetLoginRequest() *LoginRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_LoginRequest); ok {
+			return x.LoginRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetLoginResponse() *LoginResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_LoginResponse); ok {
+			return x.LoginResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetFileInformation() *FileInformation {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_FileInformation); ok {
+			return x.FileInformation
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetImageRepoHistoryRequest() *ImageRepoHistoryRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ImageRepoHistoryRequest); ok {
+			return x.ImageRepoHistoryRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetImageRepoHistoryItem() *ImageRepoHistoryItem {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ImageRepoHistoryItem); ok {
+			return x.ImageRepoHistoryItem
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetImageRepoHistoryResponse() *ImageRepoHistoryResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ImageRepoHistoryResponse); ok {
+			return x.ImageRepoHistoryResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetFileOperationRequest() *FileOperationRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_FileOperationRequest); ok {
+			return x.FileOperationRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetFileOperationResponse() *FileOperationResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_FileOperationResponse); ok {
+			return x.FileOperationResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetPrepareFileReceiveRequest() *PrepareFileReceiveRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_PrepareFileReceiveRequest); ok {
+			return x.PrepareFileReceiveRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetPrepareFileReceiveResponse() *PrepareFileReceiveResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_PrepareFileReceiveResponse); ok {
+			return x.PrepareFileReceiveResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetFileInfoRequest() *GetFileInfoRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetFileInfoRequest); ok {
+			return x.GetFileInfoRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetFileInfoResponse() *GetFileInfoResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetFileInfoResponse); ok {
+			return x.GetFileInfoResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetListFilesRequest() *ListFilesRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ListFilesRequest); ok {
+			return x.ListFilesRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetListFilesResponse() *ListFilesResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ListFilesResponse); ok {
+			return x.ListFilesResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetFileSystemVersionRequest() *GetFileSystemVersionRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetFileSystemVersionRequest); ok {
+			return x.GetFileSystemVersionRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetFileSystemVersionResponse() *GetFileSystemVersionResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetFileSystemVersionResponse); ok {
+			return x.GetFileSystemVersionResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetThumbnailRequest() *GetThumbnailRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetThumbnailRequest); ok {
+			return x.GetThumbnailRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetGetThumbnailResponse() *GetThumbnailResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_GetThumbnailResponse); ok {
+			return x.GetThumbnailResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetPlayVideoRequest() *PlayVideoRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_PlayVideoRequest); ok {
+			return x.PlayVideoRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetPlayVideoResponse() *PlayVideoResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_PlayVideoResponse); ok {
+			return x.PlayVideoResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetWebrtcOfferContent() *WebRTCOfferContent {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_WebrtcOfferContent); ok {
+			return x.WebrtcOfferContent
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetWebrtcAnswerContent() *WebRTCAnswerContent {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_WebrtcAnswerContent); ok {
+			return x.WebrtcAnswerContent
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetWebrtcAnswerCandidatesContent() *WebRTCAnswerCandidatesContent {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_WebrtcAnswerCandidatesContent); ok {
+			return x.WebrtcAnswerCandidatesContent
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetWebrtcCandidateContent() *WebRTCCandidateContent {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_WebrtcCandidateContent); ok {
+			return x.WebrtcCandidateContent
+		}
+	}
+	return nil
+}
+
+type isRemoteMessage_Payload interface {
+	isRemoteMessage_Payload()
+}
+
+type RemoteMessage_Any struct {
+	Any *any1.Any `protobuf:"bytes,5,opt,name=any,proto3,oneof"`
+}
+
+type RemoteMessage_RawData struct {
+	RawData []byte `protobuf:"bytes,6,opt,name=raw_data,json=rawData,proto3,oneof"`
+}
+
+type RemoteMessage_Error struct {
+	Error *ErrorMessage `protobuf:"bytes,7,opt,name=error,proto3,oneof"`
+}
+
+type RemoteMessage_LoginRequest struct {
+	// User authentication messages
+	LoginRequest *LoginRequest `protobuf:"bytes,1000,opt,name=login_request,json=loginRequest,proto3,oneof"`
+}
+
+type RemoteMessage_LoginResponse struct {
+	LoginResponse *LoginResponse `protobuf:"bytes,1001,opt,name=login_response,json=loginResponse,proto3,oneof"`
+}
+
+type RemoteMessage_FileInformation struct {
+	// File API messages
+	FileInformation *FileInformation `protobuf:"bytes,1501,opt,name=file_information,json=fileInformation,proto3,oneof"`
+}
+
+type RemoteMessage_ImageRepoHistoryRequest struct {
+	ImageRepoHistoryRequest *ImageRepoHistoryRequest `protobuf:"bytes,1502,opt,name=image_repo_history_request,json=imageRepoHistoryRequest,proto3,oneof"`
+}
+
+type RemoteMessage_ImageRepoHistoryItem struct {
+	ImageRepoHistoryItem *ImageRepoHistoryItem `protobuf:"bytes,1503,opt,name=image_repo_history_item,json=imageRepoHistoryItem,proto3,oneof"`
+}
+
+type RemoteMessage_ImageRepoHistoryResponse struct {
+	ImageRepoHistoryResponse *ImageRepoHistoryResponse `protobuf:"bytes,1504,opt,name=image_repo_history_response,json=imageRepoHistoryResponse,proto3,oneof"`
+}
+
+type RemoteMessage_FileOperationRequest struct {
+	FileOperationRequest *FileOperationRequest `protobuf:"bytes,1505,opt,name=file_operation_request,json=fileOperationRequest,proto3,oneof"`
+}
+
+type RemoteMessage_FileOperationResponse struct {
+	FileOperationResponse *FileOperationResponse `protobuf:"bytes,1506,opt,name=file_operation_response,json=fileOperationResponse,proto3,oneof"`
+}
+
+type RemoteMessage_PrepareFileReceiveRequest struct {
+	PrepareFileReceiveRequest *PrepareFileReceiveRequest `protobuf:"bytes,1507,opt,name=prepare_file_receive_request,json=prepareFileReceiveRequest,proto3,oneof"`
+}
+
+type RemoteMessage_PrepareFileReceiveResponse struct {
+	PrepareFileReceiveResponse *PrepareFileReceiveResponse `protobuf:"bytes,1508,opt,name=prepare_file_receive_response,json=prepareFileReceiveResponse,proto3,oneof"`
+}
+
+type RemoteMessage_GetFileInfoRequest struct {
+	GetFileInfoRequest *GetFileInfoRequest `protobuf:"bytes,1509,opt,name=get_file_info_request,json=getFileInfoRequest,proto3,oneof"`
+}
+
+type RemoteMessage_GetFileInfoResponse struct {
+	GetFileInfoResponse *GetFileInfoResponse `protobuf:"bytes,1510,opt,name=get_file_info_response,json=getFileInfoResponse,proto3,oneof"`
+}
+
+type RemoteMessage_ListFilesRequest struct {
+	ListFilesRequest *ListFilesRequest `protobuf:"bytes,1511,opt,name=list_files_request,json=listFilesRequest,proto3,oneof"`
+}
+
+type RemoteMessage_ListFilesResponse struct {
+	ListFilesResponse *ListFilesResponse `protobuf:"bytes,1512,opt,name=list_files_response,json=listFilesResponse,proto3,oneof"`
+}
+
+type RemoteMessage_GetFileSystemVersionRequest struct {
+	GetFileSystemVersionRequest *GetFileSystemVersionRequest `protobuf:"bytes,1513,opt,name=get_file_system_version_request,json=getFileSystemVersionRequest,proto3,oneof"`
+}
+
+type RemoteMessage_GetFileSystemVersionResponse struct {
+	GetFileSystemVersionResponse *GetFileSystemVersionResponse `protobuf:"bytes,1514,opt,name=get_file_system_version_response,json=getFileSystemVersionResponse,proto3,oneof"`
+}
+
+type RemoteMessage_GetThumbnailRequest struct {
+	GetThumbnailRequest *GetThumbnailRequest `protobuf:"bytes,1515,opt,name=get_thumbnail_request,json=getThumbnailRequest,proto3,oneof"`
+}
+
+type RemoteMessage_GetThumbnailResponse struct {
+	GetThumbnailResponse *GetThumbnailResponse `protobuf:"bytes,1516,opt,name=get_thumbnail_response,json=getThumbnailResponse,proto3,oneof"`
+}
+
+type RemoteMessage_PlayVideoRequest struct {
+	PlayVideoRequest *PlayVideoRequest `protobuf:"bytes,1517,opt,name=play_video_request,json=playVideoRequest,proto3,oneof"`
+}
+
+type RemoteMessage_PlayVideoResponse struct {
+	PlayVideoResponse *PlayVideoResponse `protobuf:"bytes,1518,opt,name=play_video_response,json=playVideoResponse,proto3,oneof"`
+}
+
+type RemoteMessage_WebrtcOfferContent struct {
+	// WebRTC messages
+	WebrtcOfferContent *WebRTCOfferContent `protobuf:"bytes,2000,opt,name=webrtc_offer_content,json=webrtcOfferContent,proto3,oneof"`
+}
+
+type RemoteMessage_WebrtcAnswerContent struct {
+	WebrtcAnswerContent *WebRTCAnswerContent `protobuf:"bytes,2001,opt,name=webrtc_answer_content,json=webrtcAnswerContent,proto3,oneof"`
+}
+
+type RemoteMessage_WebrtcAnswerCandidatesContent struct {
+	WebrtcAnswerCandidatesContent *WebRTCAnswerCandidatesContent `protobuf:"bytes,2002,opt,name=webrtc_answer_candidates_content,json=webrtcAnswerCandidatesContent,proto3,oneof"`
+}
+
+type RemoteMessage_WebrtcCandidateContent struct {
+	WebrtcCandidateContent *WebRTCCandidateContent `protobuf:"bytes,2003,opt,name=webrtc_candidate_content,json=webrtcCandidateContent,proto3,oneof"`
+}
+
+func (*RemoteMessage_Any) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_RawData) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_Error) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_LoginRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_LoginResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_FileInformation) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ImageRepoHistoryRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ImageRepoHistoryItem) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ImageRepoHistoryResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_FileOperationRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_FileOperationResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_PrepareFileReceiveRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_PrepareFileReceiveResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetFileInfoRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetFileInfoResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ListFilesRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ListFilesResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetFileSystemVersionRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetFileSystemVersionResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetThumbnailRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_GetThumbnailResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_PlayVideoRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_PlayVideoResponse) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_WebrtcOfferContent) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_WebrtcAnswerContent) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_WebrtcAnswerCandidatesContent) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_WebrtcCandidateContent) isRemoteMessage_Payload() {}
+
 var File_message_proto protoreflect.FileDescriptor
 
 const file_message_proto_rawDesc = "" +
 	"\n" +
-	"\rmessage.proto\x12\aneutron\x1a\x1cgoogle/protobuf/struct.proto\"\xa0\x01\n" +
+	"\rmessage.proto\x12\aneutron\x1a\x19google/protobuf/any.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\rfileapi.proto\x1a\fwebrtc.proto\x1a\n" +
+	"user.proto\"q\n" +
+	"\fErrorMessage\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x121\n" +
+	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\"\xc3\x12\n" +
 	"\rRemoteMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
 	"\vdestination\x18\x03 \x01(\tR\vdestination\x12\x0e\n" +
-	"\x02id\x18\x04 \x01(\tR\x02id\x121\n" +
-	"\apayload\x18\x05 \x01(\v2\x17.google.protobuf.StructR\apayloadB(H\x01Z$github.com/aproton/neutron/pkg/protob\x06proto3"
+	"\x02id\x18\x04 \x01(\tR\x02id\x12(\n" +
+	"\x03any\x18\x05 \x01(\v2\x14.google.protobuf.AnyH\x00R\x03any\x12\x1b\n" +
+	"\braw_data\x18\x06 \x01(\fH\x00R\arawData\x12-\n" +
+	"\x05error\x18\a \x01(\v2\x15.neutron.ErrorMessageH\x00R\x05error\x12=\n" +
+	"\rlogin_request\x18\xe8\a \x01(\v2\x15.neutron.LoginRequestH\x00R\floginRequest\x12@\n" +
+	"\x0elogin_response\x18\xe9\a \x01(\v2\x16.neutron.LoginResponseH\x00R\rloginResponse\x12F\n" +
+	"\x10file_information\x18\xdd\v \x01(\v2\x18.neutron.FileInformationH\x00R\x0ffileInformation\x12`\n" +
+	"\x1aimage_repo_history_request\x18\xde\v \x01(\v2 .neutron.ImageRepoHistoryRequestH\x00R\x17imageRepoHistoryRequest\x12W\n" +
+	"\x17image_repo_history_item\x18\xdf\v \x01(\v2\x1d.neutron.ImageRepoHistoryItemH\x00R\x14imageRepoHistoryItem\x12c\n" +
+	"\x1bimage_repo_history_response\x18\xe0\v \x01(\v2!.neutron.ImageRepoHistoryResponseH\x00R\x18imageRepoHistoryResponse\x12V\n" +
+	"\x16file_operation_request\x18\xe1\v \x01(\v2\x1d.neutron.FileOperationRequestH\x00R\x14fileOperationRequest\x12Y\n" +
+	"\x17file_operation_response\x18\xe2\v \x01(\v2\x1e.neutron.FileOperationResponseH\x00R\x15fileOperationResponse\x12f\n" +
+	"\x1cprepare_file_receive_request\x18\xe3\v \x01(\v2\".neutron.PrepareFileReceiveRequestH\x00R\x19prepareFileReceiveRequest\x12i\n" +
+	"\x1dprepare_file_receive_response\x18\xe4\v \x01(\v2#.neutron.PrepareFileReceiveResponseH\x00R\x1aprepareFileReceiveResponse\x12Q\n" +
+	"\x15get_file_info_request\x18\xe5\v \x01(\v2\x1b.neutron.GetFileInfoRequestH\x00R\x12getFileInfoRequest\x12T\n" +
+	"\x16get_file_info_response\x18\xe6\v \x01(\v2\x1c.neutron.GetFileInfoResponseH\x00R\x13getFileInfoResponse\x12J\n" +
+	"\x12list_files_request\x18\xe7\v \x01(\v2\x19.neutron.ListFilesRequestH\x00R\x10listFilesRequest\x12M\n" +
+	"\x13list_files_response\x18\xe8\v \x01(\v2\x1a.neutron.ListFilesResponseH\x00R\x11listFilesResponse\x12m\n" +
+	"\x1fget_file_system_version_request\x18\xe9\v \x01(\v2$.neutron.GetFileSystemVersionRequestH\x00R\x1bgetFileSystemVersionRequest\x12p\n" +
+	" get_file_system_version_response\x18\xea\v \x01(\v2%.neutron.GetFileSystemVersionResponseH\x00R\x1cgetFileSystemVersionResponse\x12S\n" +
+	"\x15get_thumbnail_request\x18\xeb\v \x01(\v2\x1c.neutron.GetThumbnailRequestH\x00R\x13getThumbnailRequest\x12V\n" +
+	"\x16get_thumbnail_response\x18\xec\v \x01(\v2\x1d.neutron.GetThumbnailResponseH\x00R\x14getThumbnailResponse\x12J\n" +
+	"\x12play_video_request\x18\xed\v \x01(\v2\x19.neutron.PlayVideoRequestH\x00R\x10playVideoRequest\x12M\n" +
+	"\x13play_video_response\x18\xee\v \x01(\v2\x1a.neutron.PlayVideoResponseH\x00R\x11playVideoResponse\x12P\n" +
+	"\x14webrtc_offer_content\x18\xd0\x0f \x01(\v2\x1b.neutron.WebRTCOfferContentH\x00R\x12webrtcOfferContent\x12S\n" +
+	"\x15webrtc_answer_content\x18\xd1\x0f \x01(\v2\x1c.neutron.WebRTCAnswerContentH\x00R\x13webrtcAnswerContent\x12r\n" +
+	" webrtc_answer_candidates_content\x18\xd2\x0f \x01(\v2&.neutron.WebRTCAnswerCandidatesContentH\x00R\x1dwebrtcAnswerCandidatesContent\x12\\\n" +
+	"\x18webrtc_candidate_content\x18\xd3\x0f \x01(\v2\x1f.neutron.WebRTCCandidateContentH\x00R\x16webrtcCandidateContentB\t\n" +
+	"\apayloadB(H\x01Z$github.com/aproton/neutron/pkg/protob\x06proto3"
 
 var (
 	file_message_proto_rawDescOnce sync.Once
@@ -122,18 +656,70 @@ func file_message_proto_rawDescGZIP() []byte {
 	return file_message_proto_rawDescData
 }
 
-var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_message_proto_goTypes = []any{
-	(*RemoteMessage)(nil),  // 0: neutron.RemoteMessage
-	(*_struct.Struct)(nil), // 1: google.protobuf.Struct
+	(*ErrorMessage)(nil),                  // 0: neutron.ErrorMessage
+	(*RemoteMessage)(nil),                 // 1: neutron.RemoteMessage
+	(*_struct.Struct)(nil),                // 2: google.protobuf.Struct
+	(*any1.Any)(nil),                      // 3: google.protobuf.Any
+	(*LoginRequest)(nil),                  // 4: neutron.LoginRequest
+	(*LoginResponse)(nil),                 // 5: neutron.LoginResponse
+	(*FileInformation)(nil),               // 6: neutron.FileInformation
+	(*ImageRepoHistoryRequest)(nil),       // 7: neutron.ImageRepoHistoryRequest
+	(*ImageRepoHistoryItem)(nil),          // 8: neutron.ImageRepoHistoryItem
+	(*ImageRepoHistoryResponse)(nil),      // 9: neutron.ImageRepoHistoryResponse
+	(*FileOperationRequest)(nil),          // 10: neutron.FileOperationRequest
+	(*FileOperationResponse)(nil),         // 11: neutron.FileOperationResponse
+	(*PrepareFileReceiveRequest)(nil),     // 12: neutron.PrepareFileReceiveRequest
+	(*PrepareFileReceiveResponse)(nil),    // 13: neutron.PrepareFileReceiveResponse
+	(*GetFileInfoRequest)(nil),            // 14: neutron.GetFileInfoRequest
+	(*GetFileInfoResponse)(nil),           // 15: neutron.GetFileInfoResponse
+	(*ListFilesRequest)(nil),              // 16: neutron.ListFilesRequest
+	(*ListFilesResponse)(nil),             // 17: neutron.ListFilesResponse
+	(*GetFileSystemVersionRequest)(nil),   // 18: neutron.GetFileSystemVersionRequest
+	(*GetFileSystemVersionResponse)(nil),  // 19: neutron.GetFileSystemVersionResponse
+	(*GetThumbnailRequest)(nil),           // 20: neutron.GetThumbnailRequest
+	(*GetThumbnailResponse)(nil),          // 21: neutron.GetThumbnailResponse
+	(*PlayVideoRequest)(nil),              // 22: neutron.PlayVideoRequest
+	(*PlayVideoResponse)(nil),             // 23: neutron.PlayVideoResponse
+	(*WebRTCOfferContent)(nil),            // 24: neutron.WebRTCOfferContent
+	(*WebRTCAnswerContent)(nil),           // 25: neutron.WebRTCAnswerContent
+	(*WebRTCAnswerCandidatesContent)(nil), // 26: neutron.WebRTCAnswerCandidatesContent
+	(*WebRTCCandidateContent)(nil),        // 27: neutron.WebRTCCandidateContent
 }
 var file_message_proto_depIdxs = []int32{
-	1, // 0: neutron.RemoteMessage.payload:type_name -> google.protobuf.Struct
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2,  // 0: neutron.ErrorMessage.details:type_name -> google.protobuf.Struct
+	3,  // 1: neutron.RemoteMessage.any:type_name -> google.protobuf.Any
+	0,  // 2: neutron.RemoteMessage.error:type_name -> neutron.ErrorMessage
+	4,  // 3: neutron.RemoteMessage.login_request:type_name -> neutron.LoginRequest
+	5,  // 4: neutron.RemoteMessage.login_response:type_name -> neutron.LoginResponse
+	6,  // 5: neutron.RemoteMessage.file_information:type_name -> neutron.FileInformation
+	7,  // 6: neutron.RemoteMessage.image_repo_history_request:type_name -> neutron.ImageRepoHistoryRequest
+	8,  // 7: neutron.RemoteMessage.image_repo_history_item:type_name -> neutron.ImageRepoHistoryItem
+	9,  // 8: neutron.RemoteMessage.image_repo_history_response:type_name -> neutron.ImageRepoHistoryResponse
+	10, // 9: neutron.RemoteMessage.file_operation_request:type_name -> neutron.FileOperationRequest
+	11, // 10: neutron.RemoteMessage.file_operation_response:type_name -> neutron.FileOperationResponse
+	12, // 11: neutron.RemoteMessage.prepare_file_receive_request:type_name -> neutron.PrepareFileReceiveRequest
+	13, // 12: neutron.RemoteMessage.prepare_file_receive_response:type_name -> neutron.PrepareFileReceiveResponse
+	14, // 13: neutron.RemoteMessage.get_file_info_request:type_name -> neutron.GetFileInfoRequest
+	15, // 14: neutron.RemoteMessage.get_file_info_response:type_name -> neutron.GetFileInfoResponse
+	16, // 15: neutron.RemoteMessage.list_files_request:type_name -> neutron.ListFilesRequest
+	17, // 16: neutron.RemoteMessage.list_files_response:type_name -> neutron.ListFilesResponse
+	18, // 17: neutron.RemoteMessage.get_file_system_version_request:type_name -> neutron.GetFileSystemVersionRequest
+	19, // 18: neutron.RemoteMessage.get_file_system_version_response:type_name -> neutron.GetFileSystemVersionResponse
+	20, // 19: neutron.RemoteMessage.get_thumbnail_request:type_name -> neutron.GetThumbnailRequest
+	21, // 20: neutron.RemoteMessage.get_thumbnail_response:type_name -> neutron.GetThumbnailResponse
+	22, // 21: neutron.RemoteMessage.play_video_request:type_name -> neutron.PlayVideoRequest
+	23, // 22: neutron.RemoteMessage.play_video_response:type_name -> neutron.PlayVideoResponse
+	24, // 23: neutron.RemoteMessage.webrtc_offer_content:type_name -> neutron.WebRTCOfferContent
+	25, // 24: neutron.RemoteMessage.webrtc_answer_content:type_name -> neutron.WebRTCAnswerContent
+	26, // 25: neutron.RemoteMessage.webrtc_answer_candidates_content:type_name -> neutron.WebRTCAnswerCandidatesContent
+	27, // 26: neutron.RemoteMessage.webrtc_candidate_content:type_name -> neutron.WebRTCCandidateContent
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_message_proto_init() }
@@ -141,13 +727,45 @@ func file_message_proto_init() {
 	if File_message_proto != nil {
 		return
 	}
+	file_fileapi_proto_init()
+	file_webrtc_proto_init()
+	file_user_proto_init()
+	file_message_proto_msgTypes[1].OneofWrappers = []any{
+		(*RemoteMessage_Any)(nil),
+		(*RemoteMessage_RawData)(nil),
+		(*RemoteMessage_Error)(nil),
+		(*RemoteMessage_LoginRequest)(nil),
+		(*RemoteMessage_LoginResponse)(nil),
+		(*RemoteMessage_FileInformation)(nil),
+		(*RemoteMessage_ImageRepoHistoryRequest)(nil),
+		(*RemoteMessage_ImageRepoHistoryItem)(nil),
+		(*RemoteMessage_ImageRepoHistoryResponse)(nil),
+		(*RemoteMessage_FileOperationRequest)(nil),
+		(*RemoteMessage_FileOperationResponse)(nil),
+		(*RemoteMessage_PrepareFileReceiveRequest)(nil),
+		(*RemoteMessage_PrepareFileReceiveResponse)(nil),
+		(*RemoteMessage_GetFileInfoRequest)(nil),
+		(*RemoteMessage_GetFileInfoResponse)(nil),
+		(*RemoteMessage_ListFilesRequest)(nil),
+		(*RemoteMessage_ListFilesResponse)(nil),
+		(*RemoteMessage_GetFileSystemVersionRequest)(nil),
+		(*RemoteMessage_GetFileSystemVersionResponse)(nil),
+		(*RemoteMessage_GetThumbnailRequest)(nil),
+		(*RemoteMessage_GetThumbnailResponse)(nil),
+		(*RemoteMessage_PlayVideoRequest)(nil),
+		(*RemoteMessage_PlayVideoResponse)(nil),
+		(*RemoteMessage_WebrtcOfferContent)(nil),
+		(*RemoteMessage_WebrtcAnswerContent)(nil),
+		(*RemoteMessage_WebrtcAnswerCandidatesContent)(nil),
+		(*RemoteMessage_WebrtcCandidateContent)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_message_proto_rawDesc), len(file_message_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

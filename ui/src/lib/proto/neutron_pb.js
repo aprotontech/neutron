@@ -1591,9 +1591,7 @@ export const neutron = $root.neutron = (() => {
          * Properties of a FileOperationResponse.
          * @memberof neutron
          * @interface IFileOperationResponse
-         * @property {boolean|null} [success] FileOperationResponse success
          * @property {google.protobuf.IStruct|null} [result] FileOperationResponse result
-         * @property {string|null} [error] FileOperationResponse error
          */
 
         /**
@@ -1612,28 +1610,12 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * FileOperationResponse success.
-         * @member {boolean} success
-         * @memberof neutron.FileOperationResponse
-         * @instance
-         */
-        FileOperationResponse.prototype.success = false;
-
-        /**
          * FileOperationResponse result.
          * @member {google.protobuf.IStruct|null|undefined} result
          * @memberof neutron.FileOperationResponse
          * @instance
          */
         FileOperationResponse.prototype.result = null;
-
-        /**
-         * FileOperationResponse error.
-         * @member {string} error
-         * @memberof neutron.FileOperationResponse
-         * @instance
-         */
-        FileOperationResponse.prototype.error = "";
 
         /**
          * Creates a new FileOperationResponse instance using the specified properties.
@@ -1659,12 +1641,8 @@ export const neutron = $root.neutron = (() => {
         FileOperationResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
-                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
             if (message.result != null && Object.hasOwnProperty.call(message, "result"))
                 $root.google.protobuf.Struct.encode(message.result, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.error);
             return writer;
         };
 
@@ -1701,16 +1679,8 @@ export const neutron = $root.neutron = (() => {
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
-                case 1: {
-                        message.success = reader.bool();
-                        break;
-                    }
                 case 2: {
                         message.result = $root.google.protobuf.Struct.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 3: {
-                        message.error = reader.string();
                         break;
                     }
                 default:
@@ -1748,17 +1718,11 @@ export const neutron = $root.neutron = (() => {
         FileOperationResponse.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.success != null && message.hasOwnProperty("success"))
-                if (typeof message.success !== "boolean")
-                    return "success: boolean expected";
             if (message.result != null && message.hasOwnProperty("result")) {
                 let error = $root.google.protobuf.Struct.verify(message.result);
                 if (error)
                     return "result." + error;
             }
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -1774,15 +1738,11 @@ export const neutron = $root.neutron = (() => {
             if (object instanceof $root.neutron.FileOperationResponse)
                 return object;
             let message = new $root.neutron.FileOperationResponse();
-            if (object.success != null)
-                message.success = Boolean(object.success);
             if (object.result != null) {
                 if (typeof object.result !== "object")
                     throw TypeError(".neutron.FileOperationResponse.result: object expected");
                 message.result = $root.google.protobuf.Struct.fromObject(object.result);
             }
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -1799,17 +1759,10 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
-                object.success = false;
+            if (options.defaults)
                 object.result = null;
-                object.error = "";
-            }
-            if (message.success != null && message.hasOwnProperty("success"))
-                object.success = message.success;
             if (message.result != null && message.hasOwnProperty("result"))
                 object.result = $root.google.protobuf.Struct.toObject(message.result, options);
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -2151,9 +2104,7 @@ export const neutron = $root.neutron = (() => {
          * Properties of a PrepareFileReceiveResponse.
          * @memberof neutron
          * @interface IPrepareFileReceiveResponse
-         * @property {boolean|null} [success] PrepareFileReceiveResponse success
          * @property {number|Long|null} [size] PrepareFileReceiveResponse size
-         * @property {string|null} [error] PrepareFileReceiveResponse error
          */
 
         /**
@@ -2172,28 +2123,12 @@ export const neutron = $root.neutron = (() => {
         }
 
         /**
-         * PrepareFileReceiveResponse success.
-         * @member {boolean} success
-         * @memberof neutron.PrepareFileReceiveResponse
-         * @instance
-         */
-        PrepareFileReceiveResponse.prototype.success = false;
-
-        /**
          * PrepareFileReceiveResponse size.
          * @member {number|Long} size
          * @memberof neutron.PrepareFileReceiveResponse
          * @instance
          */
         PrepareFileReceiveResponse.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
-
-        /**
-         * PrepareFileReceiveResponse error.
-         * @member {string} error
-         * @memberof neutron.PrepareFileReceiveResponse
-         * @instance
-         */
-        PrepareFileReceiveResponse.prototype.error = "";
 
         /**
          * Creates a new PrepareFileReceiveResponse instance using the specified properties.
@@ -2219,12 +2154,8 @@ export const neutron = $root.neutron = (() => {
         PrepareFileReceiveResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
-                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
             if (message.size != null && Object.hasOwnProperty.call(message, "size"))
                 writer.uint32(/* id 2, wireType 0 =*/16).int64(message.size);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.error);
             return writer;
         };
 
@@ -2261,16 +2192,8 @@ export const neutron = $root.neutron = (() => {
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
-                case 1: {
-                        message.success = reader.bool();
-                        break;
-                    }
                 case 2: {
                         message.size = reader.int64();
-                        break;
-                    }
-                case 3: {
-                        message.error = reader.string();
                         break;
                     }
                 default:
@@ -2308,15 +2231,9 @@ export const neutron = $root.neutron = (() => {
         PrepareFileReceiveResponse.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.success != null && message.hasOwnProperty("success"))
-                if (typeof message.success !== "boolean")
-                    return "success: boolean expected";
             if (message.size != null && message.hasOwnProperty("size"))
                 if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
                     return "size: integer|Long expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -2332,8 +2249,6 @@ export const neutron = $root.neutron = (() => {
             if (object instanceof $root.neutron.PrepareFileReceiveResponse)
                 return object;
             let message = new $root.neutron.PrepareFileReceiveResponse();
-            if (object.success != null)
-                message.success = Boolean(object.success);
             if (object.size != null)
                 if ($util.Long)
                     (message.size = $util.Long.fromValue(object.size)).unsigned = false;
@@ -2343,8 +2258,6 @@ export const neutron = $root.neutron = (() => {
                     message.size = object.size;
                 else if (typeof object.size === "object")
                     message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -2361,24 +2274,17 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
-                object.success = false;
+            if (options.defaults)
                 if ($util.Long) {
                     let long = new $util.Long(0, 0, false);
                     object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                 } else
                     object.size = options.longs === String ? "0" : 0;
-                object.error = "";
-            }
-            if (message.success != null && message.hasOwnProperty("success"))
-                object.success = message.success;
             if (message.size != null && message.hasOwnProperty("size"))
                 if (typeof message.size === "number")
                     object.size = options.longs === String ? String(message.size) : message.size;
                 else
                     object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -2623,7 +2529,6 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IGetFileInfoResponse
          * @property {neutron.IFileInformation|null} [fileInfo] GetFileInfoResponse fileInfo
-         * @property {string|null} [error] GetFileInfoResponse error
          */
 
         /**
@@ -2648,14 +2553,6 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         GetFileInfoResponse.prototype.fileInfo = null;
-
-        /**
-         * GetFileInfoResponse error.
-         * @member {string} error
-         * @memberof neutron.GetFileInfoResponse
-         * @instance
-         */
-        GetFileInfoResponse.prototype.error = "";
 
         /**
          * Creates a new GetFileInfoResponse instance using the specified properties.
@@ -2683,8 +2580,6 @@ export const neutron = $root.neutron = (() => {
                 writer = $Writer.create();
             if (message.fileInfo != null && Object.hasOwnProperty.call(message, "fileInfo"))
                 $root.neutron.FileInformation.encode(message.fileInfo, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
             return writer;
         };
 
@@ -2723,10 +2618,6 @@ export const neutron = $root.neutron = (() => {
                 switch (tag >>> 3) {
                 case 1: {
                         message.fileInfo = $root.neutron.FileInformation.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 2: {
-                        message.error = reader.string();
                         break;
                     }
                 default:
@@ -2769,9 +2660,6 @@ export const neutron = $root.neutron = (() => {
                 if (error)
                     return "fileInfo." + error;
             }
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -2792,8 +2680,6 @@ export const neutron = $root.neutron = (() => {
                     throw TypeError(".neutron.GetFileInfoResponse.fileInfo: object expected");
                 message.fileInfo = $root.neutron.FileInformation.fromObject(object.fileInfo);
             }
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -2810,14 +2696,10 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
+            if (options.defaults)
                 object.fileInfo = null;
-                object.error = "";
-            }
             if (message.fileInfo != null && message.hasOwnProperty("fileInfo"))
                 object.fileInfo = $root.neutron.FileInformation.toObject(message.fileInfo, options);
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -3062,7 +2944,6 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IListFilesResponse
          * @property {Array.<neutron.IFileInformation>|null} [files] ListFilesResponse files
-         * @property {string|null} [error] ListFilesResponse error
          */
 
         /**
@@ -3088,14 +2969,6 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         ListFilesResponse.prototype.files = $util.emptyArray;
-
-        /**
-         * ListFilesResponse error.
-         * @member {string} error
-         * @memberof neutron.ListFilesResponse
-         * @instance
-         */
-        ListFilesResponse.prototype.error = "";
 
         /**
          * Creates a new ListFilesResponse instance using the specified properties.
@@ -3124,8 +2997,6 @@ export const neutron = $root.neutron = (() => {
             if (message.files != null && message.files.length)
                 for (let i = 0; i < message.files.length; ++i)
                     $root.neutron.FileInformation.encode(message.files[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
             return writer;
         };
 
@@ -3166,10 +3037,6 @@ export const neutron = $root.neutron = (() => {
                         if (!(message.files && message.files.length))
                             message.files = [];
                         message.files.push($root.neutron.FileInformation.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 2: {
-                        message.error = reader.string();
                         break;
                     }
                 default:
@@ -3216,9 +3083,6 @@ export const neutron = $root.neutron = (() => {
                         return "files." + error;
                 }
             }
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -3244,8 +3108,6 @@ export const neutron = $root.neutron = (() => {
                     message.files[i] = $root.neutron.FileInformation.fromObject(object.files[i]);
                 }
             }
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -3264,15 +3126,11 @@ export const neutron = $root.neutron = (() => {
             let object = {};
             if (options.arrays || options.defaults)
                 object.files = [];
-            if (options.defaults)
-                object.error = "";
             if (message.files && message.files.length) {
                 object.files = [];
                 for (let j = 0; j < message.files.length; ++j)
                     object.files[j] = $root.neutron.FileInformation.toObject(message.files[j], options);
             }
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -3489,7 +3347,6 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IGetFileSystemVersionResponse
          * @property {string|null} [version] GetFileSystemVersionResponse version
-         * @property {string|null} [error] GetFileSystemVersionResponse error
          */
 
         /**
@@ -3514,14 +3371,6 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         GetFileSystemVersionResponse.prototype.version = "";
-
-        /**
-         * GetFileSystemVersionResponse error.
-         * @member {string} error
-         * @memberof neutron.GetFileSystemVersionResponse
-         * @instance
-         */
-        GetFileSystemVersionResponse.prototype.error = "";
 
         /**
          * Creates a new GetFileSystemVersionResponse instance using the specified properties.
@@ -3549,8 +3398,6 @@ export const neutron = $root.neutron = (() => {
                 writer = $Writer.create();
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.version);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
             return writer;
         };
 
@@ -3591,10 +3438,6 @@ export const neutron = $root.neutron = (() => {
                         message.version = reader.string();
                         break;
                     }
-                case 2: {
-                        message.error = reader.string();
-                        break;
-                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -3633,9 +3476,6 @@ export const neutron = $root.neutron = (() => {
             if (message.version != null && message.hasOwnProperty("version"))
                 if (!$util.isString(message.version))
                     return "version: string expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -3653,8 +3493,6 @@ export const neutron = $root.neutron = (() => {
             let message = new $root.neutron.GetFileSystemVersionResponse();
             if (object.version != null)
                 message.version = String(object.version);
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -3671,14 +3509,10 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
+            if (options.defaults)
                 object.version = "";
-                object.error = "";
-            }
             if (message.version != null && message.hasOwnProperty("version"))
                 object.version = message.version;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -3961,7 +3795,6 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IGetThumbnailResponse
          * @property {string|null} [id] GetThumbnailResponse id
-         * @property {string|null} [error] GetThumbnailResponse error
          */
 
         /**
@@ -3986,14 +3819,6 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         GetThumbnailResponse.prototype.id = "";
-
-        /**
-         * GetThumbnailResponse error.
-         * @member {string} error
-         * @memberof neutron.GetThumbnailResponse
-         * @instance
-         */
-        GetThumbnailResponse.prototype.error = "";
 
         /**
          * Creates a new GetThumbnailResponse instance using the specified properties.
@@ -4021,8 +3846,6 @@ export const neutron = $root.neutron = (() => {
                 writer = $Writer.create();
             if (message.id != null && Object.hasOwnProperty.call(message, "id"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
             return writer;
         };
 
@@ -4063,10 +3886,6 @@ export const neutron = $root.neutron = (() => {
                         message.id = reader.string();
                         break;
                     }
-                case 2: {
-                        message.error = reader.string();
-                        break;
-                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -4105,9 +3924,6 @@ export const neutron = $root.neutron = (() => {
             if (message.id != null && message.hasOwnProperty("id"))
                 if (!$util.isString(message.id))
                     return "id: string expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             return null;
         };
 
@@ -4125,8 +3941,6 @@ export const neutron = $root.neutron = (() => {
             let message = new $root.neutron.GetThumbnailResponse();
             if (object.id != null)
                 message.id = String(object.id);
-            if (object.error != null)
-                message.error = String(object.error);
             return message;
         };
 
@@ -4143,14 +3957,10 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults) {
+            if (options.defaults)
                 object.id = "";
-                object.error = "";
-            }
             if (message.id != null && message.hasOwnProperty("id"))
                 object.id = message.id;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             return object;
         };
 
@@ -4394,8 +4204,6 @@ export const neutron = $root.neutron = (() => {
          * Properties of a PlayVideoResponse.
          * @memberof neutron
          * @interface IPlayVideoResponse
-         * @property {boolean|null} [success] PlayVideoResponse success
-         * @property {string|null} [error] PlayVideoResponse error
          * @property {Object.<string,google.protobuf.IValue>|null} [videoInfo] PlayVideoResponse videoInfo
          */
 
@@ -4414,22 +4222,6 @@ export const neutron = $root.neutron = (() => {
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
-
-        /**
-         * PlayVideoResponse success.
-         * @member {boolean} success
-         * @memberof neutron.PlayVideoResponse
-         * @instance
-         */
-        PlayVideoResponse.prototype.success = false;
-
-        /**
-         * PlayVideoResponse error.
-         * @member {string} error
-         * @memberof neutron.PlayVideoResponse
-         * @instance
-         */
-        PlayVideoResponse.prototype.error = "";
 
         /**
          * PlayVideoResponse videoInfo.
@@ -4463,10 +4255,6 @@ export const neutron = $root.neutron = (() => {
         PlayVideoResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
-                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
-            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
             if (message.videoInfo != null && Object.hasOwnProperty.call(message, "videoInfo"))
                 for (let keys = Object.keys(message.videoInfo), i = 0; i < keys.length; ++i) {
                     writer.uint32(/* id 3, wireType 2 =*/26).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
@@ -4508,14 +4296,6 @@ export const neutron = $root.neutron = (() => {
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
-                case 1: {
-                        message.success = reader.bool();
-                        break;
-                    }
-                case 2: {
-                        message.error = reader.string();
-                        break;
-                    }
                 case 3: {
                         if (message.videoInfo === $util.emptyObject)
                             message.videoInfo = {};
@@ -4574,12 +4354,6 @@ export const neutron = $root.neutron = (() => {
         PlayVideoResponse.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.success != null && message.hasOwnProperty("success"))
-                if (typeof message.success !== "boolean")
-                    return "success: boolean expected";
-            if (message.error != null && message.hasOwnProperty("error"))
-                if (!$util.isString(message.error))
-                    return "error: string expected";
             if (message.videoInfo != null && message.hasOwnProperty("videoInfo")) {
                 if (!$util.isObject(message.videoInfo))
                     return "videoInfo: object expected";
@@ -4605,10 +4379,6 @@ export const neutron = $root.neutron = (() => {
             if (object instanceof $root.neutron.PlayVideoResponse)
                 return object;
             let message = new $root.neutron.PlayVideoResponse();
-            if (object.success != null)
-                message.success = Boolean(object.success);
-            if (object.error != null)
-                message.error = String(object.error);
             if (object.videoInfo) {
                 if (typeof object.videoInfo !== "object")
                     throw TypeError(".neutron.PlayVideoResponse.videoInfo: object expected");
@@ -4637,14 +4407,6 @@ export const neutron = $root.neutron = (() => {
             let object = {};
             if (options.objects || options.defaults)
                 object.videoInfo = {};
-            if (options.defaults) {
-                object.success = false;
-                object.error = "";
-            }
-            if (message.success != null && message.hasOwnProperty("success"))
-                object.success = message.success;
-            if (message.error != null && message.hasOwnProperty("error"))
-                object.error = message.error;
             let keys2;
             if (message.videoInfo && (keys2 = Object.keys(message.videoInfo)).length) {
                 object.videoInfo = {};
@@ -4683,6 +4445,263 @@ export const neutron = $root.neutron = (() => {
         return PlayVideoResponse;
     })();
 
+    neutron.ErrorMessage = (function() {
+
+        /**
+         * Properties of an ErrorMessage.
+         * @memberof neutron
+         * @interface IErrorMessage
+         * @property {boolean|null} [success] ErrorMessage success
+         * @property {string|null} [error] ErrorMessage error
+         * @property {google.protobuf.IStruct|null} [details] ErrorMessage details
+         */
+
+        /**
+         * Constructs a new ErrorMessage.
+         * @memberof neutron
+         * @classdesc Represents an ErrorMessage.
+         * @implements IErrorMessage
+         * @constructor
+         * @param {neutron.IErrorMessage=} [properties] Properties to set
+         */
+        function ErrorMessage(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ErrorMessage success.
+         * @member {boolean} success
+         * @memberof neutron.ErrorMessage
+         * @instance
+         */
+        ErrorMessage.prototype.success = false;
+
+        /**
+         * ErrorMessage error.
+         * @member {string} error
+         * @memberof neutron.ErrorMessage
+         * @instance
+         */
+        ErrorMessage.prototype.error = "";
+
+        /**
+         * ErrorMessage details.
+         * @member {google.protobuf.IStruct|null|undefined} details
+         * @memberof neutron.ErrorMessage
+         * @instance
+         */
+        ErrorMessage.prototype.details = null;
+
+        /**
+         * Creates a new ErrorMessage instance using the specified properties.
+         * @function create
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {neutron.IErrorMessage=} [properties] Properties to set
+         * @returns {neutron.ErrorMessage} ErrorMessage instance
+         */
+        ErrorMessage.create = function create(properties) {
+            return new ErrorMessage(properties);
+        };
+
+        /**
+         * Encodes the specified ErrorMessage message. Does not implicitly {@link neutron.ErrorMessage.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {neutron.IErrorMessage} message ErrorMessage message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ErrorMessage.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
+                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
+            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.error);
+            if (message.details != null && Object.hasOwnProperty.call(message, "details"))
+                $root.google.protobuf.Struct.encode(message.details, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ErrorMessage message, length delimited. Does not implicitly {@link neutron.ErrorMessage.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {neutron.IErrorMessage} message ErrorMessage message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ErrorMessage.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an ErrorMessage message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.ErrorMessage} ErrorMessage
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ErrorMessage.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.ErrorMessage();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.success = reader.bool();
+                        break;
+                    }
+                case 2: {
+                        message.error = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.details = $root.google.protobuf.Struct.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an ErrorMessage message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.ErrorMessage} ErrorMessage
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ErrorMessage.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an ErrorMessage message.
+         * @function verify
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ErrorMessage.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.success != null && message.hasOwnProperty("success"))
+                if (typeof message.success !== "boolean")
+                    return "success: boolean expected";
+            if (message.error != null && message.hasOwnProperty("error"))
+                if (!$util.isString(message.error))
+                    return "error: string expected";
+            if (message.details != null && message.hasOwnProperty("details")) {
+                let error = $root.google.protobuf.Struct.verify(message.details);
+                if (error)
+                    return "details." + error;
+            }
+            return null;
+        };
+
+        /**
+         * Creates an ErrorMessage message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.ErrorMessage} ErrorMessage
+         */
+        ErrorMessage.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.ErrorMessage)
+                return object;
+            let message = new $root.neutron.ErrorMessage();
+            if (object.success != null)
+                message.success = Boolean(object.success);
+            if (object.error != null)
+                message.error = String(object.error);
+            if (object.details != null) {
+                if (typeof object.details !== "object")
+                    throw TypeError(".neutron.ErrorMessage.details: object expected");
+                message.details = $root.google.protobuf.Struct.fromObject(object.details);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an ErrorMessage message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {neutron.ErrorMessage} message ErrorMessage
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ErrorMessage.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.success = false;
+                object.error = "";
+                object.details = null;
+            }
+            if (message.success != null && message.hasOwnProperty("success"))
+                object.success = message.success;
+            if (message.error != null && message.hasOwnProperty("error"))
+                object.error = message.error;
+            if (message.details != null && message.hasOwnProperty("details"))
+                object.details = $root.google.protobuf.Struct.toObject(message.details, options);
+            return object;
+        };
+
+        /**
+         * Converts this ErrorMessage to JSON.
+         * @function toJSON
+         * @memberof neutron.ErrorMessage
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ErrorMessage.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ErrorMessage
+         * @function getTypeUrl
+         * @memberof neutron.ErrorMessage
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ErrorMessage.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.ErrorMessage";
+        };
+
+        return ErrorMessage;
+    })();
+
     neutron.RemoteMessage = (function() {
 
         /**
@@ -4693,7 +4712,33 @@ export const neutron = $root.neutron = (() => {
          * @property {string|null} [source] RemoteMessage source
          * @property {string|null} [destination] RemoteMessage destination
          * @property {string|null} [id] RemoteMessage id
-         * @property {google.protobuf.IStruct|null} [payload] RemoteMessage payload
+         * @property {google.protobuf.IAny|null} [any] RemoteMessage any
+         * @property {Uint8Array|null} [rawData] RemoteMessage rawData
+         * @property {neutron.IErrorMessage|null} [error] RemoteMessage error
+         * @property {neutron.ILoginRequest|null} [loginRequest] RemoteMessage loginRequest
+         * @property {neutron.ILoginResponse|null} [loginResponse] RemoteMessage loginResponse
+         * @property {neutron.IFileInformation|null} [fileInformation] RemoteMessage fileInformation
+         * @property {neutron.IImageRepoHistoryRequest|null} [imageRepoHistoryRequest] RemoteMessage imageRepoHistoryRequest
+         * @property {neutron.IImageRepoHistoryItem|null} [imageRepoHistoryItem] RemoteMessage imageRepoHistoryItem
+         * @property {neutron.IImageRepoHistoryResponse|null} [imageRepoHistoryResponse] RemoteMessage imageRepoHistoryResponse
+         * @property {neutron.IFileOperationRequest|null} [fileOperationRequest] RemoteMessage fileOperationRequest
+         * @property {neutron.IFileOperationResponse|null} [fileOperationResponse] RemoteMessage fileOperationResponse
+         * @property {neutron.IPrepareFileReceiveRequest|null} [prepareFileReceiveRequest] RemoteMessage prepareFileReceiveRequest
+         * @property {neutron.IPrepareFileReceiveResponse|null} [prepareFileReceiveResponse] RemoteMessage prepareFileReceiveResponse
+         * @property {neutron.IGetFileInfoRequest|null} [getFileInfoRequest] RemoteMessage getFileInfoRequest
+         * @property {neutron.IGetFileInfoResponse|null} [getFileInfoResponse] RemoteMessage getFileInfoResponse
+         * @property {neutron.IListFilesRequest|null} [listFilesRequest] RemoteMessage listFilesRequest
+         * @property {neutron.IListFilesResponse|null} [listFilesResponse] RemoteMessage listFilesResponse
+         * @property {neutron.IGetFileSystemVersionRequest|null} [getFileSystemVersionRequest] RemoteMessage getFileSystemVersionRequest
+         * @property {neutron.IGetFileSystemVersionResponse|null} [getFileSystemVersionResponse] RemoteMessage getFileSystemVersionResponse
+         * @property {neutron.IGetThumbnailRequest|null} [getThumbnailRequest] RemoteMessage getThumbnailRequest
+         * @property {neutron.IGetThumbnailResponse|null} [getThumbnailResponse] RemoteMessage getThumbnailResponse
+         * @property {neutron.IPlayVideoRequest|null} [playVideoRequest] RemoteMessage playVideoRequest
+         * @property {neutron.IPlayVideoResponse|null} [playVideoResponse] RemoteMessage playVideoResponse
+         * @property {neutron.IWebRTCOfferContent|null} [webrtcOfferContent] RemoteMessage webrtcOfferContent
+         * @property {neutron.IWebRTCAnswerContent|null} [webrtcAnswerContent] RemoteMessage webrtcAnswerContent
+         * @property {neutron.IWebRTCAnswerCandidatesContent|null} [webrtcAnswerCandidatesContent] RemoteMessage webrtcAnswerCandidatesContent
+         * @property {neutron.IWebRTCCandidateContent|null} [webrtcCandidateContent] RemoteMessage webrtcCandidateContent
          */
 
         /**
@@ -4744,12 +4789,234 @@ export const neutron = $root.neutron = (() => {
         RemoteMessage.prototype.id = "";
 
         /**
-         * RemoteMessage payload.
-         * @member {google.protobuf.IStruct|null|undefined} payload
+         * RemoteMessage any.
+         * @member {google.protobuf.IAny|null|undefined} any
          * @memberof neutron.RemoteMessage
          * @instance
          */
-        RemoteMessage.prototype.payload = null;
+        RemoteMessage.prototype.any = null;
+
+        /**
+         * RemoteMessage rawData.
+         * @member {Uint8Array|null|undefined} rawData
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.rawData = null;
+
+        /**
+         * RemoteMessage error.
+         * @member {neutron.IErrorMessage|null|undefined} error
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.error = null;
+
+        /**
+         * RemoteMessage loginRequest.
+         * @member {neutron.ILoginRequest|null|undefined} loginRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.loginRequest = null;
+
+        /**
+         * RemoteMessage loginResponse.
+         * @member {neutron.ILoginResponse|null|undefined} loginResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.loginResponse = null;
+
+        /**
+         * RemoteMessage fileInformation.
+         * @member {neutron.IFileInformation|null|undefined} fileInformation
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.fileInformation = null;
+
+        /**
+         * RemoteMessage imageRepoHistoryRequest.
+         * @member {neutron.IImageRepoHistoryRequest|null|undefined} imageRepoHistoryRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.imageRepoHistoryRequest = null;
+
+        /**
+         * RemoteMessage imageRepoHistoryItem.
+         * @member {neutron.IImageRepoHistoryItem|null|undefined} imageRepoHistoryItem
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.imageRepoHistoryItem = null;
+
+        /**
+         * RemoteMessage imageRepoHistoryResponse.
+         * @member {neutron.IImageRepoHistoryResponse|null|undefined} imageRepoHistoryResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.imageRepoHistoryResponse = null;
+
+        /**
+         * RemoteMessage fileOperationRequest.
+         * @member {neutron.IFileOperationRequest|null|undefined} fileOperationRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.fileOperationRequest = null;
+
+        /**
+         * RemoteMessage fileOperationResponse.
+         * @member {neutron.IFileOperationResponse|null|undefined} fileOperationResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.fileOperationResponse = null;
+
+        /**
+         * RemoteMessage prepareFileReceiveRequest.
+         * @member {neutron.IPrepareFileReceiveRequest|null|undefined} prepareFileReceiveRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.prepareFileReceiveRequest = null;
+
+        /**
+         * RemoteMessage prepareFileReceiveResponse.
+         * @member {neutron.IPrepareFileReceiveResponse|null|undefined} prepareFileReceiveResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.prepareFileReceiveResponse = null;
+
+        /**
+         * RemoteMessage getFileInfoRequest.
+         * @member {neutron.IGetFileInfoRequest|null|undefined} getFileInfoRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getFileInfoRequest = null;
+
+        /**
+         * RemoteMessage getFileInfoResponse.
+         * @member {neutron.IGetFileInfoResponse|null|undefined} getFileInfoResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getFileInfoResponse = null;
+
+        /**
+         * RemoteMessage listFilesRequest.
+         * @member {neutron.IListFilesRequest|null|undefined} listFilesRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.listFilesRequest = null;
+
+        /**
+         * RemoteMessage listFilesResponse.
+         * @member {neutron.IListFilesResponse|null|undefined} listFilesResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.listFilesResponse = null;
+
+        /**
+         * RemoteMessage getFileSystemVersionRequest.
+         * @member {neutron.IGetFileSystemVersionRequest|null|undefined} getFileSystemVersionRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getFileSystemVersionRequest = null;
+
+        /**
+         * RemoteMessage getFileSystemVersionResponse.
+         * @member {neutron.IGetFileSystemVersionResponse|null|undefined} getFileSystemVersionResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getFileSystemVersionResponse = null;
+
+        /**
+         * RemoteMessage getThumbnailRequest.
+         * @member {neutron.IGetThumbnailRequest|null|undefined} getThumbnailRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getThumbnailRequest = null;
+
+        /**
+         * RemoteMessage getThumbnailResponse.
+         * @member {neutron.IGetThumbnailResponse|null|undefined} getThumbnailResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.getThumbnailResponse = null;
+
+        /**
+         * RemoteMessage playVideoRequest.
+         * @member {neutron.IPlayVideoRequest|null|undefined} playVideoRequest
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.playVideoRequest = null;
+
+        /**
+         * RemoteMessage playVideoResponse.
+         * @member {neutron.IPlayVideoResponse|null|undefined} playVideoResponse
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.playVideoResponse = null;
+
+        /**
+         * RemoteMessage webrtcOfferContent.
+         * @member {neutron.IWebRTCOfferContent|null|undefined} webrtcOfferContent
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.webrtcOfferContent = null;
+
+        /**
+         * RemoteMessage webrtcAnswerContent.
+         * @member {neutron.IWebRTCAnswerContent|null|undefined} webrtcAnswerContent
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.webrtcAnswerContent = null;
+
+        /**
+         * RemoteMessage webrtcAnswerCandidatesContent.
+         * @member {neutron.IWebRTCAnswerCandidatesContent|null|undefined} webrtcAnswerCandidatesContent
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.webrtcAnswerCandidatesContent = null;
+
+        /**
+         * RemoteMessage webrtcCandidateContent.
+         * @member {neutron.IWebRTCCandidateContent|null|undefined} webrtcCandidateContent
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        RemoteMessage.prototype.webrtcCandidateContent = null;
+
+        // OneOf field names bound to virtual getters and setters
+        let $oneOfFields;
+
+        /**
+         * RemoteMessage payload.
+         * @member {"any"|"rawData"|"error"|"loginRequest"|"loginResponse"|"fileInformation"|"imageRepoHistoryRequest"|"imageRepoHistoryItem"|"imageRepoHistoryResponse"|"fileOperationRequest"|"fileOperationResponse"|"prepareFileReceiveRequest"|"prepareFileReceiveResponse"|"getFileInfoRequest"|"getFileInfoResponse"|"listFilesRequest"|"listFilesResponse"|"getFileSystemVersionRequest"|"getFileSystemVersionResponse"|"getThumbnailRequest"|"getThumbnailResponse"|"playVideoRequest"|"playVideoResponse"|"webrtcOfferContent"|"webrtcAnswerContent"|"webrtcAnswerCandidatesContent"|"webrtcCandidateContent"|undefined} payload
+         * @memberof neutron.RemoteMessage
+         * @instance
+         */
+        Object.defineProperty(RemoteMessage.prototype, "payload", {
+            get: $util.oneOfGetter($oneOfFields = ["any", "rawData", "error", "loginRequest", "loginResponse", "fileInformation", "imageRepoHistoryRequest", "imageRepoHistoryItem", "imageRepoHistoryResponse", "fileOperationRequest", "fileOperationResponse", "prepareFileReceiveRequest", "prepareFileReceiveResponse", "getFileInfoRequest", "getFileInfoResponse", "listFilesRequest", "listFilesResponse", "getFileSystemVersionRequest", "getFileSystemVersionResponse", "getThumbnailRequest", "getThumbnailResponse", "playVideoRequest", "playVideoResponse", "webrtcOfferContent", "webrtcAnswerContent", "webrtcAnswerCandidatesContent", "webrtcCandidateContent"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
 
         /**
          * Creates a new RemoteMessage instance using the specified properties.
@@ -4783,8 +5050,60 @@ export const neutron = $root.neutron = (() => {
                 writer.uint32(/* id 3, wireType 2 =*/26).string(message.destination);
             if (message.id != null && Object.hasOwnProperty.call(message, "id"))
                 writer.uint32(/* id 4, wireType 2 =*/34).string(message.id);
-            if (message.payload != null && Object.hasOwnProperty.call(message, "payload"))
-                $root.google.protobuf.Struct.encode(message.payload, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+            if (message.any != null && Object.hasOwnProperty.call(message, "any"))
+                $root.google.protobuf.Any.encode(message.any, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+            if (message.rawData != null && Object.hasOwnProperty.call(message, "rawData"))
+                writer.uint32(/* id 6, wireType 2 =*/50).bytes(message.rawData);
+            if (message.error != null && Object.hasOwnProperty.call(message, "error"))
+                $root.neutron.ErrorMessage.encode(message.error, writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
+            if (message.loginRequest != null && Object.hasOwnProperty.call(message, "loginRequest"))
+                $root.neutron.LoginRequest.encode(message.loginRequest, writer.uint32(/* id 1000, wireType 2 =*/8002).fork()).ldelim();
+            if (message.loginResponse != null && Object.hasOwnProperty.call(message, "loginResponse"))
+                $root.neutron.LoginResponse.encode(message.loginResponse, writer.uint32(/* id 1001, wireType 2 =*/8010).fork()).ldelim();
+            if (message.fileInformation != null && Object.hasOwnProperty.call(message, "fileInformation"))
+                $root.neutron.FileInformation.encode(message.fileInformation, writer.uint32(/* id 1501, wireType 2 =*/12010).fork()).ldelim();
+            if (message.imageRepoHistoryRequest != null && Object.hasOwnProperty.call(message, "imageRepoHistoryRequest"))
+                $root.neutron.ImageRepoHistoryRequest.encode(message.imageRepoHistoryRequest, writer.uint32(/* id 1502, wireType 2 =*/12018).fork()).ldelim();
+            if (message.imageRepoHistoryItem != null && Object.hasOwnProperty.call(message, "imageRepoHistoryItem"))
+                $root.neutron.ImageRepoHistoryItem.encode(message.imageRepoHistoryItem, writer.uint32(/* id 1503, wireType 2 =*/12026).fork()).ldelim();
+            if (message.imageRepoHistoryResponse != null && Object.hasOwnProperty.call(message, "imageRepoHistoryResponse"))
+                $root.neutron.ImageRepoHistoryResponse.encode(message.imageRepoHistoryResponse, writer.uint32(/* id 1504, wireType 2 =*/12034).fork()).ldelim();
+            if (message.fileOperationRequest != null && Object.hasOwnProperty.call(message, "fileOperationRequest"))
+                $root.neutron.FileOperationRequest.encode(message.fileOperationRequest, writer.uint32(/* id 1505, wireType 2 =*/12042).fork()).ldelim();
+            if (message.fileOperationResponse != null && Object.hasOwnProperty.call(message, "fileOperationResponse"))
+                $root.neutron.FileOperationResponse.encode(message.fileOperationResponse, writer.uint32(/* id 1506, wireType 2 =*/12050).fork()).ldelim();
+            if (message.prepareFileReceiveRequest != null && Object.hasOwnProperty.call(message, "prepareFileReceiveRequest"))
+                $root.neutron.PrepareFileReceiveRequest.encode(message.prepareFileReceiveRequest, writer.uint32(/* id 1507, wireType 2 =*/12058).fork()).ldelim();
+            if (message.prepareFileReceiveResponse != null && Object.hasOwnProperty.call(message, "prepareFileReceiveResponse"))
+                $root.neutron.PrepareFileReceiveResponse.encode(message.prepareFileReceiveResponse, writer.uint32(/* id 1508, wireType 2 =*/12066).fork()).ldelim();
+            if (message.getFileInfoRequest != null && Object.hasOwnProperty.call(message, "getFileInfoRequest"))
+                $root.neutron.GetFileInfoRequest.encode(message.getFileInfoRequest, writer.uint32(/* id 1509, wireType 2 =*/12074).fork()).ldelim();
+            if (message.getFileInfoResponse != null && Object.hasOwnProperty.call(message, "getFileInfoResponse"))
+                $root.neutron.GetFileInfoResponse.encode(message.getFileInfoResponse, writer.uint32(/* id 1510, wireType 2 =*/12082).fork()).ldelim();
+            if (message.listFilesRequest != null && Object.hasOwnProperty.call(message, "listFilesRequest"))
+                $root.neutron.ListFilesRequest.encode(message.listFilesRequest, writer.uint32(/* id 1511, wireType 2 =*/12090).fork()).ldelim();
+            if (message.listFilesResponse != null && Object.hasOwnProperty.call(message, "listFilesResponse"))
+                $root.neutron.ListFilesResponse.encode(message.listFilesResponse, writer.uint32(/* id 1512, wireType 2 =*/12098).fork()).ldelim();
+            if (message.getFileSystemVersionRequest != null && Object.hasOwnProperty.call(message, "getFileSystemVersionRequest"))
+                $root.neutron.GetFileSystemVersionRequest.encode(message.getFileSystemVersionRequest, writer.uint32(/* id 1513, wireType 2 =*/12106).fork()).ldelim();
+            if (message.getFileSystemVersionResponse != null && Object.hasOwnProperty.call(message, "getFileSystemVersionResponse"))
+                $root.neutron.GetFileSystemVersionResponse.encode(message.getFileSystemVersionResponse, writer.uint32(/* id 1514, wireType 2 =*/12114).fork()).ldelim();
+            if (message.getThumbnailRequest != null && Object.hasOwnProperty.call(message, "getThumbnailRequest"))
+                $root.neutron.GetThumbnailRequest.encode(message.getThumbnailRequest, writer.uint32(/* id 1515, wireType 2 =*/12122).fork()).ldelim();
+            if (message.getThumbnailResponse != null && Object.hasOwnProperty.call(message, "getThumbnailResponse"))
+                $root.neutron.GetThumbnailResponse.encode(message.getThumbnailResponse, writer.uint32(/* id 1516, wireType 2 =*/12130).fork()).ldelim();
+            if (message.playVideoRequest != null && Object.hasOwnProperty.call(message, "playVideoRequest"))
+                $root.neutron.PlayVideoRequest.encode(message.playVideoRequest, writer.uint32(/* id 1517, wireType 2 =*/12138).fork()).ldelim();
+            if (message.playVideoResponse != null && Object.hasOwnProperty.call(message, "playVideoResponse"))
+                $root.neutron.PlayVideoResponse.encode(message.playVideoResponse, writer.uint32(/* id 1518, wireType 2 =*/12146).fork()).ldelim();
+            if (message.webrtcOfferContent != null && Object.hasOwnProperty.call(message, "webrtcOfferContent"))
+                $root.neutron.WebRTCOfferContent.encode(message.webrtcOfferContent, writer.uint32(/* id 2000, wireType 2 =*/16002).fork()).ldelim();
+            if (message.webrtcAnswerContent != null && Object.hasOwnProperty.call(message, "webrtcAnswerContent"))
+                $root.neutron.WebRTCAnswerContent.encode(message.webrtcAnswerContent, writer.uint32(/* id 2001, wireType 2 =*/16010).fork()).ldelim();
+            if (message.webrtcAnswerCandidatesContent != null && Object.hasOwnProperty.call(message, "webrtcAnswerCandidatesContent"))
+                $root.neutron.WebRTCAnswerCandidatesContent.encode(message.webrtcAnswerCandidatesContent, writer.uint32(/* id 2002, wireType 2 =*/16018).fork()).ldelim();
+            if (message.webrtcCandidateContent != null && Object.hasOwnProperty.call(message, "webrtcCandidateContent"))
+                $root.neutron.WebRTCCandidateContent.encode(message.webrtcCandidateContent, writer.uint32(/* id 2003, wireType 2 =*/16026).fork()).ldelim();
             return writer;
         };
 
@@ -4838,7 +5157,111 @@ export const neutron = $root.neutron = (() => {
                         break;
                     }
                 case 5: {
-                        message.payload = $root.google.protobuf.Struct.decode(reader, reader.uint32());
+                        message.any = $root.google.protobuf.Any.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 6: {
+                        message.rawData = reader.bytes();
+                        break;
+                    }
+                case 7: {
+                        message.error = $root.neutron.ErrorMessage.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1000: {
+                        message.loginRequest = $root.neutron.LoginRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1001: {
+                        message.loginResponse = $root.neutron.LoginResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1501: {
+                        message.fileInformation = $root.neutron.FileInformation.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1502: {
+                        message.imageRepoHistoryRequest = $root.neutron.ImageRepoHistoryRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1503: {
+                        message.imageRepoHistoryItem = $root.neutron.ImageRepoHistoryItem.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1504: {
+                        message.imageRepoHistoryResponse = $root.neutron.ImageRepoHistoryResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1505: {
+                        message.fileOperationRequest = $root.neutron.FileOperationRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1506: {
+                        message.fileOperationResponse = $root.neutron.FileOperationResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1507: {
+                        message.prepareFileReceiveRequest = $root.neutron.PrepareFileReceiveRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1508: {
+                        message.prepareFileReceiveResponse = $root.neutron.PrepareFileReceiveResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1509: {
+                        message.getFileInfoRequest = $root.neutron.GetFileInfoRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1510: {
+                        message.getFileInfoResponse = $root.neutron.GetFileInfoResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1511: {
+                        message.listFilesRequest = $root.neutron.ListFilesRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1512: {
+                        message.listFilesResponse = $root.neutron.ListFilesResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1513: {
+                        message.getFileSystemVersionRequest = $root.neutron.GetFileSystemVersionRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1514: {
+                        message.getFileSystemVersionResponse = $root.neutron.GetFileSystemVersionResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1515: {
+                        message.getThumbnailRequest = $root.neutron.GetThumbnailRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1516: {
+                        message.getThumbnailResponse = $root.neutron.GetThumbnailResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1517: {
+                        message.playVideoRequest = $root.neutron.PlayVideoRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 1518: {
+                        message.playVideoResponse = $root.neutron.PlayVideoResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2000: {
+                        message.webrtcOfferContent = $root.neutron.WebRTCOfferContent.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2001: {
+                        message.webrtcAnswerContent = $root.neutron.WebRTCAnswerContent.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2002: {
+                        message.webrtcAnswerCandidatesContent = $root.neutron.WebRTCAnswerCandidatesContent.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2003: {
+                        message.webrtcCandidateContent = $root.neutron.WebRTCCandidateContent.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -4876,6 +5299,7 @@ export const neutron = $root.neutron = (() => {
         RemoteMessage.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
+            let properties = {};
             if (message.type != null && message.hasOwnProperty("type"))
                 if (!$util.isString(message.type))
                     return "type: string expected";
@@ -4888,10 +5312,270 @@ export const neutron = $root.neutron = (() => {
             if (message.id != null && message.hasOwnProperty("id"))
                 if (!$util.isString(message.id))
                     return "id: string expected";
-            if (message.payload != null && message.hasOwnProperty("payload")) {
-                let error = $root.google.protobuf.Struct.verify(message.payload);
-                if (error)
-                    return "payload." + error;
+            if (message.any != null && message.hasOwnProperty("any")) {
+                properties.payload = 1;
+                {
+                    let error = $root.google.protobuf.Any.verify(message.any);
+                    if (error)
+                        return "any." + error;
+                }
+            }
+            if (message.rawData != null && message.hasOwnProperty("rawData")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                if (!(message.rawData && typeof message.rawData.length === "number" || $util.isString(message.rawData)))
+                    return "rawData: buffer expected";
+            }
+            if (message.error != null && message.hasOwnProperty("error")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ErrorMessage.verify(message.error);
+                    if (error)
+                        return "error." + error;
+                }
+            }
+            if (message.loginRequest != null && message.hasOwnProperty("loginRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.LoginRequest.verify(message.loginRequest);
+                    if (error)
+                        return "loginRequest." + error;
+                }
+            }
+            if (message.loginResponse != null && message.hasOwnProperty("loginResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.LoginResponse.verify(message.loginResponse);
+                    if (error)
+                        return "loginResponse." + error;
+                }
+            }
+            if (message.fileInformation != null && message.hasOwnProperty("fileInformation")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.FileInformation.verify(message.fileInformation);
+                    if (error)
+                        return "fileInformation." + error;
+                }
+            }
+            if (message.imageRepoHistoryRequest != null && message.hasOwnProperty("imageRepoHistoryRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ImageRepoHistoryRequest.verify(message.imageRepoHistoryRequest);
+                    if (error)
+                        return "imageRepoHistoryRequest." + error;
+                }
+            }
+            if (message.imageRepoHistoryItem != null && message.hasOwnProperty("imageRepoHistoryItem")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ImageRepoHistoryItem.verify(message.imageRepoHistoryItem);
+                    if (error)
+                        return "imageRepoHistoryItem." + error;
+                }
+            }
+            if (message.imageRepoHistoryResponse != null && message.hasOwnProperty("imageRepoHistoryResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ImageRepoHistoryResponse.verify(message.imageRepoHistoryResponse);
+                    if (error)
+                        return "imageRepoHistoryResponse." + error;
+                }
+            }
+            if (message.fileOperationRequest != null && message.hasOwnProperty("fileOperationRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.FileOperationRequest.verify(message.fileOperationRequest);
+                    if (error)
+                        return "fileOperationRequest." + error;
+                }
+            }
+            if (message.fileOperationResponse != null && message.hasOwnProperty("fileOperationResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.FileOperationResponse.verify(message.fileOperationResponse);
+                    if (error)
+                        return "fileOperationResponse." + error;
+                }
+            }
+            if (message.prepareFileReceiveRequest != null && message.hasOwnProperty("prepareFileReceiveRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.PrepareFileReceiveRequest.verify(message.prepareFileReceiveRequest);
+                    if (error)
+                        return "prepareFileReceiveRequest." + error;
+                }
+            }
+            if (message.prepareFileReceiveResponse != null && message.hasOwnProperty("prepareFileReceiveResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.PrepareFileReceiveResponse.verify(message.prepareFileReceiveResponse);
+                    if (error)
+                        return "prepareFileReceiveResponse." + error;
+                }
+            }
+            if (message.getFileInfoRequest != null && message.hasOwnProperty("getFileInfoRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetFileInfoRequest.verify(message.getFileInfoRequest);
+                    if (error)
+                        return "getFileInfoRequest." + error;
+                }
+            }
+            if (message.getFileInfoResponse != null && message.hasOwnProperty("getFileInfoResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetFileInfoResponse.verify(message.getFileInfoResponse);
+                    if (error)
+                        return "getFileInfoResponse." + error;
+                }
+            }
+            if (message.listFilesRequest != null && message.hasOwnProperty("listFilesRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ListFilesRequest.verify(message.listFilesRequest);
+                    if (error)
+                        return "listFilesRequest." + error;
+                }
+            }
+            if (message.listFilesResponse != null && message.hasOwnProperty("listFilesResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.ListFilesResponse.verify(message.listFilesResponse);
+                    if (error)
+                        return "listFilesResponse." + error;
+                }
+            }
+            if (message.getFileSystemVersionRequest != null && message.hasOwnProperty("getFileSystemVersionRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetFileSystemVersionRequest.verify(message.getFileSystemVersionRequest);
+                    if (error)
+                        return "getFileSystemVersionRequest." + error;
+                }
+            }
+            if (message.getFileSystemVersionResponse != null && message.hasOwnProperty("getFileSystemVersionResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetFileSystemVersionResponse.verify(message.getFileSystemVersionResponse);
+                    if (error)
+                        return "getFileSystemVersionResponse." + error;
+                }
+            }
+            if (message.getThumbnailRequest != null && message.hasOwnProperty("getThumbnailRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetThumbnailRequest.verify(message.getThumbnailRequest);
+                    if (error)
+                        return "getThumbnailRequest." + error;
+                }
+            }
+            if (message.getThumbnailResponse != null && message.hasOwnProperty("getThumbnailResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.GetThumbnailResponse.verify(message.getThumbnailResponse);
+                    if (error)
+                        return "getThumbnailResponse." + error;
+                }
+            }
+            if (message.playVideoRequest != null && message.hasOwnProperty("playVideoRequest")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.PlayVideoRequest.verify(message.playVideoRequest);
+                    if (error)
+                        return "playVideoRequest." + error;
+                }
+            }
+            if (message.playVideoResponse != null && message.hasOwnProperty("playVideoResponse")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.PlayVideoResponse.verify(message.playVideoResponse);
+                    if (error)
+                        return "playVideoResponse." + error;
+                }
+            }
+            if (message.webrtcOfferContent != null && message.hasOwnProperty("webrtcOfferContent")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.WebRTCOfferContent.verify(message.webrtcOfferContent);
+                    if (error)
+                        return "webrtcOfferContent." + error;
+                }
+            }
+            if (message.webrtcAnswerContent != null && message.hasOwnProperty("webrtcAnswerContent")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.WebRTCAnswerContent.verify(message.webrtcAnswerContent);
+                    if (error)
+                        return "webrtcAnswerContent." + error;
+                }
+            }
+            if (message.webrtcAnswerCandidatesContent != null && message.hasOwnProperty("webrtcAnswerCandidatesContent")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.WebRTCAnswerCandidatesContent.verify(message.webrtcAnswerCandidatesContent);
+                    if (error)
+                        return "webrtcAnswerCandidatesContent." + error;
+                }
+            }
+            if (message.webrtcCandidateContent != null && message.hasOwnProperty("webrtcCandidateContent")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.neutron.WebRTCCandidateContent.verify(message.webrtcCandidateContent);
+                    if (error)
+                        return "webrtcCandidateContent." + error;
+                }
             }
             return null;
         };
@@ -4916,10 +5600,140 @@ export const neutron = $root.neutron = (() => {
                 message.destination = String(object.destination);
             if (object.id != null)
                 message.id = String(object.id);
-            if (object.payload != null) {
-                if (typeof object.payload !== "object")
-                    throw TypeError(".neutron.RemoteMessage.payload: object expected");
-                message.payload = $root.google.protobuf.Struct.fromObject(object.payload);
+            if (object.any != null) {
+                if (typeof object.any !== "object")
+                    throw TypeError(".neutron.RemoteMessage.any: object expected");
+                message.any = $root.google.protobuf.Any.fromObject(object.any);
+            }
+            if (object.rawData != null)
+                if (typeof object.rawData === "string")
+                    $util.base64.decode(object.rawData, message.rawData = $util.newBuffer($util.base64.length(object.rawData)), 0);
+                else if (object.rawData.length >= 0)
+                    message.rawData = object.rawData;
+            if (object.error != null) {
+                if (typeof object.error !== "object")
+                    throw TypeError(".neutron.RemoteMessage.error: object expected");
+                message.error = $root.neutron.ErrorMessage.fromObject(object.error);
+            }
+            if (object.loginRequest != null) {
+                if (typeof object.loginRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.loginRequest: object expected");
+                message.loginRequest = $root.neutron.LoginRequest.fromObject(object.loginRequest);
+            }
+            if (object.loginResponse != null) {
+                if (typeof object.loginResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.loginResponse: object expected");
+                message.loginResponse = $root.neutron.LoginResponse.fromObject(object.loginResponse);
+            }
+            if (object.fileInformation != null) {
+                if (typeof object.fileInformation !== "object")
+                    throw TypeError(".neutron.RemoteMessage.fileInformation: object expected");
+                message.fileInformation = $root.neutron.FileInformation.fromObject(object.fileInformation);
+            }
+            if (object.imageRepoHistoryRequest != null) {
+                if (typeof object.imageRepoHistoryRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.imageRepoHistoryRequest: object expected");
+                message.imageRepoHistoryRequest = $root.neutron.ImageRepoHistoryRequest.fromObject(object.imageRepoHistoryRequest);
+            }
+            if (object.imageRepoHistoryItem != null) {
+                if (typeof object.imageRepoHistoryItem !== "object")
+                    throw TypeError(".neutron.RemoteMessage.imageRepoHistoryItem: object expected");
+                message.imageRepoHistoryItem = $root.neutron.ImageRepoHistoryItem.fromObject(object.imageRepoHistoryItem);
+            }
+            if (object.imageRepoHistoryResponse != null) {
+                if (typeof object.imageRepoHistoryResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.imageRepoHistoryResponse: object expected");
+                message.imageRepoHistoryResponse = $root.neutron.ImageRepoHistoryResponse.fromObject(object.imageRepoHistoryResponse);
+            }
+            if (object.fileOperationRequest != null) {
+                if (typeof object.fileOperationRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.fileOperationRequest: object expected");
+                message.fileOperationRequest = $root.neutron.FileOperationRequest.fromObject(object.fileOperationRequest);
+            }
+            if (object.fileOperationResponse != null) {
+                if (typeof object.fileOperationResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.fileOperationResponse: object expected");
+                message.fileOperationResponse = $root.neutron.FileOperationResponse.fromObject(object.fileOperationResponse);
+            }
+            if (object.prepareFileReceiveRequest != null) {
+                if (typeof object.prepareFileReceiveRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.prepareFileReceiveRequest: object expected");
+                message.prepareFileReceiveRequest = $root.neutron.PrepareFileReceiveRequest.fromObject(object.prepareFileReceiveRequest);
+            }
+            if (object.prepareFileReceiveResponse != null) {
+                if (typeof object.prepareFileReceiveResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.prepareFileReceiveResponse: object expected");
+                message.prepareFileReceiveResponse = $root.neutron.PrepareFileReceiveResponse.fromObject(object.prepareFileReceiveResponse);
+            }
+            if (object.getFileInfoRequest != null) {
+                if (typeof object.getFileInfoRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getFileInfoRequest: object expected");
+                message.getFileInfoRequest = $root.neutron.GetFileInfoRequest.fromObject(object.getFileInfoRequest);
+            }
+            if (object.getFileInfoResponse != null) {
+                if (typeof object.getFileInfoResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getFileInfoResponse: object expected");
+                message.getFileInfoResponse = $root.neutron.GetFileInfoResponse.fromObject(object.getFileInfoResponse);
+            }
+            if (object.listFilesRequest != null) {
+                if (typeof object.listFilesRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.listFilesRequest: object expected");
+                message.listFilesRequest = $root.neutron.ListFilesRequest.fromObject(object.listFilesRequest);
+            }
+            if (object.listFilesResponse != null) {
+                if (typeof object.listFilesResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.listFilesResponse: object expected");
+                message.listFilesResponse = $root.neutron.ListFilesResponse.fromObject(object.listFilesResponse);
+            }
+            if (object.getFileSystemVersionRequest != null) {
+                if (typeof object.getFileSystemVersionRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getFileSystemVersionRequest: object expected");
+                message.getFileSystemVersionRequest = $root.neutron.GetFileSystemVersionRequest.fromObject(object.getFileSystemVersionRequest);
+            }
+            if (object.getFileSystemVersionResponse != null) {
+                if (typeof object.getFileSystemVersionResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getFileSystemVersionResponse: object expected");
+                message.getFileSystemVersionResponse = $root.neutron.GetFileSystemVersionResponse.fromObject(object.getFileSystemVersionResponse);
+            }
+            if (object.getThumbnailRequest != null) {
+                if (typeof object.getThumbnailRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getThumbnailRequest: object expected");
+                message.getThumbnailRequest = $root.neutron.GetThumbnailRequest.fromObject(object.getThumbnailRequest);
+            }
+            if (object.getThumbnailResponse != null) {
+                if (typeof object.getThumbnailResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.getThumbnailResponse: object expected");
+                message.getThumbnailResponse = $root.neutron.GetThumbnailResponse.fromObject(object.getThumbnailResponse);
+            }
+            if (object.playVideoRequest != null) {
+                if (typeof object.playVideoRequest !== "object")
+                    throw TypeError(".neutron.RemoteMessage.playVideoRequest: object expected");
+                message.playVideoRequest = $root.neutron.PlayVideoRequest.fromObject(object.playVideoRequest);
+            }
+            if (object.playVideoResponse != null) {
+                if (typeof object.playVideoResponse !== "object")
+                    throw TypeError(".neutron.RemoteMessage.playVideoResponse: object expected");
+                message.playVideoResponse = $root.neutron.PlayVideoResponse.fromObject(object.playVideoResponse);
+            }
+            if (object.webrtcOfferContent != null) {
+                if (typeof object.webrtcOfferContent !== "object")
+                    throw TypeError(".neutron.RemoteMessage.webrtcOfferContent: object expected");
+                message.webrtcOfferContent = $root.neutron.WebRTCOfferContent.fromObject(object.webrtcOfferContent);
+            }
+            if (object.webrtcAnswerContent != null) {
+                if (typeof object.webrtcAnswerContent !== "object")
+                    throw TypeError(".neutron.RemoteMessage.webrtcAnswerContent: object expected");
+                message.webrtcAnswerContent = $root.neutron.WebRTCAnswerContent.fromObject(object.webrtcAnswerContent);
+            }
+            if (object.webrtcAnswerCandidatesContent != null) {
+                if (typeof object.webrtcAnswerCandidatesContent !== "object")
+                    throw TypeError(".neutron.RemoteMessage.webrtcAnswerCandidatesContent: object expected");
+                message.webrtcAnswerCandidatesContent = $root.neutron.WebRTCAnswerCandidatesContent.fromObject(object.webrtcAnswerCandidatesContent);
+            }
+            if (object.webrtcCandidateContent != null) {
+                if (typeof object.webrtcCandidateContent !== "object")
+                    throw TypeError(".neutron.RemoteMessage.webrtcCandidateContent: object expected");
+                message.webrtcCandidateContent = $root.neutron.WebRTCCandidateContent.fromObject(object.webrtcCandidateContent);
             }
             return message;
         };
@@ -4942,7 +5756,6 @@ export const neutron = $root.neutron = (() => {
                 object.source = "";
                 object.destination = "";
                 object.id = "";
-                object.payload = null;
             }
             if (message.type != null && message.hasOwnProperty("type"))
                 object.type = message.type;
@@ -4952,8 +5765,141 @@ export const neutron = $root.neutron = (() => {
                 object.destination = message.destination;
             if (message.id != null && message.hasOwnProperty("id"))
                 object.id = message.id;
-            if (message.payload != null && message.hasOwnProperty("payload"))
-                object.payload = $root.google.protobuf.Struct.toObject(message.payload, options);
+            if (message.any != null && message.hasOwnProperty("any")) {
+                object.any = $root.google.protobuf.Any.toObject(message.any, options);
+                if (options.oneofs)
+                    object.payload = "any";
+            }
+            if (message.rawData != null && message.hasOwnProperty("rawData")) {
+                object.rawData = options.bytes === String ? $util.base64.encode(message.rawData, 0, message.rawData.length) : options.bytes === Array ? Array.prototype.slice.call(message.rawData) : message.rawData;
+                if (options.oneofs)
+                    object.payload = "rawData";
+            }
+            if (message.error != null && message.hasOwnProperty("error")) {
+                object.error = $root.neutron.ErrorMessage.toObject(message.error, options);
+                if (options.oneofs)
+                    object.payload = "error";
+            }
+            if (message.loginRequest != null && message.hasOwnProperty("loginRequest")) {
+                object.loginRequest = $root.neutron.LoginRequest.toObject(message.loginRequest, options);
+                if (options.oneofs)
+                    object.payload = "loginRequest";
+            }
+            if (message.loginResponse != null && message.hasOwnProperty("loginResponse")) {
+                object.loginResponse = $root.neutron.LoginResponse.toObject(message.loginResponse, options);
+                if (options.oneofs)
+                    object.payload = "loginResponse";
+            }
+            if (message.fileInformation != null && message.hasOwnProperty("fileInformation")) {
+                object.fileInformation = $root.neutron.FileInformation.toObject(message.fileInformation, options);
+                if (options.oneofs)
+                    object.payload = "fileInformation";
+            }
+            if (message.imageRepoHistoryRequest != null && message.hasOwnProperty("imageRepoHistoryRequest")) {
+                object.imageRepoHistoryRequest = $root.neutron.ImageRepoHistoryRequest.toObject(message.imageRepoHistoryRequest, options);
+                if (options.oneofs)
+                    object.payload = "imageRepoHistoryRequest";
+            }
+            if (message.imageRepoHistoryItem != null && message.hasOwnProperty("imageRepoHistoryItem")) {
+                object.imageRepoHistoryItem = $root.neutron.ImageRepoHistoryItem.toObject(message.imageRepoHistoryItem, options);
+                if (options.oneofs)
+                    object.payload = "imageRepoHistoryItem";
+            }
+            if (message.imageRepoHistoryResponse != null && message.hasOwnProperty("imageRepoHistoryResponse")) {
+                object.imageRepoHistoryResponse = $root.neutron.ImageRepoHistoryResponse.toObject(message.imageRepoHistoryResponse, options);
+                if (options.oneofs)
+                    object.payload = "imageRepoHistoryResponse";
+            }
+            if (message.fileOperationRequest != null && message.hasOwnProperty("fileOperationRequest")) {
+                object.fileOperationRequest = $root.neutron.FileOperationRequest.toObject(message.fileOperationRequest, options);
+                if (options.oneofs)
+                    object.payload = "fileOperationRequest";
+            }
+            if (message.fileOperationResponse != null && message.hasOwnProperty("fileOperationResponse")) {
+                object.fileOperationResponse = $root.neutron.FileOperationResponse.toObject(message.fileOperationResponse, options);
+                if (options.oneofs)
+                    object.payload = "fileOperationResponse";
+            }
+            if (message.prepareFileReceiveRequest != null && message.hasOwnProperty("prepareFileReceiveRequest")) {
+                object.prepareFileReceiveRequest = $root.neutron.PrepareFileReceiveRequest.toObject(message.prepareFileReceiveRequest, options);
+                if (options.oneofs)
+                    object.payload = "prepareFileReceiveRequest";
+            }
+            if (message.prepareFileReceiveResponse != null && message.hasOwnProperty("prepareFileReceiveResponse")) {
+                object.prepareFileReceiveResponse = $root.neutron.PrepareFileReceiveResponse.toObject(message.prepareFileReceiveResponse, options);
+                if (options.oneofs)
+                    object.payload = "prepareFileReceiveResponse";
+            }
+            if (message.getFileInfoRequest != null && message.hasOwnProperty("getFileInfoRequest")) {
+                object.getFileInfoRequest = $root.neutron.GetFileInfoRequest.toObject(message.getFileInfoRequest, options);
+                if (options.oneofs)
+                    object.payload = "getFileInfoRequest";
+            }
+            if (message.getFileInfoResponse != null && message.hasOwnProperty("getFileInfoResponse")) {
+                object.getFileInfoResponse = $root.neutron.GetFileInfoResponse.toObject(message.getFileInfoResponse, options);
+                if (options.oneofs)
+                    object.payload = "getFileInfoResponse";
+            }
+            if (message.listFilesRequest != null && message.hasOwnProperty("listFilesRequest")) {
+                object.listFilesRequest = $root.neutron.ListFilesRequest.toObject(message.listFilesRequest, options);
+                if (options.oneofs)
+                    object.payload = "listFilesRequest";
+            }
+            if (message.listFilesResponse != null && message.hasOwnProperty("listFilesResponse")) {
+                object.listFilesResponse = $root.neutron.ListFilesResponse.toObject(message.listFilesResponse, options);
+                if (options.oneofs)
+                    object.payload = "listFilesResponse";
+            }
+            if (message.getFileSystemVersionRequest != null && message.hasOwnProperty("getFileSystemVersionRequest")) {
+                object.getFileSystemVersionRequest = $root.neutron.GetFileSystemVersionRequest.toObject(message.getFileSystemVersionRequest, options);
+                if (options.oneofs)
+                    object.payload = "getFileSystemVersionRequest";
+            }
+            if (message.getFileSystemVersionResponse != null && message.hasOwnProperty("getFileSystemVersionResponse")) {
+                object.getFileSystemVersionResponse = $root.neutron.GetFileSystemVersionResponse.toObject(message.getFileSystemVersionResponse, options);
+                if (options.oneofs)
+                    object.payload = "getFileSystemVersionResponse";
+            }
+            if (message.getThumbnailRequest != null && message.hasOwnProperty("getThumbnailRequest")) {
+                object.getThumbnailRequest = $root.neutron.GetThumbnailRequest.toObject(message.getThumbnailRequest, options);
+                if (options.oneofs)
+                    object.payload = "getThumbnailRequest";
+            }
+            if (message.getThumbnailResponse != null && message.hasOwnProperty("getThumbnailResponse")) {
+                object.getThumbnailResponse = $root.neutron.GetThumbnailResponse.toObject(message.getThumbnailResponse, options);
+                if (options.oneofs)
+                    object.payload = "getThumbnailResponse";
+            }
+            if (message.playVideoRequest != null && message.hasOwnProperty("playVideoRequest")) {
+                object.playVideoRequest = $root.neutron.PlayVideoRequest.toObject(message.playVideoRequest, options);
+                if (options.oneofs)
+                    object.payload = "playVideoRequest";
+            }
+            if (message.playVideoResponse != null && message.hasOwnProperty("playVideoResponse")) {
+                object.playVideoResponse = $root.neutron.PlayVideoResponse.toObject(message.playVideoResponse, options);
+                if (options.oneofs)
+                    object.payload = "playVideoResponse";
+            }
+            if (message.webrtcOfferContent != null && message.hasOwnProperty("webrtcOfferContent")) {
+                object.webrtcOfferContent = $root.neutron.WebRTCOfferContent.toObject(message.webrtcOfferContent, options);
+                if (options.oneofs)
+                    object.payload = "webrtcOfferContent";
+            }
+            if (message.webrtcAnswerContent != null && message.hasOwnProperty("webrtcAnswerContent")) {
+                object.webrtcAnswerContent = $root.neutron.WebRTCAnswerContent.toObject(message.webrtcAnswerContent, options);
+                if (options.oneofs)
+                    object.payload = "webrtcAnswerContent";
+            }
+            if (message.webrtcAnswerCandidatesContent != null && message.hasOwnProperty("webrtcAnswerCandidatesContent")) {
+                object.webrtcAnswerCandidatesContent = $root.neutron.WebRTCAnswerCandidatesContent.toObject(message.webrtcAnswerCandidatesContent, options);
+                if (options.oneofs)
+                    object.payload = "webrtcAnswerCandidatesContent";
+            }
+            if (message.webrtcCandidateContent != null && message.hasOwnProperty("webrtcCandidateContent")) {
+                object.webrtcCandidateContent = $root.neutron.WebRTCCandidateContent.toObject(message.webrtcCandidateContent, options);
+                if (options.oneofs)
+                    object.payload = "webrtcCandidateContent";
+            }
             return object;
         };
 
@@ -4984,533 +5930,6 @@ export const neutron = $root.neutron = (() => {
         };
 
         return RemoteMessage;
-    })();
-
-    neutron.LoginRequest = (function() {
-
-        /**
-         * Properties of a LoginRequest.
-         * @memberof neutron
-         * @interface ILoginRequest
-         * @property {string|null} [clientId] LoginRequest clientId
-         * @property {string|null} [username] LoginRequest username
-         * @property {string|null} [password] LoginRequest password
-         * @property {string|null} [storageServerId] LoginRequest storageServerId
-         */
-
-        /**
-         * Constructs a new LoginRequest.
-         * @memberof neutron
-         * @classdesc Represents a LoginRequest.
-         * @implements ILoginRequest
-         * @constructor
-         * @param {neutron.ILoginRequest=} [properties] Properties to set
-         */
-        function LoginRequest(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * LoginRequest clientId.
-         * @member {string} clientId
-         * @memberof neutron.LoginRequest
-         * @instance
-         */
-        LoginRequest.prototype.clientId = "";
-
-        /**
-         * LoginRequest username.
-         * @member {string} username
-         * @memberof neutron.LoginRequest
-         * @instance
-         */
-        LoginRequest.prototype.username = "";
-
-        /**
-         * LoginRequest password.
-         * @member {string} password
-         * @memberof neutron.LoginRequest
-         * @instance
-         */
-        LoginRequest.prototype.password = "";
-
-        /**
-         * LoginRequest storageServerId.
-         * @member {string} storageServerId
-         * @memberof neutron.LoginRequest
-         * @instance
-         */
-        LoginRequest.prototype.storageServerId = "";
-
-        /**
-         * Creates a new LoginRequest instance using the specified properties.
-         * @function create
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {neutron.ILoginRequest=} [properties] Properties to set
-         * @returns {neutron.LoginRequest} LoginRequest instance
-         */
-        LoginRequest.create = function create(properties) {
-            return new LoginRequest(properties);
-        };
-
-        /**
-         * Encodes the specified LoginRequest message. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LoginRequest.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.clientId != null && Object.hasOwnProperty.call(message, "clientId"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.clientId);
-            if (message.username != null && Object.hasOwnProperty.call(message, "username"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.username);
-            if (message.password != null && Object.hasOwnProperty.call(message, "password"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.password);
-            if (message.storageServerId != null && Object.hasOwnProperty.call(message, "storageServerId"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.storageServerId);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified LoginRequest message, length delimited. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LoginRequest.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a LoginRequest message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.LoginRequest} LoginRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LoginRequest.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginRequest();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.clientId = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.username = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.password = reader.string();
-                        break;
-                    }
-                case 4: {
-                        message.storageServerId = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a LoginRequest message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.LoginRequest} LoginRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LoginRequest.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a LoginRequest message.
-         * @function verify
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        LoginRequest.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.clientId != null && message.hasOwnProperty("clientId"))
-                if (!$util.isString(message.clientId))
-                    return "clientId: string expected";
-            if (message.username != null && message.hasOwnProperty("username"))
-                if (!$util.isString(message.username))
-                    return "username: string expected";
-            if (message.password != null && message.hasOwnProperty("password"))
-                if (!$util.isString(message.password))
-                    return "password: string expected";
-            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
-                if (!$util.isString(message.storageServerId))
-                    return "storageServerId: string expected";
-            return null;
-        };
-
-        /**
-         * Creates a LoginRequest message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.LoginRequest} LoginRequest
-         */
-        LoginRequest.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.LoginRequest)
-                return object;
-            let message = new $root.neutron.LoginRequest();
-            if (object.clientId != null)
-                message.clientId = String(object.clientId);
-            if (object.username != null)
-                message.username = String(object.username);
-            if (object.password != null)
-                message.password = String(object.password);
-            if (object.storageServerId != null)
-                message.storageServerId = String(object.storageServerId);
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a LoginRequest message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {neutron.LoginRequest} message LoginRequest
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        LoginRequest.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults) {
-                object.clientId = "";
-                object.username = "";
-                object.password = "";
-                object.storageServerId = "";
-            }
-            if (message.clientId != null && message.hasOwnProperty("clientId"))
-                object.clientId = message.clientId;
-            if (message.username != null && message.hasOwnProperty("username"))
-                object.username = message.username;
-            if (message.password != null && message.hasOwnProperty("password"))
-                object.password = message.password;
-            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
-                object.storageServerId = message.storageServerId;
-            return object;
-        };
-
-        /**
-         * Converts this LoginRequest to JSON.
-         * @function toJSON
-         * @memberof neutron.LoginRequest
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        LoginRequest.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for LoginRequest
-         * @function getTypeUrl
-         * @memberof neutron.LoginRequest
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        LoginRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.LoginRequest";
-        };
-
-        return LoginRequest;
-    })();
-
-    neutron.LoginResponse = (function() {
-
-        /**
-         * Properties of a LoginResponse.
-         * @memberof neutron
-         * @interface ILoginResponse
-         * @property {boolean|null} [success] LoginResponse success
-         * @property {string|null} [message] LoginResponse message
-         * @property {string|null} [token] LoginResponse token
-         */
-
-        /**
-         * Constructs a new LoginResponse.
-         * @memberof neutron
-         * @classdesc Represents a LoginResponse.
-         * @implements ILoginResponse
-         * @constructor
-         * @param {neutron.ILoginResponse=} [properties] Properties to set
-         */
-        function LoginResponse(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * LoginResponse success.
-         * @member {boolean} success
-         * @memberof neutron.LoginResponse
-         * @instance
-         */
-        LoginResponse.prototype.success = false;
-
-        /**
-         * LoginResponse message.
-         * @member {string} message
-         * @memberof neutron.LoginResponse
-         * @instance
-         */
-        LoginResponse.prototype.message = "";
-
-        /**
-         * LoginResponse token.
-         * @member {string} token
-         * @memberof neutron.LoginResponse
-         * @instance
-         */
-        LoginResponse.prototype.token = "";
-
-        /**
-         * Creates a new LoginResponse instance using the specified properties.
-         * @function create
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {neutron.ILoginResponse=} [properties] Properties to set
-         * @returns {neutron.LoginResponse} LoginResponse instance
-         */
-        LoginResponse.create = function create(properties) {
-            return new LoginResponse(properties);
-        };
-
-        /**
-         * Encodes the specified LoginResponse message. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LoginResponse.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.success != null && Object.hasOwnProperty.call(message, "success"))
-                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.success);
-            if (message.message != null && Object.hasOwnProperty.call(message, "message"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.message);
-            if (message.token != null && Object.hasOwnProperty.call(message, "token"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.token);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified LoginResponse message, length delimited. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LoginResponse.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a LoginResponse message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.LoginResponse} LoginResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LoginResponse.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginResponse();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.success = reader.bool();
-                        break;
-                    }
-                case 2: {
-                        message.message = reader.string();
-                        break;
-                    }
-                case 3: {
-                        message.token = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a LoginResponse message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.LoginResponse} LoginResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LoginResponse.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a LoginResponse message.
-         * @function verify
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        LoginResponse.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.success != null && message.hasOwnProperty("success"))
-                if (typeof message.success !== "boolean")
-                    return "success: boolean expected";
-            if (message.message != null && message.hasOwnProperty("message"))
-                if (!$util.isString(message.message))
-                    return "message: string expected";
-            if (message.token != null && message.hasOwnProperty("token"))
-                if (!$util.isString(message.token))
-                    return "token: string expected";
-            return null;
-        };
-
-        /**
-         * Creates a LoginResponse message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.LoginResponse} LoginResponse
-         */
-        LoginResponse.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.LoginResponse)
-                return object;
-            let message = new $root.neutron.LoginResponse();
-            if (object.success != null)
-                message.success = Boolean(object.success);
-            if (object.message != null)
-                message.message = String(object.message);
-            if (object.token != null)
-                message.token = String(object.token);
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a LoginResponse message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {neutron.LoginResponse} message LoginResponse
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        LoginResponse.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults) {
-                object.success = false;
-                object.message = "";
-                object.token = "";
-            }
-            if (message.success != null && message.hasOwnProperty("success"))
-                object.success = message.success;
-            if (message.message != null && message.hasOwnProperty("message"))
-                object.message = message.message;
-            if (message.token != null && message.hasOwnProperty("token"))
-                object.token = message.token;
-            return object;
-        };
-
-        /**
-         * Converts this LoginResponse to JSON.
-         * @function toJSON
-         * @memberof neutron.LoginResponse
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        LoginResponse.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for LoginResponse
-         * @function getTypeUrl
-         * @memberof neutron.LoginResponse
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        LoginResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.LoginResponse";
-        };
-
-        return LoginResponse;
     })();
 
     neutron.WebRTCOfferContent = (function() {
@@ -6355,6 +6774,486 @@ export const neutron = $root.neutron = (() => {
         };
 
         return WebRTCCandidateContent;
+    })();
+
+    neutron.LoginRequest = (function() {
+
+        /**
+         * Properties of a LoginRequest.
+         * @memberof neutron
+         * @interface ILoginRequest
+         * @property {string|null} [clientId] LoginRequest clientId
+         * @property {string|null} [username] LoginRequest username
+         * @property {string|null} [password] LoginRequest password
+         * @property {string|null} [storageServerId] LoginRequest storageServerId
+         */
+
+        /**
+         * Constructs a new LoginRequest.
+         * @memberof neutron
+         * @classdesc Represents a LoginRequest.
+         * @implements ILoginRequest
+         * @constructor
+         * @param {neutron.ILoginRequest=} [properties] Properties to set
+         */
+        function LoginRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * LoginRequest clientId.
+         * @member {string} clientId
+         * @memberof neutron.LoginRequest
+         * @instance
+         */
+        LoginRequest.prototype.clientId = "";
+
+        /**
+         * LoginRequest username.
+         * @member {string} username
+         * @memberof neutron.LoginRequest
+         * @instance
+         */
+        LoginRequest.prototype.username = "";
+
+        /**
+         * LoginRequest password.
+         * @member {string} password
+         * @memberof neutron.LoginRequest
+         * @instance
+         */
+        LoginRequest.prototype.password = "";
+
+        /**
+         * LoginRequest storageServerId.
+         * @member {string} storageServerId
+         * @memberof neutron.LoginRequest
+         * @instance
+         */
+        LoginRequest.prototype.storageServerId = "";
+
+        /**
+         * Creates a new LoginRequest instance using the specified properties.
+         * @function create
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {neutron.ILoginRequest=} [properties] Properties to set
+         * @returns {neutron.LoginRequest} LoginRequest instance
+         */
+        LoginRequest.create = function create(properties) {
+            return new LoginRequest(properties);
+        };
+
+        /**
+         * Encodes the specified LoginRequest message. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LoginRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.clientId != null && Object.hasOwnProperty.call(message, "clientId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.clientId);
+            if (message.username != null && Object.hasOwnProperty.call(message, "username"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.username);
+            if (message.password != null && Object.hasOwnProperty.call(message, "password"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.password);
+            if (message.storageServerId != null && Object.hasOwnProperty.call(message, "storageServerId"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.storageServerId);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified LoginRequest message, length delimited. Does not implicitly {@link neutron.LoginRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {neutron.ILoginRequest} message LoginRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LoginRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a LoginRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.LoginRequest} LoginRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LoginRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.clientId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.username = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.password = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.storageServerId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a LoginRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.LoginRequest} LoginRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LoginRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a LoginRequest message.
+         * @function verify
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        LoginRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.clientId != null && message.hasOwnProperty("clientId"))
+                if (!$util.isString(message.clientId))
+                    return "clientId: string expected";
+            if (message.username != null && message.hasOwnProperty("username"))
+                if (!$util.isString(message.username))
+                    return "username: string expected";
+            if (message.password != null && message.hasOwnProperty("password"))
+                if (!$util.isString(message.password))
+                    return "password: string expected";
+            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
+                if (!$util.isString(message.storageServerId))
+                    return "storageServerId: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a LoginRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.LoginRequest} LoginRequest
+         */
+        LoginRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.LoginRequest)
+                return object;
+            let message = new $root.neutron.LoginRequest();
+            if (object.clientId != null)
+                message.clientId = String(object.clientId);
+            if (object.username != null)
+                message.username = String(object.username);
+            if (object.password != null)
+                message.password = String(object.password);
+            if (object.storageServerId != null)
+                message.storageServerId = String(object.storageServerId);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a LoginRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {neutron.LoginRequest} message LoginRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        LoginRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.clientId = "";
+                object.username = "";
+                object.password = "";
+                object.storageServerId = "";
+            }
+            if (message.clientId != null && message.hasOwnProperty("clientId"))
+                object.clientId = message.clientId;
+            if (message.username != null && message.hasOwnProperty("username"))
+                object.username = message.username;
+            if (message.password != null && message.hasOwnProperty("password"))
+                object.password = message.password;
+            if (message.storageServerId != null && message.hasOwnProperty("storageServerId"))
+                object.storageServerId = message.storageServerId;
+            return object;
+        };
+
+        /**
+         * Converts this LoginRequest to JSON.
+         * @function toJSON
+         * @memberof neutron.LoginRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        LoginRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for LoginRequest
+         * @function getTypeUrl
+         * @memberof neutron.LoginRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        LoginRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.LoginRequest";
+        };
+
+        return LoginRequest;
+    })();
+
+    neutron.LoginResponse = (function() {
+
+        /**
+         * Properties of a LoginResponse.
+         * @memberof neutron
+         * @interface ILoginResponse
+         * @property {string|null} [token] LoginResponse token
+         */
+
+        /**
+         * Constructs a new LoginResponse.
+         * @memberof neutron
+         * @classdesc Represents a LoginResponse.
+         * @implements ILoginResponse
+         * @constructor
+         * @param {neutron.ILoginResponse=} [properties] Properties to set
+         */
+        function LoginResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * LoginResponse token.
+         * @member {string} token
+         * @memberof neutron.LoginResponse
+         * @instance
+         */
+        LoginResponse.prototype.token = "";
+
+        /**
+         * Creates a new LoginResponse instance using the specified properties.
+         * @function create
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {neutron.ILoginResponse=} [properties] Properties to set
+         * @returns {neutron.LoginResponse} LoginResponse instance
+         */
+        LoginResponse.create = function create(properties) {
+            return new LoginResponse(properties);
+        };
+
+        /**
+         * Encodes the specified LoginResponse message. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
+         * @function encode
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LoginResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.token != null && Object.hasOwnProperty.call(message, "token"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.token);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified LoginResponse message, length delimited. Does not implicitly {@link neutron.LoginResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {neutron.ILoginResponse} message LoginResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LoginResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a LoginResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {neutron.LoginResponse} LoginResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LoginResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.LoginResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.token = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a LoginResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {neutron.LoginResponse} LoginResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LoginResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a LoginResponse message.
+         * @function verify
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        LoginResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.token != null && message.hasOwnProperty("token"))
+                if (!$util.isString(message.token))
+                    return "token: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a LoginResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {neutron.LoginResponse} LoginResponse
+         */
+        LoginResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.neutron.LoginResponse)
+                return object;
+            let message = new $root.neutron.LoginResponse();
+            if (object.token != null)
+                message.token = String(object.token);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a LoginResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {neutron.LoginResponse} message LoginResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        LoginResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.token = "";
+            if (message.token != null && message.hasOwnProperty("token"))
+                object.token = message.token;
+            return object;
+        };
+
+        /**
+         * Converts this LoginResponse to JSON.
+         * @function toJSON
+         * @memberof neutron.LoginResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        LoginResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for LoginResponse
+         * @function getTypeUrl
+         * @memberof neutron.LoginResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        LoginResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/neutron.LoginResponse";
+        };
+
+        return LoginResponse;
     })();
 
     return neutron;
@@ -7255,6 +8154,244 @@ export const google = $root.google = (() => {
             };
 
             return ListValue;
+        })();
+
+        protobuf.Any = (function() {
+
+            /**
+             * Properties of an Any.
+             * @memberof google.protobuf
+             * @interface IAny
+             * @property {string|null} [type_url] Any type_url
+             * @property {Uint8Array|null} [value] Any value
+             */
+
+            /**
+             * Constructs a new Any.
+             * @memberof google.protobuf
+             * @classdesc Represents an Any.
+             * @implements IAny
+             * @constructor
+             * @param {google.protobuf.IAny=} [properties] Properties to set
+             */
+            function Any(properties) {
+                if (properties)
+                    for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null)
+                            this[keys[i]] = properties[keys[i]];
+            }
+
+            /**
+             * Any type_url.
+             * @member {string} type_url
+             * @memberof google.protobuf.Any
+             * @instance
+             */
+            Any.prototype.type_url = "";
+
+            /**
+             * Any value.
+             * @member {Uint8Array} value
+             * @memberof google.protobuf.Any
+             * @instance
+             */
+            Any.prototype.value = $util.newBuffer([]);
+
+            /**
+             * Creates a new Any instance using the specified properties.
+             * @function create
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {google.protobuf.IAny=} [properties] Properties to set
+             * @returns {google.protobuf.Any} Any instance
+             */
+            Any.create = function create(properties) {
+                return new Any(properties);
+            };
+
+            /**
+             * Encodes the specified Any message. Does not implicitly {@link google.protobuf.Any.verify|verify} messages.
+             * @function encode
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {google.protobuf.IAny} message Any message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Any.encode = function encode(message, writer) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (message.type_url != null && Object.hasOwnProperty.call(message, "type_url"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.type_url);
+                if (message.value != null && Object.hasOwnProperty.call(message, "value"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.value);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified Any message, length delimited. Does not implicitly {@link google.protobuf.Any.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {google.protobuf.IAny} message Any message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            Any.encodeDelimited = function encodeDelimited(message, writer) {
+                return this.encode(message, writer).ldelim();
+            };
+
+            /**
+             * Decodes an Any message from the specified reader or buffer.
+             * @function decode
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {google.protobuf.Any} Any
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Any.decode = function decode(reader, length, error) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                let end = length === undefined ? reader.len : reader.pos + length, message = new $root.google.protobuf.Any();
+                while (reader.pos < end) {
+                    let tag = reader.uint32();
+                    if (tag === error)
+                        break;
+                    switch (tag >>> 3) {
+                    case 1: {
+                            message.type_url = reader.string();
+                            break;
+                        }
+                    case 2: {
+                            message.value = reader.bytes();
+                            break;
+                        }
+                    default:
+                        reader.skipType(tag & 7);
+                        break;
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Decodes an Any message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {google.protobuf.Any} Any
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            Any.decodeDelimited = function decodeDelimited(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies an Any message.
+             * @function verify
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            Any.verify = function verify(message) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (message.type_url != null && message.hasOwnProperty("type_url"))
+                    if (!$util.isString(message.type_url))
+                        return "type_url: string expected";
+                if (message.value != null && message.hasOwnProperty("value"))
+                    if (!(message.value && typeof message.value.length === "number" || $util.isString(message.value)))
+                        return "value: buffer expected";
+                return null;
+            };
+
+            /**
+             * Creates an Any message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {google.protobuf.Any} Any
+             */
+            Any.fromObject = function fromObject(object) {
+                if (object instanceof $root.google.protobuf.Any)
+                    return object;
+                let message = new $root.google.protobuf.Any();
+                if (object.type_url != null)
+                    message.type_url = String(object.type_url);
+                if (object.value != null)
+                    if (typeof object.value === "string")
+                        $util.base64.decode(object.value, message.value = $util.newBuffer($util.base64.length(object.value)), 0);
+                    else if (object.value.length >= 0)
+                        message.value = object.value;
+                return message;
+            };
+
+            /**
+             * Creates a plain object from an Any message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {google.protobuf.Any} message Any
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            Any.toObject = function toObject(message, options) {
+                if (!options)
+                    options = {};
+                let object = {};
+                if (options.defaults) {
+                    object.type_url = "";
+                    if (options.bytes === String)
+                        object.value = "";
+                    else {
+                        object.value = [];
+                        if (options.bytes !== Array)
+                            object.value = $util.newBuffer(object.value);
+                    }
+                }
+                if (message.type_url != null && message.hasOwnProperty("type_url"))
+                    object.type_url = message.type_url;
+                if (message.value != null && message.hasOwnProperty("value"))
+                    object.value = options.bytes === String ? $util.base64.encode(message.value, 0, message.value.length) : options.bytes === Array ? Array.prototype.slice.call(message.value) : message.value;
+                return object;
+            };
+
+            /**
+             * Converts this Any to JSON.
+             * @function toJSON
+             * @memberof google.protobuf.Any
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            Any.prototype.toJSON = function toJSON() {
+                return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the default type url for Any
+             * @function getTypeUrl
+             * @memberof google.protobuf.Any
+             * @static
+             * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+             * @returns {string} The default type url
+             */
+            Any.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+                if (typeUrlPrefix === undefined) {
+                    typeUrlPrefix = "type.googleapis.com";
+                }
+                return typeUrlPrefix + "/google.protobuf.Any";
+            };
+
+            return Any;
         })();
 
         return protobuf;
