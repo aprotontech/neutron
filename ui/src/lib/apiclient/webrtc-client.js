@@ -282,7 +282,7 @@ export default class WebRTCClient extends BaseClient {
         }
     }
 
-    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, offset = 0, size = null, timeoutMs = -1, idleTimeout = 10000) {
+    async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, offset = 0, size = -1, timeoutMs = -1, idleTimeout = 10000) {
         console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
         const id = uuidv4();
         const label = mimeType.replaceAll('/', '-') + '-' + id;

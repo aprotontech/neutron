@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -296,35 +297,68 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		dataChannel.OnOpen(func() {
 			log.Infof("Data channel '%s' open", dataChannel.Label())
 			if dcInfo, ok := remoteClient.dcFileMap[dataChannel.Label()]; ok {
-				data, err := os.ReadFile(dcInfo.path)
+				// 打开文件
+				file, err := os.Open(dcInfo.path)
 				if err != nil {
-					log.Warnf("Read file %s error: %v", dcInfo.path, err)
+					log.Warnf("Open file %s error: %v", dcInfo.path, err)
 					dataChannel.Close()
-				} else {
-					if dcInfo.offset > 0 {
-						data = data[dcInfo.offset:]
-					}
-					if dcInfo.size > 0 {
-						data = data[:dcInfo.size]
-					}
-					chunkSize := 16 * 1024
-					for len(data) > 0 {
-						sendSize := chunkSize
-						if len(data) < chunkSize {
-							sendSize = len(data)
-						}
+					return
+				}
+				defer file.Close()
 
-						chunk := data[:sendSize]
-						data = data[sendSize:]
-
-						if err := dataChannel.Send(chunk); err != nil {
-							log.Warnf("Send file %s data error: %v", dcInfo.path, err)
-							dataChannel.Close()
-						}
+				// 如果指定了偏移量，则定位到指定位置
+				if dcInfo.offset > 0 {
+					_, err = file.Seek(dcInfo.offset, 0)
+					if err != nil {
+						log.Warnf("Seek file %s to offset %d error: %v", dcInfo.path, dcInfo.offset, err)
+						dataChannel.Close()
+						return
 					}
 				}
+
+				// 计算需要读取的数据大小
+				var totalSize int64
+				if dcInfo.size > 0 {
+					totalSize = dcInfo.size
+				}
+
+				chunkSize := 16 * 1024 // 16KB 块大小
+				remaining := totalSize
+				buffer := make([]byte, chunkSize)
+
+				for {
+					// 计算本次读取的大小
+					readSize := chunkSize
+					if remaining > 0 && remaining < int64(chunkSize) {
+						readSize = int(remaining)
+					}
+
+					// 读取数据
+					n, err := file.Read(buffer[:readSize])
+					if err != nil && err != io.EOF {
+						log.Warnf("Read file %s error: %v", dcInfo.path, err)
+						dataChannel.Close()
+						return
+					}
+
+					if n == 0 {
+						break // 文件结束
+					}
+
+					// 发送数据块
+					if err := dataChannel.Send(buffer[:n]); err != nil {
+						log.Warnf("Send file %s data error: %v", dcInfo.path, err)
+						dataChannel.Close()
+						return
+					}
+
+					if remaining > 0 {
+						remaining -= int64(n)
+					}
+				}
+
 				log.Infof("Sent file %s data on data channel %s, offset=%d, size=%d",
-					dcInfo.path, dataChannel.Label(), dcInfo.offset, dcInfo.size)
+					dcInfo.path, dataChannel.Label(), dcInfo.offset, totalSize)
 			}
 		})
 

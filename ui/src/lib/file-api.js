@@ -282,7 +282,10 @@ export default class FileAPI {
                 }
             } else {
                 return await this._queueRequest('getFileUrl', Config.getFileRequestMaxConcurrency(), async () => {
-                    return TransferClient.get().getFileUrl(filePath, mimeType);
+                    const blob = await await TransferClient.get().getFileContent(filePath, mimeType, false);
+                    console.log(blob)
+
+                    return URL.createObjectURL(blob);
                 });
             }
         });
