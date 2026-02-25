@@ -33,8 +33,9 @@ message ImageRepoHistoryItem {
 
 message ImageRepoHistoryResponse {
     int32 total = 1;
-    string version = 2;
-    repeated ImageRepoHistoryItem items = 3;
+    int64 max_id = 2;
+    string version = 3;
+    repeated ImageRepoHistoryItem items = 4;
 }
 
 // File operation request/response messages

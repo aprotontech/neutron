@@ -267,7 +267,12 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 
 	log.Infof("Fetching image repo history... types=%v, lastID=%d, count=%d", types, lastID, count)
 
-	imgs, total, err := fsm.repo.GetHistory(lastID, count)
+	totalCount, maxId, err := fsm.repo.GetHistorySummary()
+	if err != nil {
+		return nil, err
+	}
+
+	imgs, err := fsm.repo.GetHistory(lastID, count)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +293,8 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 
 	return &neutronproto.RemoteMessage_ImageRepoHistoryResponse{
 		ImageRepoHistoryResponse: &neutronproto.ImageRepoHistoryResponse{
-			Total:   int32(total),
+			Total:   int32(totalCount),
+			MaxId:   maxId,
 			Version: "1.0",
 			Items:   items,
 		},

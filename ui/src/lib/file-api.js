@@ -478,7 +478,7 @@ export default class FileAPI {
     async getImageRepo(offset, count, order = 'etime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
 
-        const currentTotalCount = await this.imageRepo.getTotalCount();
+        const currentTotalCount = this.imageRepo.getLocalTotalCount();
         const requiredCount = offset + count;
         console.log(`Cache check: currentTotalCount=${currentTotalCount}, requiredCount=${requiredCount}`);
 
@@ -490,7 +490,7 @@ export default class FileAPI {
                         await this.imageRepo.init()
                     }
 
-                    if (await this.imageRepo.getTotalCount() >= requiredCount) {
+                    if (this.imageRepo.getLocalTotalCount() >= requiredCount) {
                         console.log('Cache was filled by another request, no need to sync');
                         return;
                     }
@@ -511,7 +511,7 @@ export default class FileAPI {
         }
 
         const items = await this.imageRepo.getList(order, offset, count);
-        const totalCount = await this.imageRepo.getTotalCount();
+        const totalCount = this.imageRepo.getRemoteTotalCount();
 
         console.log(`Retrieved ${items.length} items from image repo cache (total: ${totalCount})`);
 
@@ -534,7 +534,7 @@ export default class FileAPI {
             const batchSize = 100; // 每次读取的数量
             let totalSynced = 0;
             let hasMoreData = true;
-            const initialCount = await this.imageRepo.getTotalCount();
+            const initialCount = this.imageRepo.getLocalTotalCount();
 
             if (false) { // TODO: check version
                 // 清空现有的历史记录
@@ -559,7 +559,7 @@ export default class FileAPI {
 
                     // response是protobuf对象，直接使用其属性
                     const items = response.items || [];
-                    console.log(`Received ${items.length} items from server`);
+                    console.log(`Received ${items.length} items from server, maxId: ${response.maxId}, remoteTotalCount: ${response.total}`);
 
                     if (items.length === 0) {
                         // 没有更多数据了
@@ -569,11 +569,11 @@ export default class FileAPI {
                     }
 
                     // 将数据保存到 ImageRepo
-                    await this.imageRepo.appendHistory(items);
+                    await this.imageRepo.updateHistory(response.total, items);
                     totalSynced += items.length;
 
                     // 如果返回的数量小于请求的数量，说明没有更多数据了
-                    if (items.length < batchSize) {
+                    if (this.imageRepo.getLastID() >= response.maxId) {
                         hasMoreData = false;
                         console.log('Reached end of data (less than batch size)');
                     }
@@ -592,7 +592,7 @@ export default class FileAPI {
             console.log(`Image repository history sync completed. Total synced: ${totalSynced} items`);
 
             // 获取同步后的统计信息
-            const totalCount = await this.imageRepo.getTotalCount();
+            const totalCount = this.imageRepo.getRemoteTotalCount();
             const stats = await this.imageRepo.getStatsByType();
             const timeRange = await this.imageRepo.getTimeRange();
 

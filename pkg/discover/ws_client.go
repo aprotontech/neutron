@@ -371,8 +371,8 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					return
 				}
 
-				log.Infof("Received RPC message: type=%s, source=%s, id=%s, payload=%v",
-					m.Type, m.Source, m.Id, m.Payload)
+				log.Infof("RpcRequest[%s] type=%s, source=%s, payload=%v",
+					m.Id, m.Type, m.Source, m.Payload)
 
 				var response any
 				if api, ok := s.fileAPIS[m.Type]; ok {
@@ -397,6 +397,8 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 						Error: "unknown api " + m.Type,
 					}
 				}
+
+				log.Infof("RpcResponse[%s] payload=%v", m.Id, response)
 
 				// Create response message
 				resMsg := s.createResponseMessage(response, m.Id, source)

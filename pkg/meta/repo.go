@@ -9,7 +9,9 @@ import (
 )
 
 type Repository struct {
-	db *gorm.DB
+	db         *gorm.DB
+	maxItemID  int64
+	totalCount int64
 }
 
 const CREATE_FILE = 1
@@ -47,25 +49,30 @@ func (r *Repository) Start(ctx context.Context) error {
 	}
 
 	count := int64(0)
-	r.db.Table("repo_history").Where("is_valid = ?", true).Count(&count)
+	if r.db.Table("repo_history").Where("is_valid = ?", true).Count(&count).Error == nil {
+		r.totalCount = count
+	}
 
-	log.Infof("Repository started and updated with %d history items", count)
+	maxIdRecord := &RepoHistoryItem{}
+	if r.db.Table("repo_history").Where("is_valid = ?", true).Order("id DESC").First(&maxIdRecord).Error == nil {
+		r.maxItemID = maxIdRecord.ID
+	}
+
+	log.Infof("Repository started and updated with %d history items, maxID %d", r.totalCount, r.maxItemID)
 
 	<-ctx.Done()
 
 	return nil
 }
 
-func (r *Repository) GetHistory(lastID, limit int64) ([]RepoHistoryItem, int, error) {
-	if r.db == nil {
-		return nil, 0, gorm.ErrInvalidDB
-	}
+// totalCount, maxId
+func (r *Repository) GetHistorySummary() (int64, int64, error) {
+	return r.totalCount, r.maxItemID, nil
+}
 
-	// 首先获取总记录数
-	var total int64
-	err := r.db.Model(&RepoHistoryItem{}).Where("is_valid = ?", true).Count(&total).Error
-	if err != nil {
-		return nil, 0, err
+func (r *Repository) GetHistory(lastID, limit int64) ([]RepoHistoryItem, error) {
+	if r.db == nil {
+		return nil, gorm.ErrInvalidDB
 	}
 
 	// 构建查询
@@ -78,13 +85,13 @@ func (r *Repository) GetHistory(lastID, limit int64) ([]RepoHistoryItem, int, er
 
 	// 获取分页数据
 	var items []RepoHistoryItem
-	err = query.Limit(int(limit)).Find(&items).Error
+	err := query.Limit(int(limit)).Order("id").Find(&items).Error
 
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return items, int(total), nil
+	return items, nil
 }
 
 func (r *Repository) Update() error {

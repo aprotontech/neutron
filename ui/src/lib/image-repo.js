@@ -39,6 +39,8 @@ class ImageRepo {
         /** @type {string|null} 当前最大的 ID */
         this.lastID = null;
 
+        this.remoteTotalCount = 0;
+
         // 平台检测
         this.isNative = Capacitor.isNativePlatform();
 
@@ -64,13 +66,14 @@ class ImageRepo {
      * @param {HistoryItem[]|neutron.ImageRepoHistoryItem[]} items - 要添加的历史记录项数组（可以是普通对象或protobuf对象）
      * @returns {Promise<void>}
      */
-    async appendHistory(items) {
+    async updateHistory(remoteTotalCount, items) {
         if (!Array.isArray(items)) {
             throw new Error('items 必须是一个数组');
         }
 
         // 清除缓存，因为数据即将更新
         this._clearCache();
+        this.remoteTotalCount = remoteTotalCount;
 
         // 处理每个项目
         for (const item of items) {
@@ -161,8 +164,12 @@ class ImageRepo {
      * 获取历史记录总数
      * @returns {Promise<number>}
      */
-    async getTotalCount() {
+    getLocalTotalCount() {
         return this.historyMap.size;
+    }
+
+    getRemoteTotalCount() {
+        return this.remoteTotalCount;
     }
 
     /**

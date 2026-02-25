@@ -43,7 +43,7 @@ export default class WebRTCClient extends BaseClient {
         };
         this.pc = new RTCPeerConnection(config);
         // Create RPC-capable data channel helper bound to this peer connection
-        this.rpc = new WebRTCDataChannelRPC(this.pc);
+        this.rpc = new WebRTCDataChannelRPC(this.pc, this.clientId);
         // Thumbnail data channel helper (receives binary thumbnails)
         this.thumbnail = new WebRTCDataChannelThumbnail(this.pc);
 
@@ -105,7 +105,6 @@ export default class WebRTCClient extends BaseClient {
                         // 确保发送二进制消息
                         if (this.signalingSocket.readyState === WebSocket.OPEN) {
                             this.signalingSocket.send(candidateEncodedMsg);
-                            console.log('Sent ICE candidate (binary message)');
                         } else {
                             console.warn('WebSocket not open, cannot send candidate');
                         }
@@ -136,11 +135,9 @@ export default class WebRTCClient extends BaseClient {
                 // 确保发送二进制消息
                 if (this.signalingSocket.readyState === WebSocket.OPEN) {
                     this.signalingSocket.send(offerEncodedMsg);
-                    console.log('Sent WebRTC offer (binary message)');
                 } else {
                     console.warn('WebSocket not open, cannot send offer');
                 }
-
             }
 
             this.signalingSocket.onmessage = async (message) => {
@@ -352,9 +349,6 @@ export default class WebRTCClient extends BaseClient {
                 "count": count
             }));
 
-            // console.log('getImageRepoHistory response:', resp);
-
-            // 直接返回protobuf对象，让调用者处理
             return resp;
         } catch (err) {
             console.error('getImageRepoHistory error:', err);

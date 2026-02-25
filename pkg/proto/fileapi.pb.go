@@ -261,8 +261,9 @@ func (x *ImageRepoHistoryItem) GetFilePath() string {
 type ImageRepoHistoryResponse struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
 	Total         int32                   `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
-	Version       string                  `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	Items         []*ImageRepoHistoryItem `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	MaxId         int64                   `protobuf:"varint,2,opt,name=max_id,json=maxId,proto3" json:"max_id,omitempty"`
+	Version       string                  `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	Items         []*ImageRepoHistoryItem `protobuf:"bytes,4,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -300,6 +301,13 @@ func (*ImageRepoHistoryResponse) Descriptor() ([]byte, []int) {
 func (x *ImageRepoHistoryResponse) GetTotal() int32 {
 	if x != nil {
 		return x.Total
+	}
+	return 0
+}
+
+func (x *ImageRepoHistoryResponse) GetMaxId() int64 {
+	if x != nil {
+		return x.MaxId
 	}
 	return 0
 }
@@ -960,11 +968,12 @@ const file_fileapi_proto_rawDesc = "" +
 	"\x04type\x18\x03 \x01(\x05R\x04type\x12\x14\n" +
 	"\x05etime\x18\x04 \x01(\x03R\x05etime\x12\x14\n" +
 	"\x05mtime\x18\x05 \x01(\x03R\x05mtime\x12\x1b\n" +
-	"\tfile_path\x18\x06 \x01(\tR\bfilePath\"\x7f\n" +
+	"\tfile_path\x18\x06 \x01(\tR\bfilePath\"\x96\x01\n" +
 	"\x18ImageRepoHistoryResponse\x12\x14\n" +
-	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x123\n" +
-	"\x05items\x18\x03 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"e\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x15\n" +
+	"\x06max_id\x18\x02 \x01(\x03R\x05maxId\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x123\n" +
+	"\x05items\x18\x04 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"e\n" +
 	"\x14FileOperationRequest\x12\x1c\n" +
 	"\toperation\x18\x01 \x01(\tR\toperation\x12/\n" +
 	"\x06params\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06params\"H\n" +

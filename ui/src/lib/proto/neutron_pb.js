@@ -1084,6 +1084,7 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IImageRepoHistoryResponse
          * @property {number|null} [total] ImageRepoHistoryResponse total
+         * @property {number|Long|null} [maxId] ImageRepoHistoryResponse maxId
          * @property {string|null} [version] ImageRepoHistoryResponse version
          * @property {Array.<neutron.IImageRepoHistoryItem>|null} [items] ImageRepoHistoryResponse items
          */
@@ -1111,6 +1112,14 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         ImageRepoHistoryResponse.prototype.total = 0;
+
+        /**
+         * ImageRepoHistoryResponse maxId.
+         * @member {number|Long} maxId
+         * @memberof neutron.ImageRepoHistoryResponse
+         * @instance
+         */
+        ImageRepoHistoryResponse.prototype.maxId = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
 
         /**
          * ImageRepoHistoryResponse version.
@@ -1154,11 +1163,13 @@ export const neutron = $root.neutron = (() => {
                 writer = $Writer.create();
             if (message.total != null && Object.hasOwnProperty.call(message, "total"))
                 writer.uint32(/* id 1, wireType 0 =*/8).int32(message.total);
+            if (message.maxId != null && Object.hasOwnProperty.call(message, "maxId"))
+                writer.uint32(/* id 2, wireType 0 =*/16).int64(message.maxId);
             if (message.version != null && Object.hasOwnProperty.call(message, "version"))
-                writer.uint32(/* id 2, wireType 2 =*/18).string(message.version);
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.version);
             if (message.items != null && message.items.length)
                 for (let i = 0; i < message.items.length; ++i)
-                    $root.neutron.ImageRepoHistoryItem.encode(message.items[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                    $root.neutron.ImageRepoHistoryItem.encode(message.items[i], writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
             return writer;
         };
 
@@ -1200,10 +1211,14 @@ export const neutron = $root.neutron = (() => {
                         break;
                     }
                 case 2: {
-                        message.version = reader.string();
+                        message.maxId = reader.int64();
                         break;
                     }
                 case 3: {
+                        message.version = reader.string();
+                        break;
+                    }
+                case 4: {
                         if (!(message.items && message.items.length))
                             message.items = [];
                         message.items.push($root.neutron.ImageRepoHistoryItem.decode(reader, reader.uint32()));
@@ -1247,6 +1262,9 @@ export const neutron = $root.neutron = (() => {
             if (message.total != null && message.hasOwnProperty("total"))
                 if (!$util.isInteger(message.total))
                     return "total: integer expected";
+            if (message.maxId != null && message.hasOwnProperty("maxId"))
+                if (!$util.isInteger(message.maxId) && !(message.maxId && $util.isInteger(message.maxId.low) && $util.isInteger(message.maxId.high)))
+                    return "maxId: integer|Long expected";
             if (message.version != null && message.hasOwnProperty("version"))
                 if (!$util.isString(message.version))
                     return "version: string expected";
@@ -1276,6 +1294,15 @@ export const neutron = $root.neutron = (() => {
             let message = new $root.neutron.ImageRepoHistoryResponse();
             if (object.total != null)
                 message.total = object.total | 0;
+            if (object.maxId != null)
+                if ($util.Long)
+                    (message.maxId = $util.Long.fromValue(object.maxId)).unsigned = false;
+                else if (typeof object.maxId === "string")
+                    message.maxId = parseInt(object.maxId, 10);
+                else if (typeof object.maxId === "number")
+                    message.maxId = object.maxId;
+                else if (typeof object.maxId === "object")
+                    message.maxId = new $util.LongBits(object.maxId.low >>> 0, object.maxId.high >>> 0).toNumber();
             if (object.version != null)
                 message.version = String(object.version);
             if (object.items) {
@@ -1308,10 +1335,20 @@ export const neutron = $root.neutron = (() => {
                 object.items = [];
             if (options.defaults) {
                 object.total = 0;
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.maxId = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                } else
+                    object.maxId = options.longs === String ? "0" : 0;
                 object.version = "";
             }
             if (message.total != null && message.hasOwnProperty("total"))
                 object.total = message.total;
+            if (message.maxId != null && message.hasOwnProperty("maxId"))
+                if (typeof message.maxId === "number")
+                    object.maxId = options.longs === String ? String(message.maxId) : message.maxId;
+                else
+                    object.maxId = options.longs === String ? $util.Long.prototype.toString.call(message.maxId) : options.longs === Number ? new $util.LongBits(message.maxId.low >>> 0, message.maxId.high >>> 0).toNumber() : message.maxId;
             if (message.version != null && message.hasOwnProperty("version"))
                 object.version = message.version;
             if (message.items && message.items.length) {
