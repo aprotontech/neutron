@@ -544,7 +544,7 @@ export default class FileAPI {
 
 
             // 循环读取数据直到全部完成
-            while (hasMoreData && (expectedCount > 0 && initialCount + totalSynced < expectedCount)) {
+            while (hasMoreData) {
                 let lastID = this.imageRepo.getLastID() === null ? -1 : this.imageRepo.getLastID();
                 console.log(`Fetching image repo history: version=${version}, lastID=${lastID}, count=${batchSize}`);
 
@@ -580,9 +580,12 @@ export default class FileAPI {
 
                     // 可选：添加小的延迟以避免请求过于频繁
                     if (hasMoreData) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        if (!Capacitor.isNativePlatform() && expectedCount > 0 && initialCount + totalSynced < expectedCount) {
+                            hasMoreData = false
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
                     }
-
                 } catch (error) {
                     console.error('Error fetching image repo history:', error);
                     throw error;
