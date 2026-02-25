@@ -2522,216 +2522,6 @@ export const neutron = $root.neutron = (() => {
         return GetFileInfoRequest;
     })();
 
-    neutron.GetFileInfoResponse = (function() {
-
-        /**
-         * Properties of a GetFileInfoResponse.
-         * @memberof neutron
-         * @interface IGetFileInfoResponse
-         * @property {neutron.IFileInformation|null} [fileInfo] GetFileInfoResponse fileInfo
-         */
-
-        /**
-         * Constructs a new GetFileInfoResponse.
-         * @memberof neutron
-         * @classdesc Represents a GetFileInfoResponse.
-         * @implements IGetFileInfoResponse
-         * @constructor
-         * @param {neutron.IGetFileInfoResponse=} [properties] Properties to set
-         */
-        function GetFileInfoResponse(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * GetFileInfoResponse fileInfo.
-         * @member {neutron.IFileInformation|null|undefined} fileInfo
-         * @memberof neutron.GetFileInfoResponse
-         * @instance
-         */
-        GetFileInfoResponse.prototype.fileInfo = null;
-
-        /**
-         * Creates a new GetFileInfoResponse instance using the specified properties.
-         * @function create
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {neutron.IGetFileInfoResponse=} [properties] Properties to set
-         * @returns {neutron.GetFileInfoResponse} GetFileInfoResponse instance
-         */
-        GetFileInfoResponse.create = function create(properties) {
-            return new GetFileInfoResponse(properties);
-        };
-
-        /**
-         * Encodes the specified GetFileInfoResponse message. Does not implicitly {@link neutron.GetFileInfoResponse.verify|verify} messages.
-         * @function encode
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {neutron.IGetFileInfoResponse} message GetFileInfoResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetFileInfoResponse.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.fileInfo != null && Object.hasOwnProperty.call(message, "fileInfo"))
-                $root.neutron.FileInformation.encode(message.fileInfo, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-            return writer;
-        };
-
-        /**
-         * Encodes the specified GetFileInfoResponse message, length delimited. Does not implicitly {@link neutron.GetFileInfoResponse.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {neutron.IGetFileInfoResponse} message GetFileInfoResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetFileInfoResponse.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a GetFileInfoResponse message from the specified reader or buffer.
-         * @function decode
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {neutron.GetFileInfoResponse} GetFileInfoResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetFileInfoResponse.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.GetFileInfoResponse();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.fileInfo = $root.neutron.FileInformation.decode(reader, reader.uint32());
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a GetFileInfoResponse message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {neutron.GetFileInfoResponse} GetFileInfoResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetFileInfoResponse.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a GetFileInfoResponse message.
-         * @function verify
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        GetFileInfoResponse.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.fileInfo != null && message.hasOwnProperty("fileInfo")) {
-                let error = $root.neutron.FileInformation.verify(message.fileInfo);
-                if (error)
-                    return "fileInfo." + error;
-            }
-            return null;
-        };
-
-        /**
-         * Creates a GetFileInfoResponse message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {neutron.GetFileInfoResponse} GetFileInfoResponse
-         */
-        GetFileInfoResponse.fromObject = function fromObject(object) {
-            if (object instanceof $root.neutron.GetFileInfoResponse)
-                return object;
-            let message = new $root.neutron.GetFileInfoResponse();
-            if (object.fileInfo != null) {
-                if (typeof object.fileInfo !== "object")
-                    throw TypeError(".neutron.GetFileInfoResponse.fileInfo: object expected");
-                message.fileInfo = $root.neutron.FileInformation.fromObject(object.fileInfo);
-            }
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a GetFileInfoResponse message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {neutron.GetFileInfoResponse} message GetFileInfoResponse
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        GetFileInfoResponse.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults)
-                object.fileInfo = null;
-            if (message.fileInfo != null && message.hasOwnProperty("fileInfo"))
-                object.fileInfo = $root.neutron.FileInformation.toObject(message.fileInfo, options);
-            return object;
-        };
-
-        /**
-         * Converts this GetFileInfoResponse to JSON.
-         * @function toJSON
-         * @memberof neutron.GetFileInfoResponse
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        GetFileInfoResponse.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for GetFileInfoResponse
-         * @function getTypeUrl
-         * @memberof neutron.GetFileInfoResponse
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        GetFileInfoResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/neutron.GetFileInfoResponse";
-        };
-
-        return GetFileInfoResponse;
-    })();
-
     neutron.ListFilesRequest = (function() {
 
         /**
@@ -4726,7 +4516,6 @@ export const neutron = $root.neutron = (() => {
          * @property {neutron.IPrepareFileReceiveRequest|null} [prepareFileReceiveRequest] RemoteMessage prepareFileReceiveRequest
          * @property {neutron.IPrepareFileReceiveResponse|null} [prepareFileReceiveResponse] RemoteMessage prepareFileReceiveResponse
          * @property {neutron.IGetFileInfoRequest|null} [getFileInfoRequest] RemoteMessage getFileInfoRequest
-         * @property {neutron.IGetFileInfoResponse|null} [getFileInfoResponse] RemoteMessage getFileInfoResponse
          * @property {neutron.IListFilesRequest|null} [listFilesRequest] RemoteMessage listFilesRequest
          * @property {neutron.IListFilesResponse|null} [listFilesResponse] RemoteMessage listFilesResponse
          * @property {neutron.IGetFileSystemVersionRequest|null} [getFileSystemVersionRequest] RemoteMessage getFileSystemVersionRequest
@@ -4901,14 +4690,6 @@ export const neutron = $root.neutron = (() => {
         RemoteMessage.prototype.getFileInfoRequest = null;
 
         /**
-         * RemoteMessage getFileInfoResponse.
-         * @member {neutron.IGetFileInfoResponse|null|undefined} getFileInfoResponse
-         * @memberof neutron.RemoteMessage
-         * @instance
-         */
-        RemoteMessage.prototype.getFileInfoResponse = null;
-
-        /**
          * RemoteMessage listFilesRequest.
          * @member {neutron.IListFilesRequest|null|undefined} listFilesRequest
          * @memberof neutron.RemoteMessage
@@ -5009,12 +4790,12 @@ export const neutron = $root.neutron = (() => {
 
         /**
          * RemoteMessage payload.
-         * @member {"any"|"rawData"|"error"|"loginRequest"|"loginResponse"|"fileInformation"|"imageRepoHistoryRequest"|"imageRepoHistoryItem"|"imageRepoHistoryResponse"|"fileOperationRequest"|"fileOperationResponse"|"prepareFileReceiveRequest"|"prepareFileReceiveResponse"|"getFileInfoRequest"|"getFileInfoResponse"|"listFilesRequest"|"listFilesResponse"|"getFileSystemVersionRequest"|"getFileSystemVersionResponse"|"getThumbnailRequest"|"getThumbnailResponse"|"playVideoRequest"|"playVideoResponse"|"webrtcOfferContent"|"webrtcAnswerContent"|"webrtcAnswerCandidatesContent"|"webrtcCandidateContent"|undefined} payload
+         * @member {"any"|"rawData"|"error"|"loginRequest"|"loginResponse"|"fileInformation"|"imageRepoHistoryRequest"|"imageRepoHistoryItem"|"imageRepoHistoryResponse"|"fileOperationRequest"|"fileOperationResponse"|"prepareFileReceiveRequest"|"prepareFileReceiveResponse"|"getFileInfoRequest"|"listFilesRequest"|"listFilesResponse"|"getFileSystemVersionRequest"|"getFileSystemVersionResponse"|"getThumbnailRequest"|"getThumbnailResponse"|"playVideoRequest"|"playVideoResponse"|"webrtcOfferContent"|"webrtcAnswerContent"|"webrtcAnswerCandidatesContent"|"webrtcCandidateContent"|undefined} payload
          * @memberof neutron.RemoteMessage
          * @instance
          */
         Object.defineProperty(RemoteMessage.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["any", "rawData", "error", "loginRequest", "loginResponse", "fileInformation", "imageRepoHistoryRequest", "imageRepoHistoryItem", "imageRepoHistoryResponse", "fileOperationRequest", "fileOperationResponse", "prepareFileReceiveRequest", "prepareFileReceiveResponse", "getFileInfoRequest", "getFileInfoResponse", "listFilesRequest", "listFilesResponse", "getFileSystemVersionRequest", "getFileSystemVersionResponse", "getThumbnailRequest", "getThumbnailResponse", "playVideoRequest", "playVideoResponse", "webrtcOfferContent", "webrtcAnswerContent", "webrtcAnswerCandidatesContent", "webrtcCandidateContent"]),
+            get: $util.oneOfGetter($oneOfFields = ["any", "rawData", "error", "loginRequest", "loginResponse", "fileInformation", "imageRepoHistoryRequest", "imageRepoHistoryItem", "imageRepoHistoryResponse", "fileOperationRequest", "fileOperationResponse", "prepareFileReceiveRequest", "prepareFileReceiveResponse", "getFileInfoRequest", "listFilesRequest", "listFilesResponse", "getFileSystemVersionRequest", "getFileSystemVersionResponse", "getThumbnailRequest", "getThumbnailResponse", "playVideoRequest", "playVideoResponse", "webrtcOfferContent", "webrtcAnswerContent", "webrtcAnswerCandidatesContent", "webrtcCandidateContent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -5078,8 +4859,6 @@ export const neutron = $root.neutron = (() => {
                 $root.neutron.PrepareFileReceiveResponse.encode(message.prepareFileReceiveResponse, writer.uint32(/* id 1508, wireType 2 =*/12066).fork()).ldelim();
             if (message.getFileInfoRequest != null && Object.hasOwnProperty.call(message, "getFileInfoRequest"))
                 $root.neutron.GetFileInfoRequest.encode(message.getFileInfoRequest, writer.uint32(/* id 1509, wireType 2 =*/12074).fork()).ldelim();
-            if (message.getFileInfoResponse != null && Object.hasOwnProperty.call(message, "getFileInfoResponse"))
-                $root.neutron.GetFileInfoResponse.encode(message.getFileInfoResponse, writer.uint32(/* id 1510, wireType 2 =*/12082).fork()).ldelim();
             if (message.listFilesRequest != null && Object.hasOwnProperty.call(message, "listFilesRequest"))
                 $root.neutron.ListFilesRequest.encode(message.listFilesRequest, writer.uint32(/* id 1511, wireType 2 =*/12090).fork()).ldelim();
             if (message.listFilesResponse != null && Object.hasOwnProperty.call(message, "listFilesResponse"))
@@ -5210,10 +4989,6 @@ export const neutron = $root.neutron = (() => {
                     }
                 case 1509: {
                         message.getFileInfoRequest = $root.neutron.GetFileInfoRequest.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 1510: {
-                        message.getFileInfoResponse = $root.neutron.GetFileInfoResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 1511: {
@@ -5447,16 +5222,6 @@ export const neutron = $root.neutron = (() => {
                         return "getFileInfoRequest." + error;
                 }
             }
-            if (message.getFileInfoResponse != null && message.hasOwnProperty("getFileInfoResponse")) {
-                if (properties.payload === 1)
-                    return "payload: multiple values";
-                properties.payload = 1;
-                {
-                    let error = $root.neutron.GetFileInfoResponse.verify(message.getFileInfoResponse);
-                    if (error)
-                        return "getFileInfoResponse." + error;
-                }
-            }
             if (message.listFilesRequest != null && message.hasOwnProperty("listFilesRequest")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -5670,11 +5435,6 @@ export const neutron = $root.neutron = (() => {
                     throw TypeError(".neutron.RemoteMessage.getFileInfoRequest: object expected");
                 message.getFileInfoRequest = $root.neutron.GetFileInfoRequest.fromObject(object.getFileInfoRequest);
             }
-            if (object.getFileInfoResponse != null) {
-                if (typeof object.getFileInfoResponse !== "object")
-                    throw TypeError(".neutron.RemoteMessage.getFileInfoResponse: object expected");
-                message.getFileInfoResponse = $root.neutron.GetFileInfoResponse.fromObject(object.getFileInfoResponse);
-            }
             if (object.listFilesRequest != null) {
                 if (typeof object.listFilesRequest !== "object")
                     throw TypeError(".neutron.RemoteMessage.listFilesRequest: object expected");
@@ -5834,11 +5594,6 @@ export const neutron = $root.neutron = (() => {
                 object.getFileInfoRequest = $root.neutron.GetFileInfoRequest.toObject(message.getFileInfoRequest, options);
                 if (options.oneofs)
                     object.payload = "getFileInfoRequest";
-            }
-            if (message.getFileInfoResponse != null && message.hasOwnProperty("getFileInfoResponse")) {
-                object.getFileInfoResponse = $root.neutron.GetFileInfoResponse.toObject(message.getFileInfoResponse, options);
-                if (options.oneofs)
-                    object.payload = "getFileInfoResponse";
             }
             if (message.listFilesRequest != null && message.hasOwnProperty("listFilesRequest")) {
                 object.listFilesRequest = $root.neutron.ListFilesRequest.toObject(message.listFilesRequest, options);

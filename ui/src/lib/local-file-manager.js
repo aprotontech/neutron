@@ -375,7 +375,8 @@ export default class LocalFileManager {
                     const chunkSize = value.length || value.byteLength || 0;
                     totalSize += chunkSize;
 
-                    console.log(`[LocalFileManager] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
+                    const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
+                    console.log(`[LocalFileManager] [${progress.toFixed(2)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
 
                     // 更新MD5计算
                     if (value instanceof ArrayBuffer) {
@@ -409,12 +410,9 @@ export default class LocalFileManager {
                     }
 
                     // 更新进度
-                    const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
                     progressTracker.progress = progress;
                     progressTracker.completed = totalSize === fileInfo.size;
                     progressTracker.localUrl = cacheFilePath;
-
-                    console.log(`[LocalFileManager] Progress: ${progress.toFixed(2)}%`);
                 }
             }
 

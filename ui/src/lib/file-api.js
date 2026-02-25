@@ -327,6 +327,7 @@ export default class FileAPI {
 
         // Fallback to network and cache the result when possible
         const fresh = await TransferClient.get().getFileInfo(filePath);
+        console.log("fileinfo: ", JSON.stringify(fresh))
         try {
             if (fresh) {
                 await this._cachedFileInfo.saveFileInfo(filePath, fresh);

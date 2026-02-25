@@ -352,7 +352,7 @@ export default class WebRTCClient extends BaseClient {
                 "count": count
             }));
 
-            console.log('getImageRepoHistory response:', resp);
+            // console.log('getImageRepoHistory response:', resp);
 
             // 直接返回protobuf对象，让调用者处理
             return resp;

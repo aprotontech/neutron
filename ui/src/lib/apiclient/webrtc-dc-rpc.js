@@ -94,7 +94,7 @@ export default class WebRTCDataChannelRPC {
 
         dc.onmessage = (event) => {
             let msg = null;
-            console.log('Received message on data channel:', event.data);
+            //console.log('Received message on data channel:', event.data);
             try {
                 const remoteMsg = RemoteMessage.decode(new Uint8Array(event.data));
 

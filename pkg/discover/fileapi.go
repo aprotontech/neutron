@@ -101,18 +101,14 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 		}
 	}
 
-	fileInfo := &neutronproto.FileInformation{
-		Name:     info.Name,
-		IsDir:    info.IsDir(),
-		Size:     int64(info.Size),
-		Mtime:    info.Mtime.Unix(),
-		MimeType: extraInfo.MimeType,
-		ExifData: exifData,
-	}
-
-	return &neutronproto.RemoteMessage_GetFileInfoResponse{
-		GetFileInfoResponse: &neutronproto.GetFileInfoResponse{
-			FileInfo: fileInfo,
+	return &neutronproto.RemoteMessage_FileInformation{
+		FileInformation: &neutronproto.FileInformation{
+			Name:     info.Name,
+			IsDir:    info.IsDir(),
+			Size:     int64(info.Size),
+			Mtime:    info.Mtime.Unix(),
+			MimeType: extraInfo.MimeType,
+			ExifData: exifData,
 		},
 	}, nil
 }

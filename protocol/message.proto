@@ -41,7 +41,6 @@ message RemoteMessage {
 		PrepareFileReceiveRequest prepare_file_receive_request = 1507;
 		PrepareFileReceiveResponse prepare_file_receive_response = 1508;
 		GetFileInfoRequest get_file_info_request = 1509;
-		GetFileInfoResponse get_file_info_response = 1510;
 		ListFilesRequest list_files_request = 1511;
 		ListFilesResponse list_files_response = 1512;
 		GetFileSystemVersionRequest get_file_system_version_request = 1513;

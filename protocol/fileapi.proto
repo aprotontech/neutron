@@ -65,11 +65,6 @@ message GetFileInfoRequest {
     string path = 1;
 }
 
-// Get file info response
-message GetFileInfoResponse {
-    FileInformation file_info = 1;
-}
-
 // List files request
 message ListFilesRequest {
     string path = 1;

@@ -26,8 +26,8 @@ export default class CachedFileInformation {
             const exif = fileInfo.exif ? JSON.stringify(fileInfo.exif) : null;
 
             // Replace existing record for this file_path
-            await this.sqlite.execute(`DELETE FROM ${tables.CACHED_FILE_INFOS} WHERE file_path = ?`, [filePath]);
-            await this.sqlite.execute(
+            await db.run(`DELETE FROM ${tables.CACHED_FILE_INFOS} WHERE file_path = ?`, [filePath]);
+            await db.run(
                 `INSERT INTO ${tables.CACHED_FILE_INFOS} (file_path, is_dir, size, mtime, mime_type, exif) VALUES (?,?,?,?,?,?)`,
                 [filePath, is_dir, size, mtime, mime_type, exif]
             );

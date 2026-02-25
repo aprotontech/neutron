@@ -105,7 +105,6 @@ type RemoteMessage struct {
 	//	*RemoteMessage_PrepareFileReceiveRequest
 	//	*RemoteMessage_PrepareFileReceiveResponse
 	//	*RemoteMessage_GetFileInfoRequest
-	//	*RemoteMessage_GetFileInfoResponse
 	//	*RemoteMessage_ListFilesRequest
 	//	*RemoteMessage_ListFilesResponse
 	//	*RemoteMessage_GetFileSystemVersionRequest
@@ -314,15 +313,6 @@ func (x *RemoteMessage) GetGetFileInfoRequest() *GetFileInfoRequest {
 	return nil
 }
 
-func (x *RemoteMessage) GetGetFileInfoResponse() *GetFileInfoResponse {
-	if x != nil {
-		if x, ok := x.Payload.(*RemoteMessage_GetFileInfoResponse); ok {
-			return x.GetFileInfoResponse
-		}
-	}
-	return nil
-}
-
 func (x *RemoteMessage) GetListFilesRequest() *ListFilesRequest {
 	if x != nil {
 		if x, ok := x.Payload.(*RemoteMessage_ListFilesRequest); ok {
@@ -493,10 +483,6 @@ type RemoteMessage_GetFileInfoRequest struct {
 	GetFileInfoRequest *GetFileInfoRequest `protobuf:"bytes,1509,opt,name=get_file_info_request,json=getFileInfoRequest,proto3,oneof"`
 }
 
-type RemoteMessage_GetFileInfoResponse struct {
-	GetFileInfoResponse *GetFileInfoResponse `protobuf:"bytes,1510,opt,name=get_file_info_response,json=getFileInfoResponse,proto3,oneof"`
-}
-
 type RemoteMessage_ListFilesRequest struct {
 	ListFilesRequest *ListFilesRequest `protobuf:"bytes,1511,opt,name=list_files_request,json=listFilesRequest,proto3,oneof"`
 }
@@ -574,8 +560,6 @@ func (*RemoteMessage_PrepareFileReceiveResponse) isRemoteMessage_Payload() {}
 
 func (*RemoteMessage_GetFileInfoRequest) isRemoteMessage_Payload() {}
 
-func (*RemoteMessage_GetFileInfoResponse) isRemoteMessage_Payload() {}
-
 func (*RemoteMessage_ListFilesRequest) isRemoteMessage_Payload() {}
 
 func (*RemoteMessage_ListFilesResponse) isRemoteMessage_Payload() {}
@@ -609,7 +593,7 @@ const file_message_proto_rawDesc = "" +
 	"\fErrorMessage\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x121\n" +
-	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\"\xc3\x12\n" +
+	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\"\xed\x11\n" +
 	"\rRemoteMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
@@ -628,8 +612,7 @@ const file_message_proto_rawDesc = "" +
 	"\x17file_operation_response\x18\xe2\v \x01(\v2\x1e.neutron.FileOperationResponseH\x00R\x15fileOperationResponse\x12f\n" +
 	"\x1cprepare_file_receive_request\x18\xe3\v \x01(\v2\".neutron.PrepareFileReceiveRequestH\x00R\x19prepareFileReceiveRequest\x12i\n" +
 	"\x1dprepare_file_receive_response\x18\xe4\v \x01(\v2#.neutron.PrepareFileReceiveResponseH\x00R\x1aprepareFileReceiveResponse\x12Q\n" +
-	"\x15get_file_info_request\x18\xe5\v \x01(\v2\x1b.neutron.GetFileInfoRequestH\x00R\x12getFileInfoRequest\x12T\n" +
-	"\x16get_file_info_response\x18\xe6\v \x01(\v2\x1c.neutron.GetFileInfoResponseH\x00R\x13getFileInfoResponse\x12J\n" +
+	"\x15get_file_info_request\x18\xe5\v \x01(\v2\x1b.neutron.GetFileInfoRequestH\x00R\x12getFileInfoRequest\x12J\n" +
 	"\x12list_files_request\x18\xe7\v \x01(\v2\x19.neutron.ListFilesRequestH\x00R\x10listFilesRequest\x12M\n" +
 	"\x13list_files_response\x18\xe8\v \x01(\v2\x1a.neutron.ListFilesResponseH\x00R\x11listFilesResponse\x12m\n" +
 	"\x1fget_file_system_version_request\x18\xe9\v \x01(\v2$.neutron.GetFileSystemVersionRequestH\x00R\x1bgetFileSystemVersionRequest\x12p\n" +
@@ -673,19 +656,18 @@ var file_message_proto_goTypes = []any{
 	(*PrepareFileReceiveRequest)(nil),     // 12: neutron.PrepareFileReceiveRequest
 	(*PrepareFileReceiveResponse)(nil),    // 13: neutron.PrepareFileReceiveResponse
 	(*GetFileInfoRequest)(nil),            // 14: neutron.GetFileInfoRequest
-	(*GetFileInfoResponse)(nil),           // 15: neutron.GetFileInfoResponse
-	(*ListFilesRequest)(nil),              // 16: neutron.ListFilesRequest
-	(*ListFilesResponse)(nil),             // 17: neutron.ListFilesResponse
-	(*GetFileSystemVersionRequest)(nil),   // 18: neutron.GetFileSystemVersionRequest
-	(*GetFileSystemVersionResponse)(nil),  // 19: neutron.GetFileSystemVersionResponse
-	(*GetThumbnailRequest)(nil),           // 20: neutron.GetThumbnailRequest
-	(*GetThumbnailResponse)(nil),          // 21: neutron.GetThumbnailResponse
-	(*PlayVideoRequest)(nil),              // 22: neutron.PlayVideoRequest
-	(*PlayVideoResponse)(nil),             // 23: neutron.PlayVideoResponse
-	(*WebRTCOfferContent)(nil),            // 24: neutron.WebRTCOfferContent
-	(*WebRTCAnswerContent)(nil),           // 25: neutron.WebRTCAnswerContent
-	(*WebRTCAnswerCandidatesContent)(nil), // 26: neutron.WebRTCAnswerCandidatesContent
-	(*WebRTCCandidateContent)(nil),        // 27: neutron.WebRTCCandidateContent
+	(*ListFilesRequest)(nil),              // 15: neutron.ListFilesRequest
+	(*ListFilesResponse)(nil),             // 16: neutron.ListFilesResponse
+	(*GetFileSystemVersionRequest)(nil),   // 17: neutron.GetFileSystemVersionRequest
+	(*GetFileSystemVersionResponse)(nil),  // 18: neutron.GetFileSystemVersionResponse
+	(*GetThumbnailRequest)(nil),           // 19: neutron.GetThumbnailRequest
+	(*GetThumbnailResponse)(nil),          // 20: neutron.GetThumbnailResponse
+	(*PlayVideoRequest)(nil),              // 21: neutron.PlayVideoRequest
+	(*PlayVideoResponse)(nil),             // 22: neutron.PlayVideoResponse
+	(*WebRTCOfferContent)(nil),            // 23: neutron.WebRTCOfferContent
+	(*WebRTCAnswerContent)(nil),           // 24: neutron.WebRTCAnswerContent
+	(*WebRTCAnswerCandidatesContent)(nil), // 25: neutron.WebRTCAnswerCandidatesContent
+	(*WebRTCCandidateContent)(nil),        // 26: neutron.WebRTCCandidateContent
 }
 var file_message_proto_depIdxs = []int32{
 	2,  // 0: neutron.ErrorMessage.details:type_name -> google.protobuf.Struct
@@ -702,24 +684,23 @@ var file_message_proto_depIdxs = []int32{
 	12, // 11: neutron.RemoteMessage.prepare_file_receive_request:type_name -> neutron.PrepareFileReceiveRequest
 	13, // 12: neutron.RemoteMessage.prepare_file_receive_response:type_name -> neutron.PrepareFileReceiveResponse
 	14, // 13: neutron.RemoteMessage.get_file_info_request:type_name -> neutron.GetFileInfoRequest
-	15, // 14: neutron.RemoteMessage.get_file_info_response:type_name -> neutron.GetFileInfoResponse
-	16, // 15: neutron.RemoteMessage.list_files_request:type_name -> neutron.ListFilesRequest
-	17, // 16: neutron.RemoteMessage.list_files_response:type_name -> neutron.ListFilesResponse
-	18, // 17: neutron.RemoteMessage.get_file_system_version_request:type_name -> neutron.GetFileSystemVersionRequest
-	19, // 18: neutron.RemoteMessage.get_file_system_version_response:type_name -> neutron.GetFileSystemVersionResponse
-	20, // 19: neutron.RemoteMessage.get_thumbnail_request:type_name -> neutron.GetThumbnailRequest
-	21, // 20: neutron.RemoteMessage.get_thumbnail_response:type_name -> neutron.GetThumbnailResponse
-	22, // 21: neutron.RemoteMessage.play_video_request:type_name -> neutron.PlayVideoRequest
-	23, // 22: neutron.RemoteMessage.play_video_response:type_name -> neutron.PlayVideoResponse
-	24, // 23: neutron.RemoteMessage.webrtc_offer_content:type_name -> neutron.WebRTCOfferContent
-	25, // 24: neutron.RemoteMessage.webrtc_answer_content:type_name -> neutron.WebRTCAnswerContent
-	26, // 25: neutron.RemoteMessage.webrtc_answer_candidates_content:type_name -> neutron.WebRTCAnswerCandidatesContent
-	27, // 26: neutron.RemoteMessage.webrtc_candidate_content:type_name -> neutron.WebRTCCandidateContent
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	15, // 14: neutron.RemoteMessage.list_files_request:type_name -> neutron.ListFilesRequest
+	16, // 15: neutron.RemoteMessage.list_files_response:type_name -> neutron.ListFilesResponse
+	17, // 16: neutron.RemoteMessage.get_file_system_version_request:type_name -> neutron.GetFileSystemVersionRequest
+	18, // 17: neutron.RemoteMessage.get_file_system_version_response:type_name -> neutron.GetFileSystemVersionResponse
+	19, // 18: neutron.RemoteMessage.get_thumbnail_request:type_name -> neutron.GetThumbnailRequest
+	20, // 19: neutron.RemoteMessage.get_thumbnail_response:type_name -> neutron.GetThumbnailResponse
+	21, // 20: neutron.RemoteMessage.play_video_request:type_name -> neutron.PlayVideoRequest
+	22, // 21: neutron.RemoteMessage.play_video_response:type_name -> neutron.PlayVideoResponse
+	23, // 22: neutron.RemoteMessage.webrtc_offer_content:type_name -> neutron.WebRTCOfferContent
+	24, // 23: neutron.RemoteMessage.webrtc_answer_content:type_name -> neutron.WebRTCAnswerContent
+	25, // 24: neutron.RemoteMessage.webrtc_answer_candidates_content:type_name -> neutron.WebRTCAnswerCandidatesContent
+	26, // 25: neutron.RemoteMessage.webrtc_candidate_content:type_name -> neutron.WebRTCCandidateContent
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_message_proto_init() }
@@ -745,7 +726,6 @@ func file_message_proto_init() {
 		(*RemoteMessage_PrepareFileReceiveRequest)(nil),
 		(*RemoteMessage_PrepareFileReceiveResponse)(nil),
 		(*RemoteMessage_GetFileInfoRequest)(nil),
-		(*RemoteMessage_GetFileInfoResponse)(nil),
 		(*RemoteMessage_ListFilesRequest)(nil),
 		(*RemoteMessage_ListFilesResponse)(nil),
 		(*RemoteMessage_GetFileSystemVersionRequest)(nil),
