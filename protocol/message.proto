@@ -36,8 +36,6 @@ message RemoteMessage {
 		ImageRepoHistoryRequest image_repo_history_request = 1502;
 		ImageRepoHistoryItem image_repo_history_item = 1503;
 		ImageRepoHistoryResponse image_repo_history_response = 1504;
-		FileOperationRequest file_operation_request = 1505;
-		FileOperationResponse file_operation_response = 1506;
 		PrepareFileReceiveRequest prepare_file_receive_request = 1507;
 		PrepareFileReceiveResponse prepare_file_receive_response = 1508;
 		GetFileInfoRequest get_file_info_request = 1509;

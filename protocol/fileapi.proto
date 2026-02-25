@@ -19,7 +19,8 @@ message ImageRepoHistoryRequest {
     repeated string types = 1;
     int64 last_id = 2;
     int32 count = 3;
-    string version = 4;
+    int32 order = 4;
+    string version = 5;
 }
 
 message ImageRepoHistoryItem {
@@ -36,16 +37,6 @@ message ImageRepoHistoryResponse {
     int64 max_id = 2;
     string version = 3;
     repeated ImageRepoHistoryItem items = 4;
-}
-
-// File operation request/response messages
-message FileOperationRequest {
-    string operation = 1;
-    google.protobuf.Struct params = 2;
-}
-
-message FileOperationResponse {
-    google.protobuf.Struct result = 2;
 }
 
 // Prepare file receive request (used in WebRTC)

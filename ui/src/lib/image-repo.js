@@ -40,6 +40,7 @@ class ImageRepo {
         this.lastID = null;
 
         this.remoteTotalCount = 0;
+        this.localStorageRemoteTotalCountKey = 'image_repo_remote_total_count';
 
         // 平台检测
         this.isNative = Capacitor.isNativePlatform();
@@ -56,8 +57,8 @@ class ImageRepo {
 
         // 初始化排序比较函数
         this.sortFunctions = {
-            [SortOrder.ETIME]: (a, b) => b.etime - a.etime, // 降序：最新的在前
-            [SortOrder.MTIME]: (a, b) => b.mtime - a.mtime  // 降序：最新的在前
+            [SortOrder.ETIME]: (a, b) => a.id - b.id, // 
+            [SortOrder.MTIME]: (a, b) => a.id - b.id  // 
         };
     }
 
@@ -105,6 +106,7 @@ class ImageRepo {
 
         // 同步更新到数据库
         await this._syncToDatabase(items.map(item => this._normalizeHistoryItem(item)));
+        localStorage.setItem(this.localStorageRemoteTotalCountKey, this.remoteTotalCount.toString())
     }
 
     /**
@@ -436,6 +438,10 @@ class ImageRepo {
                 console.log(`[ImageRepo] Initialized ${items.length} items from database`);
             } else {
                 console.log('[ImageRepo] No data found in database');
+            }
+
+            if (localStorage.getItem(this.localStorageRemoteTotalCountKey)) {
+                this.remoteTotalCount = parseInt(localStorage.getItem(this.localStorageRemoteTotalCountKey))
             }
 
             return this.historyMap.size;
