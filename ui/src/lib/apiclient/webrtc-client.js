@@ -274,7 +274,7 @@ export default class WebRTCClient extends BaseClient {
     async listFiles(path = '/') {
         // Use RPC over data channel to request listing from remote peer
         try {
-            const resp = await this.rpc.sendRpc('listFiles', neutron.ListFilesRequest.create({ path: path }));
+            const resp = await this.rpc.sendRpc('listFiles', 'listFilesRequest', neutron.ListFilesRequest.create({ path: path }));
             return resp;
         } catch (err) {
             console.error('listFiles RPC error:', err);
@@ -292,7 +292,7 @@ export default class WebRTCClient extends BaseClient {
 
         try {
             // Ask remote peer to prepare and send the file on the given label
-            const resp = await this.rpc.sendRpc('prepareFileReceive', neutron.PrepareFileReceiveRequest.create({ "path": filePath, "label": label, "offset": offset, "size": size }));
+            const resp = await this.rpc.sendRpc('prepareFileReceive', 'prepareFileReceiveRequest', neutron.PrepareFileReceiveRequest.create({ "path": filePath, "label": label, "offset": offset, "size": size }));
             console.log("Requested file receive via WebRTC:", filePath, JSON.stringify(resp));
 
             const fileSize = resp["size"] || null;
@@ -318,7 +318,7 @@ export default class WebRTCClient extends BaseClient {
             // Ask remote peer (via RPC) to prepare/produce a thumbnail.
             // The server should respond with an id that will be sent over
             // the thumbnail datachannel as a binary packet (first 16 bytes = id).
-            const resp = await this.rpc.sendRpc('getThumbnail', neutron.GetThumbnailRequest.create({ path: filePath, size: maxSize }));
+            const resp = await this.rpc.sendRpc('getThumbnail', 'getThumbnailRequest', neutron.GetThumbnailRequest.create({ path: filePath, size: maxSize }));
             const thumbId = (resp && resp.id) ? resp.id : resp;
             if (!thumbId) return null;
 
@@ -336,16 +336,16 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileInfo(filePath) {
-        return await this.rpc.sendRpc('getFileInfo', neutron.GetFileInfoRequest.create({ path: filePath }));
+        return await this.rpc.sendRpc('getFileInfo', 'getFileInfoRequest', neutron.GetFileInfoRequest.create({ path: filePath }));
     }
 
     async getFileSystemVersion() {
-        return await this.rpc.sendRpc('getFileSystemVersion', neutron.getFileSystemVersion.create({}));
+        return await this.rpc.sendRpc('getFileSystemVersion', 'getFileSystemVersionRequest', neutron.GetFileSystemVersionRequest.create({}));
     }
 
     async getImageRepoHistory(version, lastId, count) {
         try {
-            const resp = await this.rpc.sendRpc('getImageRepoHistory', neutron.ImageRepoHistoryRequest.create({
+            const resp = await this.rpc.sendRpc('getImageRepoHistory', 'imageRepoHistoryRequest', neutron.ImageRepoHistoryRequest.create({
                 "types": ["image", "video"],
                 "version": version,
                 "lastId": lastId,

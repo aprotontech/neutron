@@ -30,11 +30,7 @@ export default class WebRTCDataChannelRPC {
         return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     }
 
-    registerRpcHandler(cmd, fn) {
-        this._rpcHandlers[cmd] = fn;
-    }
-
-    sendRpc(cmd, data, timeoutMs) {
+    sendRpc(cmd, payload_type, data, timeoutMs) {
         const id = this.generateRpcId();
         const timeout = typeof timeoutMs === 'number' ? timeoutMs : this._rpcDefaultTimeout;
 
@@ -47,7 +43,7 @@ export default class WebRTCDataChannelRPC {
             this._rpcPending.set(id, { resolve, reject, timer });
 
             try {
-                const payload_type = data.constructor.name.charAt(0).toLowerCase() + data.constructor.name.slice(1);
+                // const payload_type = data.constructor.name.charAt(0).toLowerCase() + data.constructor.name.slice(1);
                 const remoteMsg = new RemoteMessage();
                 remoteMsg.type = cmd;
                 remoteMsg.source = this.clientId;

@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -41,6 +42,9 @@ func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteC
 }
 
 func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_ListFilesRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
 	realReq := req.(*neutronproto.RemoteMessage_ListFilesRequest).ListFilesRequest
 	folder := realReq.GetPath()
 
@@ -73,6 +77,10 @@ func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 }
 
 func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_GetFileInfoRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_GetFileInfoRequest).GetFileInfoRequest
 	fpath := realReq.GetPath()
 
@@ -114,6 +122,10 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 }
 
 func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_PrepareFileReceiveRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_PrepareFileReceiveRequest).PrepareFileReceiveRequest
 	filePath := realReq.GetPath()
 	dcName := realReq.GetLabel()
@@ -155,6 +167,10 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 }
 
 func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_GetThumbnailRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_GetThumbnailRequest).GetThumbnailRequest
 	filePath := realReq.GetPath()
 	size := realReq.GetSize()
@@ -228,6 +244,10 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 }
 
 func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_GetFileSystemVersionRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_GetFileSystemVersionRequest).GetFileSystemVersionRequest
 	_ = realReq // 不使用，但保持一致性
 	return &neutronproto.GetFileSystemVersionResponse{
@@ -236,6 +256,10 @@ func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, 
 }
 
 func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_ImageRepoHistoryRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_ImageRepoHistoryRequest).ImageRepoHistoryRequest
 	types := realReq.GetTypes()
 	lastID := realReq.GetLastId()
@@ -272,6 +296,10 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 }
 
 func playVideo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_PlayVideoRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
 	realReq := req.(*neutronproto.RemoteMessage_PlayVideoRequest).PlayVideoRequest
 	_ = realReq // 不使用，但保持一致性
 

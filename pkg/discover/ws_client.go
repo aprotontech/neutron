@@ -379,10 +379,16 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 					response, err = api(s, remoteClient, m.GetPayload())
 					if err != nil {
 						log.Warnf("File API %s error: %v", m.Type, err)
+						details, _ := structpb.NewStruct(map[string]any{
+							"input": m.GetPayload(),
+						})
 						// Convert error to appropriate response type
-						response = &neutronproto.ErrorMessage{
-							Success: false,
-							Error:   err.Error(),
+						response = &neutronproto.RemoteMessage_Error{
+							Error: &neutronproto.ErrorMessage{
+								Success: false,
+								Error:   err.Error(),
+								Details: details,
+							},
 						}
 					}
 

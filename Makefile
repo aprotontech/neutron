@@ -41,7 +41,7 @@ local-test: neutron
 
 html:
 	@echo $(VITE_NEUTRON_HTTP_API)
-	@cd ui && rm -rf  www && VITE_NEUTRON_HTTP_API=$(VITE_NEUTRON_HTTP_API) \
+	@cd ui && rm -rf www && VITE_NEUTRON_HTTP_API=$(VITE_NEUTRON_HTTP_API) \
 		VITE_NEUTRON_WEBSOCKET_ADDR=$(VITE_NEUTRON_WEBSOCKET_ADDR) \
 		npm run build
 	@cp -r ui/www ./build
