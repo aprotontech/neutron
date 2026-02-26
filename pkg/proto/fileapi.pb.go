@@ -669,7 +669,7 @@ func (x *GetFileSystemVersionResponse) GetVersion() string {
 type GetThumbnailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"` // optional, default 200
+	Size          int32                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"` // optional, default 200
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -711,7 +711,7 @@ func (x *GetThumbnailRequest) GetPath() string {
 	return ""
 }
 
-func (x *GetThumbnailRequest) GetSize() int64 {
+func (x *GetThumbnailRequest) GetSize() int32 {
 	if x != nil {
 		return x.Size
 	}
@@ -904,7 +904,7 @@ const file_fileapi_proto_rawDesc = "" +
 	"\aversion\x18\x01 \x01(\tR\aversion\"=\n" +
 	"\x13GetThumbnailRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\"&\n" +
+	"\x04size\x18\x02 \x01(\x05R\x04size\"&\n" +
 	"\x14GetThumbnailResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"&\n" +
 	"\x10PlayVideoRequest\x12\x12\n" +

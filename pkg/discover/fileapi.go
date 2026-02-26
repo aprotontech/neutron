@@ -180,27 +180,43 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 		size = 200
 	}
 
-	srcPath := path.Join(config.GlobalConfig.FileSystem.Local.RootPath, filePath)
-
-	if _, err := os.Stat(srcPath); err != nil {
-		log.Warnf("File %s not found for thumbnail: %v", filePath, err)
-		return nil, err
-	}
-
 	if config.GlobalConfig.Cache.CacheDir == "" {
 		log.Warnf("Cache directory not configured")
 		return nil, os.ErrInvalid
 	}
 
-	// Use SHA1 of the original path as the cache filename
-	folder, name, _ := utils.HashToPath([]any{filePath, size}, 2, 2)
-	cacheDir := filepath.Join(config.GlobalConfig.Cache.CacheDir, folder)
-
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	info, err := fsm.filesystem.Stat(filePath)
+	if err != nil {
 		return nil, err
 	}
 
-	cachePath := path.Join(cacheDir, name+".jpg")
+	extraInfo, err := info.GetSystemExtraInfo()
+	if err != nil || extraInfo == nil {
+		extraInfo = &fs.FileSystemExtraInfo{}
+	}
+
+	srcPath := path.Join(config.GlobalConfig.FileSystem.Local.RootPath, filePath)
+
+	var cachePath string
+	if cpath, ok := extraInfo.Thumbnails[int(size)]; ok {
+		cachePath = path.Join(config.GlobalConfig.Cache.CacheDir, cpath)
+	} else {
+
+		if _, err := os.Stat(srcPath); err != nil {
+			log.Warnf("File %s not found for thumbnail: %v", filePath, err)
+			return nil, err
+		}
+
+		// Use SHA1 of the original path as the cache filename
+		folder, name, _ := utils.HashToPath([]any{filePath, size}, 2, 2)
+		cacheDir := filepath.Join(config.GlobalConfig.Cache.CacheDir, folder)
+
+		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+			return nil, err
+		}
+
+		cachePath = path.Join(cacheDir, name+".jpg")
+	}
 
 	// Generate 16-byte ID
 	id := make([]byte, 16)

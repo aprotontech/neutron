@@ -3,8 +3,6 @@ import { CapacitorConfig } from '@capacitor/cli';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-const isDebug = process.argv.includes('--debug') || process.argv.includes('debug');
-
 const androidKeystorePath = 'app/aproton-release-key.jks';
 const androidKeystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD || '';
 const androidKeystoreAlias = process.env.ANDROID_KEY_ALIAS || 'aproton';

@@ -2958,7 +2958,7 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IGetThumbnailRequest
          * @property {string|null} [path] GetThumbnailRequest path
-         * @property {number|Long|null} [size] GetThumbnailRequest size
+         * @property {number|null} [size] GetThumbnailRequest size
          */
 
         /**
@@ -2986,11 +2986,11 @@ export const neutron = $root.neutron = (() => {
 
         /**
          * GetThumbnailRequest size.
-         * @member {number|Long} size
+         * @member {number} size
          * @memberof neutron.GetThumbnailRequest
          * @instance
          */
-        GetThumbnailRequest.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+        GetThumbnailRequest.prototype.size = 0;
 
         /**
          * Creates a new GetThumbnailRequest instance using the specified properties.
@@ -3019,7 +3019,7 @@ export const neutron = $root.neutron = (() => {
             if (message.path != null && Object.hasOwnProperty.call(message, "path"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.path);
             if (message.size != null && Object.hasOwnProperty.call(message, "size"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int64(message.size);
+                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.size);
             return writer;
         };
 
@@ -3061,7 +3061,7 @@ export const neutron = $root.neutron = (() => {
                         break;
                     }
                 case 2: {
-                        message.size = reader.int64();
+                        message.size = reader.int32();
                         break;
                     }
                 default:
@@ -3103,8 +3103,8 @@ export const neutron = $root.neutron = (() => {
                 if (!$util.isString(message.path))
                     return "path: string expected";
             if (message.size != null && message.hasOwnProperty("size"))
-                if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
-                    return "size: integer|Long expected";
+                if (!$util.isInteger(message.size))
+                    return "size: integer expected";
             return null;
         };
 
@@ -3123,14 +3123,7 @@ export const neutron = $root.neutron = (() => {
             if (object.path != null)
                 message.path = String(object.path);
             if (object.size != null)
-                if ($util.Long)
-                    (message.size = $util.Long.fromValue(object.size)).unsigned = false;
-                else if (typeof object.size === "string")
-                    message.size = parseInt(object.size, 10);
-                else if (typeof object.size === "number")
-                    message.size = object.size;
-                else if (typeof object.size === "object")
-                    message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
+                message.size = object.size | 0;
             return message;
         };
 
@@ -3149,19 +3142,12 @@ export const neutron = $root.neutron = (() => {
             let object = {};
             if (options.defaults) {
                 object.path = "";
-                if ($util.Long) {
-                    let long = new $util.Long(0, 0, false);
-                    object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                } else
-                    object.size = options.longs === String ? "0" : 0;
+                object.size = 0;
             }
             if (message.path != null && message.hasOwnProperty("path"))
                 object.path = message.path;
             if (message.size != null && message.hasOwnProperty("size"))
-                if (typeof message.size === "number")
-                    object.size = options.longs === String ? String(message.size) : message.size;
-                else
-                    object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
+                object.size = message.size;
             return object;
         };
 
