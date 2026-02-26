@@ -26,8 +26,10 @@ type NodeAttr struct {
 }
 
 type FileSystemExtraInfo struct {
-	MimeType string         `json:"mimeType,omitempty"`
-	Exif     map[string]any `json:"exif,omitempty"`
+	MimeType   string         `json:"mimeType,omitempty"`
+	Hash       string         `json:"hash,omitempty"` //  md5 of the file
+	Exif       map[string]any `json:"exif,omitempty"`
+	Thumbnails map[int]string `json:"thumbnails,omitempty"` // thumbnails of different size.
 }
 
 func (n *NodeAttr) SystemFileMode() os.FileMode {

@@ -1,14 +1,13 @@
 package discover
 
 import (
-	"crypto/md5"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path"
-	"strconv"
+	"path/filepath"
 
 	webrtc "github.com/pion/webrtc/v4"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -17,6 +16,7 @@ import (
 	"github.com/aproton/neutron/pkg/fs"
 	"github.com/aproton/neutron/pkg/media"
 	neutronproto "github.com/aproton/neutron/pkg/proto"
+	"github.com/aproton/neutron/pkg/utils"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
@@ -187,19 +187,20 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 		return nil, err
 	}
 
-	// Use SHA1 of the original path as the cache filename
-	h := md5.Sum([]byte(filePath + ":" + strconv.Itoa(int(size))))
-	hashStr := hex.EncodeToString(h[:])
-	cacheDir := config.GlobalConfig.Cache.CacheDir
-	if cacheDir == "" {
+	if config.GlobalConfig.Cache.CacheDir == "" {
 		log.Warnf("Cache directory not configured")
 		return nil, os.ErrInvalid
 	}
 
+	// Use SHA1 of the original path as the cache filename
+	folder, name, _ := utils.HashToPath([]any{filePath, size}, 2, 2)
+	cacheDir := filepath.Join(config.GlobalConfig.Cache.CacheDir, folder)
+
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return nil, err
 	}
-	cachePath := path.Join(cacheDir, hashStr+".jpg")
+
+	cachePath := path.Join(cacheDir, name+".jpg")
 
 	// Generate 16-byte ID
 	id := make([]byte, 16)
