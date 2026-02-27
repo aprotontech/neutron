@@ -365,7 +365,7 @@ export default class LocalFileManager {
                 const { done, value } = await reader.read();
 
                 if (done) {
-                    console.log(`[LocalFileManager] File download completed: ${filePath}, total size: ${totalSize} bytes, chunks: ${chunkCount}`);
+                    console.log(`[LocalFileManager] [100%] File download completed: Chunk ${chunkCount}, accumulated: ${totalSize}/${fileInfo.size}`);
                     break;
                 }
 
@@ -376,7 +376,9 @@ export default class LocalFileManager {
                     totalSize += chunkSize;
 
                     const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
-                    console.log(`[LocalFileManager] [${progress.toFixed(2)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
+                    if (Math.floor(progress) % 10 == 0) {
+                        console.log(`[LocalFileManager] [${progress.toFixed(0)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
+                    }
 
                     // 更新MD5计算
                     if (value instanceof ArrayBuffer) {
@@ -533,7 +535,7 @@ export default class LocalFileManager {
 
         const needCleanup = !recheck && this.cacheingDir === null
 
-        // 只使用 Directory.Data 目录
+        // 只使用 Directory.Data 目录`
         const options = {
             path: "caches/downloads",
             directory: Directory.Data,
@@ -556,7 +558,7 @@ export default class LocalFileManager {
         console.log(`[LocalFileManager] Caching directory set: ${this.cacheingDir.directory}, path: ${this.cacheingDir.path}`);
 
         if (needCleanup) {
-            await this._cleanCachingDirectory();
+            // await this._cleanCachingDirectory();
         }
 
         return this.cacheingDir;
@@ -699,9 +701,14 @@ export default class LocalFileManager {
                 [filePath]
             );
 
-            console.log(`[LocalFileManager] Database query for file: ${filePath}, found ${result.values ? result.values.length : 0} records`);
+            const record_length = result.values ? result.values.length : 0;
+            if (total_parition == 1) {
+                console.log(`[LocalFileManager] Database query for file: ${filePath}, found ${record_length} records`);
+            } else {
+                console.log(`[LocalFileManager] Database query for file: ${filePath}, parition: ${partition}/${total_parition}, found ${record_length} records`);
+            }
 
-            if (result.values && result.values.length > 0) {
+            if (record_length > 0) {
                 const record = result.values[0];
                 console.log(`[LocalFileManager] Found file record: ${record.file_name}, local: ${record.local_path}`);
 

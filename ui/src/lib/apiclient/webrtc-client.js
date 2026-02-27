@@ -280,20 +280,18 @@ export default class WebRTCClient extends BaseClient {
     }
 
     async getFileContent(filePath, mimeType = 'application/octet-stream', stream = false, offset = 0, size = -1, timeoutMs = -1, idleTimeout = 10000) {
-        console.log('Requesting file content via WebRTC:', filePath, 'mimeType:', mimeType, 'stream:', stream, 'timeoutMs:', timeoutMs, 'idleTimeout:', idleTimeout);
         const id = uuidv4();
         const label = mimeType.replaceAll('/', '-') + '-' + id;
 
+
         // Create file content helper
         const filedc = new WebRTCDataChannelFileContent(this.pc);
-
         try {
             // Ask remote peer to prepare and send the file on the given label
             const resp = await this.rpc.sendRpc('prepareFileReceive', 'prepareFileReceiveRequest', neutron.PrepareFileReceiveRequest.create({ "path": filePath, "label": label, "offset": offset, "size": size }));
-            console.log("Requested file receive via WebRTC:", filePath, JSON.stringify(resp));
+            console.log('Requesting file content via WebRTC:', filePath, label, JSON.stringify(resp));
 
             const fileSize = resp["size"] || null;
-            console.log("recv size: ", fileSize)
 
             if (stream) {
                 // Return ReadableStream for streaming
@@ -305,7 +303,7 @@ export default class WebRTCClient extends BaseClient {
                 return blob;
             }
         } catch (err) {
-            console.error('WebRTC file transfer failed:', err);
+            console.error(`WebRTC file transfer ${label} failed:`, err);
             throw err;
         }
     }

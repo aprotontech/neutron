@@ -8,8 +8,9 @@
  * is delivered to registered callbacks.
  */
 export default class WebRTCDataChannelFileContent {
-    constructor(pc) {
+    constructor(pc, options = { ordered: true, maxRetransmits: 10, priority: "low" }) {
         this.pc = pc;
+        this.options = options;
         this._channels = new Map(); // label -> RTCDataChannel
         this._pendingReceivers = new Map(); // label -> { resolve, reject, expectedSize, timer }
         this._channelTransfers = new Map(); // label -> transfer object
@@ -58,6 +59,7 @@ export default class WebRTCDataChannelFileContent {
                                 // 立即创建 Blob，不等待流结束
                                 const blob = new Blob(chunks, { type: mimeType });
                                 resolve(blob);
+
                                 return;
                             }
 
@@ -78,6 +80,11 @@ export default class WebRTCDataChannelFileContent {
                         timeoutTimer = setTimeout(() => {
                             if (!isFinished) {
                                 console.error("receiveFileContent: timeout after", timeoutMs, "ms");
+                                // 超时时主动关闭DataChannel
+                                const channel = this._channels.get(label);
+                                if (channel) {
+                                    channel.close();
+                                }
                                 reader.cancel("timeout").finally(() => {
                                     reject(new Error(`receiveFileContent timeout after ${timeoutMs}ms`));
                                 });
@@ -116,6 +123,13 @@ export default class WebRTCDataChannelFileContent {
             if (timeoutMs > 0) {
                 timer = setTimeout(() => {
                     this._streamReceivers.delete(label);
+
+                    // 超时时主动关闭DataChannel
+                    const channel = this._channels.get(label);
+                    if (channel) {
+                        channel.close();
+                    }
+
                     reject(new Error('receiveFileContentStream timeout'));
                 }, timeoutMs);
             }
@@ -131,7 +145,7 @@ export default class WebRTCDataChannelFileContent {
 
                     // 否则主动创建数据通道
                     try {
-                        const dc = this.pc.createDataChannel(label, { ordered: true, maxRetransmits: 10 });
+                        const dc = this.pc.createDataChannel(label, this.options);
                         this._setupChannel(dc, 'application/octet-stream');
                     } catch (e) {
                         clearTimeout(timer);
@@ -158,7 +172,7 @@ export default class WebRTCDataChannelFileContent {
         });
     }
 
-    _setupChannel(channel, mimeType, callback) {
+    _setupChannel(channel, mimeType) {
         if (!channel || !channel.label) return;
         channel.binaryType = 'arraybuffer';
 
@@ -169,6 +183,7 @@ export default class WebRTCDataChannelFileContent {
         this._channelTransfers.set(label, transfer);
 
         const finishTransfer = () => {
+            console.log("finishTransfer ", label)
             const blob = new Blob(transfer.chunks, { type: mimeType });
             // cleanup
             this._channels.delete(label);
@@ -195,7 +210,9 @@ export default class WebRTCDataChannelFileContent {
                 streamReceiver.controller.close();
             }
 
+            console.log(channel.readyState);
             channel.close();
+            console.log(channel.readyState);
         };
 
         // 检查 idleTimeout 的函数
@@ -275,6 +292,7 @@ export default class WebRTCDataChannelFileContent {
         };
 
         channel.onclose = () => {
+            console.log(`file data channel ${label} closed`)
             // 清理 idle 定时器
             const idleTimer = this._idleTimers.get(label);
             if (idleTimer) {
@@ -312,6 +330,9 @@ export default class WebRTCDataChannelFileContent {
                 clearTimeout(idleTimer);
                 this._idleTimers.delete(label);
             }
+
+            // 错误时主动关闭DataChannel
+            channel.close();
 
             const pending = this._pendingReceivers.get(label);
             if (pending) {

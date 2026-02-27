@@ -580,7 +580,7 @@ async function getCacheSize() {
     const size = await fileAPI.getCacheSize()
     cacheSize.value = size
     cacheSizeFormatted.value = FileSizeFormatter.format(size)
-    console.log('缓存大小:', cacheSizeFormatted.value, '(', size, 'bytes)')
+    // console.log('缓存大小:', cacheSizeFormatted.value, '(', size, 'bytes)')
   } catch (error) {
     console.error('获取缓存大小失败:', error)
     cacheSizeFormatted.value = '获取失败'

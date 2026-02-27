@@ -22,22 +22,10 @@ import (
 
 type FileFolderInfo map[string]interface{}
 
-type FileDataChannelInfo struct {
-	path   string
-	offset int64
-	size   int64
-}
-
-type WebRTCRemoteClient struct {
-	peerConnection *webrtc.PeerConnection
-	thumbnailDC    *webrtc.DataChannel
-	dcFileMap      map[string]*FileDataChannelInfo
-}
-
 func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteClient {
 	return &WebRTCRemoteClient{
 		peerConnection: peerConnection,
-		dcFileMap:      make(map[string]*FileDataChannelInfo),
+		dcFileMap:      make(map[string]*WebRTCFileSender),
 	}
 }
 
@@ -134,7 +122,8 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 
 	abspath := path.Join(config.GlobalConfig.FileSystem.Local.RootPath, filePath)
 
-	log.Infof("Prepared file receive: %s on data channel %s", filePath, dcName)
+	log.Infof("Prepared file receive: %s, offset=%d,size=%d. on data channel %s",
+		filePath, offset, size, dcName)
 
 	fi, err := os.Stat(abspath)
 	if err != nil {
@@ -153,11 +142,7 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 		size = fi.Size() - offset
 	}
 
-	client.dcFileMap[dcName] = &FileDataChannelInfo{
-		path:   abspath,
-		offset: offset,
-		size:   size,
-	}
+	client.dcFileMap[dcName] = NewWebRTCFileSender(abspath, offset, size)
 
 	return &neutronproto.RemoteMessage_PrepareFileReceiveResponse{
 		PrepareFileReceiveResponse: &neutronproto.PrepareFileReceiveResponse{

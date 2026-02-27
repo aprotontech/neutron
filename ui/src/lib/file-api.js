@@ -196,21 +196,25 @@ export default class FileAPI {
 
                 let downloadPartitionResult = null
                 for (let j = 0; j < Config.getMaxRetryDownloadPartitionCount(); j++) {
-                    const stream = await TransferClient.get().getFileContent(filePath, mimeType, true,
-                        i * Config.getNativeDownloadPartitionSize(),
-                        partitionSize
-                    );
+                    try {
+                        const stream = await TransferClient.get().getFileContent(filePath, mimeType, true,
+                            i * Config.getNativeDownloadPartitionSize(),
+                            partitionSize
+                        );
 
-                    fileInfo.size = partitionSize
+                        fileInfo.size = partitionSize
 
-                    downloadPartitionResult = await this.localFileManager.writeFile(filePath, fileInfo, stream, i, num_partitions);
-                    if (downloadPartitionResult && downloadPartitionResult.localUrl) {
-                        break
+                        downloadPartitionResult = await this.localFileManager.writeFile(filePath, fileInfo, stream, i, num_partitions);
+                        if (downloadPartitionResult && downloadPartitionResult.localUrl) {
+                            break
+                        }
+                    } catch (e) {
+                        console.log(`download ${filePath} parition ${i}/${num_partitions} retry ${i}/${Config.getMaxRetryDownloadPartitionCount()} failed.`, e)
                     }
                     await sleep(1000 * (j + 1));
                 }
                 if (downloadPartitionResult) {
-                    console.log(`finished partition ${i}`)
+                    console.log(`finished partition ${i}/${num_partitions}`)
                 } else {
                     throw new Error("download chunk failed")
                 }

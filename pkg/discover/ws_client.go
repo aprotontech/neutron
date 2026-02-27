@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -296,69 +295,12 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 
 		dataChannel.OnOpen(func() {
 			log.Infof("Data channel '%s' open", dataChannel.Label())
-			if dcInfo, ok := remoteClient.dcFileMap[dataChannel.Label()]; ok {
-				// 打开文件
-				file, err := os.Open(dcInfo.path)
-				if err != nil {
-					log.Warnf("Open file %s error: %v", dcInfo.path, err)
+			if sender, ok := remoteClient.dcFileMap[dataChannel.Label()]; ok {
+				if err := sender.Send(dataChannel); err != nil {
+					log.Warnf("datachannel send file failed %s", err.Error())
 					dataChannel.Close()
-					return
 				}
-				defer file.Close()
-
-				// 如果指定了偏移量，则定位到指定位置
-				if dcInfo.offset > 0 {
-					_, err = file.Seek(dcInfo.offset, 0)
-					if err != nil {
-						log.Warnf("Seek file %s to offset %d error: %v", dcInfo.path, dcInfo.offset, err)
-						dataChannel.Close()
-						return
-					}
-				}
-
-				// 计算需要读取的数据大小
-				var totalSize int64
-				if dcInfo.size > 0 {
-					totalSize = dcInfo.size
-				}
-
-				chunkSize := 16 * 1024 // 16KB 块大小
-				remaining := totalSize
-				buffer := make([]byte, chunkSize)
-
-				for {
-					// 计算本次读取的大小
-					readSize := chunkSize
-					if remaining > 0 && remaining < int64(chunkSize) {
-						readSize = int(remaining)
-					}
-
-					// 读取数据
-					n, err := file.Read(buffer[:readSize])
-					if err != nil && err != io.EOF {
-						log.Warnf("Read file %s error: %v", dcInfo.path, err)
-						dataChannel.Close()
-						return
-					}
-
-					if n == 0 {
-						break // 文件结束
-					}
-
-					// 发送数据块
-					if err := dataChannel.Send(buffer[:n]); err != nil {
-						log.Warnf("Send file %s data error: %v", dcInfo.path, err)
-						dataChannel.Close()
-						return
-					}
-
-					if remaining > 0 {
-						remaining -= int64(n)
-					}
-				}
-
-				log.Infof("Sent file %s data on data channel %s, offset=%d, size=%d",
-					dcInfo.path, dataChannel.Label(), dcInfo.offset, totalSize)
+				delete(remoteClient.dcFileMap, dataChannel.Label())
 			}
 		})
 

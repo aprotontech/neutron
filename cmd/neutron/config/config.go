@@ -62,9 +62,10 @@ type FileSystemConfig struct {
 }
 
 type LocalFileSystemConfig struct {
-	RootPath     string   `yaml:"root"`
-	ScanSpeedQPS int      `yaml:"qps"`
-	Excludes     []string `yaml:"excludes"`
+	RootPath             string   `yaml:"root"`
+	ScanSpeedQPS         int      `yaml:"qps"`
+	Excludes             []string `yaml:"excludes"`
+	DefaultThumbnailSize int      `yaml:"thumbnailSize"`
 }
 
 var GlobalConfig *Config

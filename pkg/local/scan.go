@@ -32,8 +32,7 @@ type LocalFileSystemScanner struct {
 	folderNodeIDs  map[string]uint64
 	nextNodeID     uint64
 
-	defaultThumbnailSize int
-	thumbnailCachePath   string
+	thumbnailCachePath string
 
 	workerCount int
 	batchSize   int
@@ -56,16 +55,15 @@ type scannerDataItem struct {
 
 func NewLocalFileSystemScanner(config *config.Config, db *gorm.DB) *LocalFileSystemScanner {
 	return &LocalFileSystemScanner{
-		home:                 config.Home,
-		root:                 config.FileSystem.Local.RootPath,
-		metadataPath:         filepath.Join(config.Home, "vars/.metadata_scan_completed"),
-		config:               config.FileSystem.Local,
-		db:                   db,
-		folderNodeIDs:        map[string]uint64{"/": 0},
-		programVersion:       "v0.2",
-		nextNodeID:           1000,
-		defaultThumbnailSize: 200,
-		thumbnailCachePath:   config.Cache.CacheDir,
+		home:               config.Home,
+		root:               config.FileSystem.Local.RootPath,
+		metadataPath:       filepath.Join(config.Home, "vars/.metadata_scan_completed"),
+		config:             config.FileSystem.Local,
+		db:                 db,
+		folderNodeIDs:      map[string]uint64{"/": 0},
+		programVersion:     "v0.2",
+		nextNodeID:         1000,
+		thumbnailCachePath: config.Cache.CacheDir,
 
 		// 并发处理相关字段初始化
 		workerCount: 4,   // 默认4个 worker
@@ -316,7 +314,8 @@ func (scanner *LocalFileSystemScanner) processFileWorker(ctx context.Context,
 	}
 }
 
-func (scanner *LocalFileSystemScanner) processFile(localPath string, relativePath string, node *fs.NodeAttr) *meta.RepoHistoryItem {
+func (scanner *LocalFileSystemScanner) processFile(localPath string,
+	relativePath string, node *fs.NodeAttr) *meta.RepoHistoryItem {
 	fileType := media.GetFileMimeType(localPath)
 
 	if fileType != "image" && fileType != "video" {
@@ -338,19 +337,22 @@ func (scanner *LocalFileSystemScanner) processFile(localPath string, relativePat
 	}
 
 	var thumbnails map[int]string
-	if fileHash != "" && scanner.thumbnailCachePath != "" {
-		folder, name, _ := utils.HashToPath([]any{fileHash, scanner.defaultThumbnailSize}, 2, 2)
+	if scanner.config.DefaultThumbnailSize > 0 {
+		defaultThumbnailSize := scanner.config.DefaultThumbnailSize
+		if fileHash != "" && scanner.thumbnailCachePath != "" {
+			folder, name, _ := utils.HashToPath([]any{fileHash, defaultThumbnailSize}, 2, 2)
 
-		cacheDir := filepath.Join(scanner.thumbnailCachePath, folder)
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
-			log.Warnf("mkdir cache dir %s failed %s", cacheDir, err.Error())
-		} else {
-			cachePath := filepath.Join(cacheDir, name+".jpg")
-			if err := media.Thumbnail(localPath, cachePath, scanner.defaultThumbnailSize); err != nil {
-				log.Warnf("thumbnail %s faild %s", localPath, err.Error())
+			cacheDir := filepath.Join(scanner.thumbnailCachePath, folder)
+			if err := os.MkdirAll(cacheDir, 0755); err != nil {
+				log.Warnf("mkdir cache dir %s failed %s", cacheDir, err.Error())
 			} else {
-				thumbnails = map[int]string{
-					scanner.defaultThumbnailSize: filepath.Join(folder, name+".jpg"),
+				cachePath := filepath.Join(cacheDir, name+".jpg")
+				if err := media.Thumbnail(localPath, cachePath, defaultThumbnailSize); err != nil {
+					log.Warnf("thumbnail %s faild %s", localPath, err.Error())
+				} else {
+					thumbnails = map[int]string{
+						defaultThumbnailSize: filepath.Join(folder, name+".jpg"),
+					}
 				}
 			}
 		}

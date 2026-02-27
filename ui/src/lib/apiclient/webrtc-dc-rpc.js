@@ -10,7 +10,7 @@ import { neutron } from '../proto/neutron_pb.js';
 const RemoteMessage = neutron.RemoteMessage;
 
 export default class WebRTCDataChannelRPC {
-    constructor(pc, clientId, label = 'rpc', options = { ordered: true, maxRetransmits: 3 }, defaultTimeout = 10000) {
+    constructor(pc, clientId, label = 'rpc', options = { ordered: true, maxRetransmits: 10, priority: "high" }, defaultTimeout = 10000) {
         this.pc = pc;
         this.clientId = clientId;
         this.label = label;
@@ -38,7 +38,7 @@ export default class WebRTCDataChannelRPC {
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 this._rpcPending.delete(id);
-                reject(new Error('RPC timeout'));
+                reject(new Error('RPC timeout of ' + payload_type));
             }, timeout);
 
             this._rpcPending.set(id, { resolve, reject, timer });
@@ -91,7 +91,7 @@ export default class WebRTCDataChannelRPC {
 
         dc.onmessage = (event) => {
             let msg = null;
-            //console.log('Received message on data channel:', event.data);
+            // console.log('Received message on data channel:', event.data);
             try {
                 const remoteMsg = RemoteMessage.decode(new Uint8Array(event.data));
 

@@ -542,6 +542,18 @@ async function openFile(f) {
   }
 }
 
+async function setMediaViewerUrl(file) {
+  try {
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+  } catch  (e) {
+    console.log(e)
+    return false;
+  }
+
+  return true
+
+}
+
 async function openMediaViewer(file) {
   currentMediaFile.value = file
   isMediaLoading.value = true
@@ -583,7 +595,7 @@ async function openMediaViewer(file) {
   
   if (isImage(file)) {
     isViewingImage.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    await setMediaViewerUrl(file)
     
     // 图片加载完成后隐藏加载动画
     const img = new Image()
@@ -596,11 +608,12 @@ async function openMediaViewer(file) {
     img.src = currentMediaUrl.value
   } else if (isVideo(file)) {
     isViewingVideo.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    await setMediaViewerUrl(file)
+
     isMediaLoading.value = false
   } else if (isAudio(file)) {
     isViewingAudio.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    await setMediaViewerUrl(file)
     isMediaLoading.value = false
   } else if (isText(file)) {
     isViewingText.value = true
