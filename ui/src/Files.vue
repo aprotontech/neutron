@@ -249,6 +249,25 @@
             {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
           </span>
         </div>
+        
+        <!-- 下载进度显示 -->
+        <div class="download-progress-container" v-if="downloadProgressVisible && downloadProgress">
+          <div class="download-progress">
+            <div class="download-progress-bar" :style="{ width: downloadProgress.progress + '%' }"></div>
+          </div>
+          <div class="download-progress-info">
+            <span class="download-progress-text">
+              {{ downloadProgress.isCached ? '使用缓存' : '下载中' }}: 
+              {{ downloadProgress.progress.toFixed(0) }}%
+              <span v-if="downloadProgress.isPartitioned">
+                (分区 {{ downloadProgress.partitions || 0 }})
+              </span>
+            </span>
+            <span class="download-progress-size">
+              {{ formatSize(downloadProgress.downloadedSize || 0) }} / {{ formatSize(downloadProgress.totalSize || 0) }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -349,6 +368,11 @@ const mediaSwipeAxis = ref(null) // 'x' | 'y' | null
 const mediaSwipeStartedOnClosableArea = ref(false)
 const mediaSlideOffset = ref(0) // 滑动偏移量，用于动画效果
 const mediaSlideOpacity = ref(1) // 滑动时的透明度，用于动画效果
+
+// 下载进度相关
+const downloadProgress = ref(null)
+const downloadProgressTimer = ref(null)
+const downloadProgressVisible = ref(false)
 
 const isMobile = ref(false)
 const isAndroidApp = ref(false)
@@ -544,7 +568,27 @@ async function openFile(f) {
 
 async function setMediaViewerUrl(file) {
   try {
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path)
+    // 重置进度
+    downloadProgress.value = null;
+    downloadProgressVisible.value = false;
+    
+    // 创建进度回调函数
+    const progressCallback = (progressData) => {
+      downloadProgress.value = progressData;
+      downloadProgressVisible.value = true;
+      
+      // 如果下载完成，3秒后隐藏进度条
+      if (progressData.isCompleted) {
+        if (downloadProgressTimer.value) {
+          clearTimeout(downloadProgressTimer.value);
+        }
+        downloadProgressTimer.value = setTimeout(() => {
+          downloadProgressVisible.value = false;
+        }, 3000);
+      }
+    };
+    
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, null, progressCallback)
   } catch  (e) {
     console.log(e)
     return false;
@@ -684,10 +728,31 @@ async function loadMediaFile(file) {
   currentMediaFile.value = file
   isMediaLoading.value = true
   
+  // 重置进度
+  downloadProgress.value = null;
+  downloadProgressVisible.value = false;
+  
   if (isImage(file)) {
     isViewingImage.value = true
     isViewingVideo.value = false
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image')
+    
+    // 创建进度回调函数
+    const progressCallback = (progressData) => {
+      downloadProgress.value = progressData;
+      downloadProgressVisible.value = true;
+      
+      // 如果下载完成，3秒后隐藏进度条
+      if (progressData.isCompleted) {
+        if (downloadProgressTimer.value) {
+          clearTimeout(downloadProgressTimer.value);
+        }
+        downloadProgressTimer.value = setTimeout(() => {
+          downloadProgressVisible.value = false;
+        }, 3000);
+      }
+    };
+    
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image', progressCallback)
     
     // 图片加载完成后隐藏加载动画
     const img = new Image()
@@ -701,7 +766,24 @@ async function loadMediaFile(file) {
   } else if (isVideo(file)) {
     isViewingImage.value = false
     isViewingVideo.value = true
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video')
+    
+    // 创建进度回调函数
+    const progressCallback = (progressData) => {
+      downloadProgress.value = progressData;
+      downloadProgressVisible.value = true;
+      
+      // 如果下载完成，3秒后隐藏进度条
+      if (progressData.isCompleted) {
+        if (downloadProgressTimer.value) {
+          clearTimeout(downloadProgressTimer.value);
+        }
+        downloadProgressTimer.value = setTimeout(() => {
+          downloadProgressVisible.value = false;
+        }, 3000);
+      }
+    };
+    
+    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video', progressCallback)
     isMediaLoading.value = false
   }
 }
@@ -2700,6 +2782,80 @@ audio {
   audio {
     min-width: 250px;
     max-width: 350px;
+  }
+}
+
+/* 下载进度显示样式 */
+.download-progress-container {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 1002;
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.download-progress {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.download-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.download-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.download-progress-text {
+  font-weight: 500;
+}
+
+.download-progress-size {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: monospace;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .download-progress-container {
+    bottom: 100px;
+    width: 90%;
+    padding: 10px 14px;
+  }
+  
+  .download-progress-info {
+    font-size: 11px;
   }
 }
 

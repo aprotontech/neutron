@@ -166,12 +166,28 @@ export default class FileAPI {
         }
     }
 
-    async cacheFileContent(filePath, fileInfo) {
+    async cacheFileContent(filePath, fileInfo, progressCallback = null) {
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
         const localFile = await this.localFileManager.getLocalFile(filePath);
         if (localFile && localFile.localUrl) {
             console.log(`Using local file URL for ${filePath}: ${localFile.localUrl}`);
+            // 如果文件已缓存，立即调用进度回调（100%）
+            if (progressCallback) {
+                try {
+                    progressCallback({
+                        filePath: filePath,
+                        progress: 100,
+                        totalSize: localFile.fileInfo?.size || 0,
+                        downloadedSize: localFile.fileInfo?.size || 0,
+                        isCompleted: true,
+                        localUrl: localFile.localUrl,
+                        isCached: true
+                    });
+                } catch (e) {
+                    console.warn('Progress callback error for cached file:', e);
+                }
+            }
             return localFile;
         }
 
@@ -182,13 +198,71 @@ export default class FileAPI {
 
         const mimeType = FileTypeDetector.getMIMEType(filePath);
         const totalFileSize = fileInfo.size;
+        const originalFileSize = fileInfo.size; // 保存原始文件大小
+
+        // 整体进度跟踪器
+        const overallProgress = {
+            totalSize: totalFileSize,
+            downloadedSize: 0,
+            partitionsProgress: {},
+            callback: progressCallback
+        };
+
+        // 整体进度更新函数
+        const updateOverallProgress = (partitionIndex, partitionProgress, partitionSize) => {
+            if (!overallProgress.callback) return;
+
+            // 更新该分区的进度
+            overallProgress.partitionsProgress[partitionIndex] = {
+                progress: partitionProgress,
+                size: partitionSize
+            };
+
+            // 计算整体进度
+            let totalDownloaded = 0;
+            Object.values(overallProgress.partitionsProgress).forEach(p => {
+                totalDownloaded += (p.size * p.progress) / 100;
+            });
+
+            const overallProgressPercent = Math.min(100, (totalDownloaded * 100) / overallProgress.totalSize);
+            overallProgress.downloadedSize = totalDownloaded;
+
+            // 检查是否所有分区都已完成（进度为100%）
+            const allPartitionsComplete = Object.values(overallProgress.partitionsProgress).every(p => p.progress === 100);
+            const isCompleted = allPartitionsComplete && overallProgressPercent === 100;
+
+            try {
+                overallProgress.callback({
+                    filePath: filePath,
+                    progress: overallProgressPercent,
+                    totalSize: overallProgress.totalSize,
+                    downloadedSize: overallProgress.downloadedSize,
+                    isPartitioned: fileInfo.size > Config.getNativeSplitPartitionDownloadSize(),
+                    isCompleted: isCompleted,
+                    partitions: Object.keys(overallProgress.partitionsProgress).length
+                });
+            } catch (e) {
+                console.warn('Overall progress callback error:', e);
+            }
+        };
 
         let result = null
         if (fileInfo.size > Config.getNativeSplitPartitionDownloadSize()) {
             const num_partitions = Math.ceil(fileInfo.size / Config.getNativeDownloadPartitionSize())
+
+            // 初始化所有分区的进度为0
+            for (let i = 0; i < num_partitions; i++) {
+                overallProgress.partitionsProgress[i] = {
+                    progress: 0,
+                    size: Math.min(Config.getNativeDownloadPartitionSize(), totalFileSize - i * Config.getNativeDownloadPartitionSize())
+                };
+            }
+
             for (let i = 0; i < num_partitions; i++) {
                 const localCachedResult = await this.localFileManager.getLocalFile(filePath, i, num_partitions);
                 if (localCachedResult) {
+                    // 如果分区已缓存，更新进度为100%
+                    updateOverallProgress(i, 100, overallProgress.partitionsProgress[i].size);
                     continue
                 }
 
@@ -204,7 +278,12 @@ export default class FileAPI {
 
                         fileInfo.size = partitionSize
 
-                        downloadPartitionResult = await this.localFileManager.writeFile(filePath, fileInfo, stream, i, num_partitions);
+                        // 创建分区进度回调
+                        const partitionProgressCallback = (progressData) => {
+                            updateOverallProgress(i, progressData.progress, partitionSize);
+                        };
+
+                        downloadPartitionResult = await this.localFileManager.writeFile(filePath, fileInfo, stream, i, num_partitions, partitionProgressCallback);
                         if (downloadPartitionResult && downloadPartitionResult.localUrl) {
                             break
                         }
@@ -221,16 +300,91 @@ export default class FileAPI {
 
             }
 
-            result = this.localFileManager.mergeFiles(filePath, fileInfo)
+            // 所有分片下载完成后，发送100%进度回调
+            if (overallProgress.callback) {
+                try {
+                    overallProgress.callback({
+                        filePath: filePath,
+                        progress: 100,
+                        totalSize: overallProgress.totalSize,
+                        downloadedSize: overallProgress.totalSize,
+                        isPartitioned: true,
+                        isCompleted: true,
+                        partitions: num_partitions,
+                        message: '所有分片下载完成，正在合并文件...'
+                    });
+                } catch (e) {
+                    console.warn('All partitions completed progress callback error:', e);
+                }
+            }
+
+            result = await this.localFileManager.mergeFiles(filePath, fileInfo);
+
+            // mergeFiles完成后，更新进度显示
+            if (result && result.localUrl && overallProgress.callback) {
+                try {
+                    overallProgress.callback({
+                        filePath: filePath,
+                        progress: 100,
+                        totalSize: overallProgress.totalSize,
+                        downloadedSize: overallProgress.totalSize,
+                        isPartitioned: true,
+                        isCompleted: true,
+                        partitions: num_partitions,
+                        localUrl: result.localUrl,
+                        message: '文件合并完成，准备播放'
+                    });
+                } catch (e) {
+                    console.warn('Merge completed progress callback error:', e);
+                }
+            }
         } else {
             // Fallback to re-download URL
             const stream = await TransferClient.get().getFileContent(filePath, mimeType, true);
 
-            result = await this.localFileManager.writeFile(filePath, fileInfo, stream, 0, 1);
+            // 创建整体进度回调
+            const singleFileProgressCallback = (progressData) => {
+                if (overallProgress.callback) {
+                    try {
+                        overallProgress.callback({
+                            filePath: filePath,
+                            progress: progressData.progress,
+                            totalSize: originalFileSize,
+                            downloadedSize: progressData.downloadedSize || 0,
+                            isPartitioned: false,
+                            isCompleted: progressData.isCompleted || false,
+                            localUrl: progressData.localUrl
+                        });
+                    } catch (e) {
+                        console.warn('Single file progress callback error:', e);
+                    }
+                }
+            };
+
+            result = await this.localFileManager.writeFile(filePath, fileInfo, stream, 0, 1, singleFileProgressCallback);
         }
 
         if (result && result.localUrl) {
             console.log("result URL: ", result.localUrl)
+
+            // 确保最终发送100%进度回调
+            if (overallProgress.callback) {
+                try {
+                    overallProgress.callback({
+                        filePath: filePath,
+                        progress: 100,
+                        totalSize: originalFileSize,
+                        downloadedSize: originalFileSize,
+                        isPartitioned: fileInfo.size > Config.getNativeSplitPartitionDownloadSize(),
+                        isCompleted: true,
+                        localUrl: result.localUrl,
+                        message: '文件准备就绪'
+                    });
+                } catch (e) {
+                    console.warn('Final progress callback error:', e);
+                }
+            }
+
             return result
         }
 
@@ -270,7 +424,7 @@ export default class FileAPI {
      * @param {string} filePath - Full file path
      * @returns {Promise<string>} - File URL
      */
-    async getFileUrl(filePath, fileInfo = null) {
+    async getFileUrl(filePath, fileInfo = null, progressCallback = null) {
         const dedupKey = Hash.md5sum('getFileUrl', filePath);
 
         return await this._executeWithDeduplication(dedupKey, async () => {
@@ -278,7 +432,7 @@ export default class FileAPI {
             const isNative = Capacitor.isNativePlatform();
             const mimeType = FileTypeDetector.getMIMEType(filePath);
             if (isNative && this.localFileManager) {
-                const result = await this.cacheFileContent(filePath, fileInfo)
+                const result = await this.cacheFileContent(filePath, fileInfo, progressCallback)
 
                 if (result && result.localUrl) {
                     console.log("result URL: ", result.localUrl)

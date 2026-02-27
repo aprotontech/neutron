@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { v4 as uuidv4 } from 'uuid';
-import SparkMD5 from 'spark-md5';
 import SQLiteManager from './sqlite.js';
 import { FileMergeService } from './native/file-merge.ts';
 import { Base64Encoder } from './helpers.js';
@@ -35,7 +34,7 @@ export default class LocalFileManager {
      * @param {string} filePath - Remote file path
      * @returns {Promise<Object>} - Write progress object
      */
-    async writeFile(filePath, fileInfo, fileContentStream, partition = 0, total_partitions = 1) {
+    async writeFile(filePath, fileInfo, fileContentStream, partition = 0, total_partitions = 1, progressCallback = null) {
         try {
             await this._ensureDatabase();
 
@@ -51,7 +50,7 @@ export default class LocalFileManager {
             }
 
             // Start write
-            console.log(`[LocalFileManager] Starting write: ${filePath}, size: ${fileInfo.size} bytes, mime: ${fileInfo.mimeType || 'unknown'}`);
+            console.log(`[LocalFileManager] Starting write: ${filePath}, size: ${fileInfo.size} bytes, mime: ${fileInfo.mimeType || 'unknown'}, partition: ${partition}/${total_partitions}`);
 
             // Create progress tracker
             const progressTracker = {
@@ -59,8 +58,15 @@ export default class LocalFileManager {
                 completed: false,
                 fileInfo: fileInfo,
                 localUrl: null,
-                error: null
+                error: null,
+                partition: partition,
+                totalPartitions: total_partitions
             };
+
+            // 如果有进度回调函数，设置进度更新回调
+            if (progressCallback && typeof progressCallback === 'function') {
+                progressTracker.progressCallback = progressCallback;
+            }
 
             // Actual download logic - write to cache directory
             const cacheResult = await this._writeFileWithProgress(filePath, fileInfo, fileContentStream, progressTracker);
@@ -81,6 +87,26 @@ export default class LocalFileManager {
             }
 
             console.log(`[LocalFileManager] Write operation completed for: ${filePath}`);
+            
+            // 下载完成后调用进度回调（100%）
+            if (progressTracker.progressCallback) {
+                try {
+                    progressTracker.progressCallback({
+                        filePath: filePath,
+                        progress: 100,
+                        totalSize: fileInfo.size,
+                        downloadedSize: fileInfo.size,
+                        partition: progressTracker.partition || 0,
+                        totalPartitions: progressTracker.totalPartitions || 1,
+                        isPartition: progressTracker.totalPartitions > 1,
+                        isCompleted: true,
+                        localUrl: progressTracker.localUrl
+                    });
+                } catch (callbackError) {
+                    console.warn('[LocalFileManager] Final progress callback error:', callbackError);
+                }
+            }
+            
             return progressTracker;
         } catch (error) {
             console.error('[LocalFileManager] Write operation failed:', error);
@@ -358,7 +384,6 @@ export default class LocalFileManager {
 
             const reader = fileContentStream.getReader();
             let chunkCount = 0;
-            const spark = new SparkMD5.ArrayBuffer(); // 使用spark-md5进行增量MD5计算
             let cacheFilePath = null; // 缓存文件路径，用于清理
 
             while (true) {
@@ -378,18 +403,6 @@ export default class LocalFileManager {
                     const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
                     if (Math.floor(progress) % 10 == 0) {
                         console.log(`[LocalFileManager] [${progress.toFixed(0)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
-                    }
-
-                    // 更新MD5计算
-                    if (value instanceof ArrayBuffer) {
-                        spark.append(value);
-                    } else if (ArrayBuffer.isView(value)) {
-                        spark.append(value.buffer);
-                    } else {
-                        // 对于其他类型的数据，转换为ArrayBuffer
-                        const encoder = new TextEncoder();
-                        const buffer = encoder.encode(String(value)).buffer;
-                        spark.append(buffer);
                     }
 
                     // 将数据块转换为base64
@@ -415,6 +428,24 @@ export default class LocalFileManager {
                     progressTracker.progress = progress;
                     progressTracker.completed = totalSize === fileInfo.size;
                     progressTracker.localUrl = cacheFilePath;
+                    
+                    // 调用进度回调函数
+                    if (progressTracker.progressCallback) {
+                        try {
+                            progressTracker.progressCallback({
+                                filePath: filePath,
+                                progress: progress,
+                                totalSize: fileInfo.size,
+                                downloadedSize: totalSize,
+                                partition: progressTracker.partition || 0,
+                                totalPartitions: progressTracker.totalPartitions || 1,
+                                isPartition: progressTracker.totalPartitions > 1,
+                                isCompleted: progressTracker.completed
+                            });
+                        } catch (callbackError) {
+                            console.warn('[LocalFileManager] Progress callback error:', callbackError);
+                        }
+                    }
                 }
             }
 
@@ -440,28 +471,6 @@ export default class LocalFileManager {
                 throw new Error(`文件大小不匹配：期望 ${fileInfo.size} 字节，实际接收 ${totalSize} 字节`);
             }
 
-            // 计算最终MD5哈希值
-            let finalMd5 = null;
-            try {
-                // 使用spark-md5获取最终MD5哈希
-                finalMd5 = spark.end();
-                console.log(`[LocalFileManager] File MD5 hash: ${finalMd5}`);
-            } catch (md5Error) {
-                console.error('[LocalFileManager] Failed to calculate MD5:', md5Error);
-                // 不抛出错误，继续执行，finalMd5保持为null
-            }
-
-            // 如果fileInfo中有md5参数，进行校验
-            if (fileInfo.md5 && finalMd5) {
-                if (fileInfo.md5 !== finalMd5) {
-                    console.error(`[LocalFileManager] MD5 mismatch! Expected: ${fileInfo.md5}, Calculated: ${finalMd5}`);
-                    await this._cleanupCacheFile(cacheDir, cacheFileName);
-                    throw new Error(`文件MD5校验失败：期望 ${fileInfo.md5}，实际计算 ${finalMd5}`);
-                } else {
-                    console.log(`[LocalFileManager] MD5校验通过`);
-                }
-            }
-
             console.log(`[LocalFileManager] File saved to cache successfully: ${cacheFilePath}`);
 
             // 返回缓存文件信息
@@ -470,8 +479,7 @@ export default class LocalFileManager {
                 cacheFileName: cacheFileName,
                 cacheFilePath: cacheFilePath,
                 cacheDir: cacheDir,
-                fileSize: totalSize,
-                md5: finalMd5
+                fileSize: totalSize
             };
         } catch (error) {
             console.error('[LocalFileManager] Write to cache failed:', error);
