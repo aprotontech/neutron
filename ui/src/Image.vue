@@ -73,11 +73,11 @@
       @touchend="mediaTouchEnd"
       @click="handleBackgroundClick"
     >
-      <!-- top bar: back, file time, dropdown -->
+      <!-- 第一部分：顶部工具栏 -->
       <div class="media-topbar" v-if="currentMediaFile">
-          <button class="media-back" @click.stop="closeMediaViewer">←</button>
-          <div class="media-title">{{ formattedMediaTime }}</div>
-          <div class="dropdown media-dropdown" @click.stop>
+        <button class="media-back" @click.stop="closeMediaViewer">←</button>
+        <div class="media-title">{{ formattedMediaTime }}</div>
+        <div class="dropdown media-dropdown" @click.stop>
           <button class="menu-btn" @click.stop="toggleViewerMenu">⋮</button>
           <div class="menu" v-if="viewerMenuOpen">
             <button class="menu-item disabled">删除</button>
@@ -85,12 +85,20 @@
           </div>
         </div>
       </div>
+      
+      <!-- 第二部分：进度条 -->
+      <div class="media-progress-container" v-if="downloadProgressVisible && downloadProgress && !downloadProgress.isCached">
+        <div class="media-progress-bar">
+          <div class="media-progress-fill" :style="{ width: downloadProgress.progress + '%' }"></div>
+        </div>
+      </div>
+      
+      <!-- 第三部分：预览区域 -->
       <div 
-        class="media-viewer-content" 
+        class="media-preview-container" 
         :style="{ 
           transform: `translate3d(${slideX}px, ${slideOffset}px, 0)`,
-          opacity: slideOpacity,
-          width: mediaWidth
+          opacity: slideOpacity
         }"
       >
         <div v-if="isMediaLoading" class="media-loading">
@@ -98,37 +106,43 @@
           <div class="media-loading-text">加载中...</div>
         </div>
         
-        <img 
-          v-if="currentMediaFile?.type === '图片' && !isMediaLoading" 
-          :src="currentMediaUrl" 
-          :alt="currentMediaFile?.name" 
-          @click.stop
-        />
-        
-        <video 
-          v-else-if="currentMediaFile?.type === '视频' && !isMediaLoading" 
-          :src="currentMediaUrl" 
-          controls 
-          autoplay
-          @click.stop
-        ></video>
-      </div>
-      
-      <!-- 预览导航信息 -->
-      <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">
-        <span class="nav-counter" v-if="imageFiles.length > 1">
-          {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
-        </span>
-      </div>
-      
-      <!-- 下载进度显示 -->
-      <div class="download-progress-container" v-if="downloadProgressVisible && downloadProgress">
-        <div class="download-progress">
-          <div class="download-progress-bar" :style="{ width: downloadProgress.progress + '%' }"></div>
+        <div class="media-preview-content">
+          <img 
+            v-if="currentMediaFile?.type === '图片' && !isMediaLoading" 
+            :src="currentMediaUrl" 
+            :alt="currentMediaFile?.name" 
+            @click.stop
+          />
+          
+          <video 
+            v-else-if="currentMediaFile?.type === '视频' && !isMediaLoading" 
+            :src="currentMediaUrl" 
+            controls 
+            autoplay
+            @click.stop
+          ></video>
         </div>
+      </div>
+      
+      <!-- 第四部分：缩略图区域 -->
+      <div class="media-thumbnails" v-if="imageFiles.length > 0 && isViewingMedia">
+        <div class="thumb-list" ref="thumbsContainer">
+          <div 
+            v-for="(it, idx) in imageFiles" 
+            :key="it.path + '-' + idx" 
+            :class="['thumb-item', { active: idx === currentMediaIndex } ]"
+            @click.stop="jumpToIndex(idx)"
+          >
+            <img :src="it.thumbnailUrl || ''" :alt="it.name" />
+          </div>
+        </div>
+      </div>
+      
+      <!-- 详细进度信息（仅在需要时显示） -->
+      <div class="download-progress-details" v-if="downloadProgressVisible && downloadProgress && !downloadProgress.isCached">
         <div class="download-progress-info">
           <span class="download-progress-text">
-            {{ downloadProgress.isCached ? '使用缓存' : '下载中' }}: 
+            {{ downloadProgress.isCached ? '使用缓存' : (downloadProgress.isCompleted ? '下载完' : '下载中') }}: 
             {{ downloadProgress.progress.toFixed(0) }}%
             <span v-if="downloadProgress.isPartitioned">
               (分区 {{ downloadProgress.partitions || 0 }})
@@ -137,20 +151,6 @@
           <span class="download-progress-size">
             {{ formatSize(downloadProgress.downloadedSize || 0) }} / {{ formatSize(downloadProgress.totalSize || 0) }}
           </span>
-        </div>
-      </div>
-
-      <!-- thumbnails below preview -->
-      <div class="media-thumbnails" v-if="imageFiles.length > 0 && isViewingMedia">
-          <div class="thumb-list" ref="thumbsContainer">
-            <div 
-              v-for="(it, idx) in imageFiles" 
-              :key="it.path + '-' + idx" 
-              :class="['thumb-item', { active: idx === currentMediaIndex } ]"
-              @click.stop="jumpToIndex(idx)"
-            >
-            <img :src="it.thumbnailUrl || ''" :alt="it.name" />
-          </div>
         </div>
       </div>
 
@@ -194,7 +194,7 @@
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
-import { FileTypeDetector, FileSizeFormatter } from './lib/helpers.js'
+import { FileTypeDetector, FileSizeFormatter, DateFormatter } from './lib/helpers.js'
 
 // --- 简化后的实现，专注于：分页列表、IntersectionObserver 缩略图预加载、预览下滑关闭 ---
 
@@ -437,7 +437,7 @@ async function openMediaViewer(file) {
         }
         downloadProgressTimer.value = setTimeout(() => {
           downloadProgressVisible.value = false;
-        }, 3000);
+        }, 500);
       }
     };
     
@@ -505,9 +505,10 @@ function centerThumbOnIndex(idx) {
 
 const formattedMediaTime = computed(() => {
   const info = fileInfo.value || {}
-  const maybe = info.modTime || info.mtime || info.lastModified || info.DateTimeOriginal || info.date || info.created_at
+  const maybe = info.mtime || info.lastModified || info.DateTimeOriginal || info.date || info.created_at
   if (maybe) {
-    try { return (new Date(maybe)).toLocaleString() } catch (e) { return String(maybe) }
+    
+    try { return DateFormatter.format(maybe) } catch (e) { return String(maybe) }
   }
   return currentMediaFile.value?.name || ''
 })
@@ -1017,102 +1018,210 @@ onUnmounted(() => {
   height: 100%;
   background: rgba(0,0,0,0.95);
   z-index: 1000;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .media-viewer.active {
   display: flex;
 }
 
-.media-viewer-content {
-  position: relative;
-  max-width: 90%;
-  max-height: 90%;
+
+
+/* 第一部分：顶部工具栏 - iOS相册风格 */
+.media-topbar {
+  position: absolute;
+  top: env(safe-area-inset-top, 0); /* 紧贴状态栏 */
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px; /* 左右内边距减少一半 */
+  z-index: 1102;
+  color: white;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+  height: 88px; /* 高度加高一倍 */
+  box-sizing: border-box;
+}
+.media-back {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 17px;
+  font-weight: 400;
+  padding: 8px 4px; /* 左右内边距减少一半 */
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+.media-back:hover {
+  opacity: 1;
+}
+.media-title {
+  text-align: center;
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+  opacity: 0.95;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+.media-dropdown { 
+  margin-left: 4px; /* 左边距减少一半 */
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 第二部分：进度条 - 贴近工具栏下侧的细条 */
+.media-progress-container {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0) + 88px); /* 紧贴工具栏下方，调整为新高度 */
+  left: 0;
+  right: 0;
+  z-index: 1103; /* 提高z-index确保在工具栏之上 */
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+.media-progress-bar {
+  height: 3px; /* 增加高度使其更明显 */
+  background: rgba(255, 255, 255, 0.2); /* 增加背景透明度 */
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+.media-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007AFF 0%, #34C759 100%);
+  border-radius: 1.5px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(0, 122, 255, 0.5); /* 添加发光效果使其更明显 */
+}
+
+/* 第三部分：预览区域 */
+.media-preview-container {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0) + 88px); /* 从工具栏底部开始，调整为新高度 */
+  left: 0;
+  right: 0;
+  bottom: calc(56px + 70px + env(safe-area-inset-bottom, 0)); /* 到缩略图区域顶部结束，56px是新的缩略图区域高度 */
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.media-viewer-content img,
-.media-viewer-content video {
+.media-preview-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -10px; /* 根据iOS风格缩略图大小调整图片位置 */
+}
+
+.media-preview-content img,
+.media-preview-content video {
   display: block;
   width: 100%;
   height: auto;
   max-width: 100%;
-  /* reserve space for topbar and thumbnails/tab area; slightly smaller gap */
-  max-height: calc(100vh - 160px);
+  max-height: 100%;
   object-fit: contain;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
-/* topbar inside media viewer */
-.media-topbar {
-  position: absolute;
-  /* reduce gap to status bar: smaller fallback and rely on safe-area inset */
-  top: env(safe-area-inset-top, 2px);
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  z-index: 1102;
-  color: white;
+/* 视频控件样式优化 */
+.media-preview-content video::-webkit-media-controls-panel {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
-.media-back {
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 20px;
-  padding: 8px;
-}
-.media-title {
-  text-align: center;
-  flex: 1;
-  font-size: 14px;
-  opacity: 0.95;
-  padding: 0 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.media-dropdown { margin-left: 8px }
 
-/* thumbnails scroller */
+.media-preview-content video::-webkit-media-controls-play-button,
+.media-preview-content video::-webkit-media-controls-volume-slider,
+.media-preview-content video::-webkit-media-controls-mute-button {
+  filter: brightness(1.2);
+}
+
+.media-preview-content video::-webkit-media-controls-current-time-display,
+.media-preview-content video::-webkit-media-controls-time-remaining-display {
+  color: white;
+  font-weight: 500;
+}
+
+
+
+/* 第四部分：缩略图区域 */
 .media-thumbnails {
   position: absolute;
-  /* lift thumbnails above bottom Tab (approx 65-72px); add safe-area and extra buffer */
-  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(70px + env(safe-area-inset-bottom, 0)); /* 避免被底部Tab遮挡，70px是底部Tab高度 */
   left: 0;
   right: 0;
+  height: 56px; /* iOS风格：缩略图区域高度减少 */
   display: flex;
   justify-content: center;
   z-index: 1101;
   pointer-events: auto;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+  padding-top: 8px;
+  box-sizing: border-box;
 }
 .thumb-list {
   display: flex;
-  gap: 8px;
+  gap: 4px; /* iOS风格：更紧密的缩略图间距 */
   overflow-x: auto;
-  padding: 6px 12px;
+  padding: 0 12px;
   scrollbar-width: none;
+  align-items: center;
 }
 .thumb-list::-webkit-scrollbar { display: none }
 .thumb-item {
-  width: 72px;
-  height: 72px;
-  border-radius: 6px;
+  width: 32px; /* iOS风格：缩略图大小减少一半 */
+  height: 32px; /* iOS风格：缩略图大小减少一半 */
+  border-radius: 2px; /* 相应减少圆角 */
   overflow: hidden;
   background: rgba(255,255,255,0.05);
-  border: 2px solid transparent;
+  border: 1px solid transparent; /* 缩略图变小，边框相应变细 */
   flex: 0 0 auto;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.7;
 }
-.thumb-item img { width: 100%; height: 100%; object-fit: cover; display:block }
-.thumb-item.active { border-color: rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.6) }
+.thumb-item:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+.thumb-item img { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  display:block;
+  pointer-events: none;
+}
+.thumb-item.active { 
+  border-color: #007AFF;
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
 
 /* details modal */
 .details-modal { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center }
@@ -1164,6 +1273,27 @@ onUnmounted(() => {
   height: calc(100% - env(safe-area-inset-top, 0));
   /* Native模式下确保触摸事件正常 */
   touch-action: pan-y;
+}
+
+/* Native模式下，媒体预览窗口的工具栏不再重复应用安全区域偏移 */
+.android-native-app .media-viewer .media-topbar {
+  top: 0; /* 不再使用 env(safe-area-inset-top, 0)，因为父容器已经应用了 */
+}
+
+/* Native模式下，进度条位置调整 */
+.android-native-app .media-viewer .media-progress-container {
+  top: 88px; /* 紧贴工具栏下方，工具栏高度为88px */
+}
+
+/* Native模式下，预览容器位置调整 */
+.android-native-app .media-viewer .media-preview-container {
+  top: 44px; /* 从工具栏底部开始，不再重复应用安全区域 */
+  bottom: calc(56px + 70px + env(safe-area-inset-bottom, 0)); /* 56px是新的缩略图区域高度 */
+}
+
+/* Native模式下，预览内容位置调整 */
+.android-native-app .media-viewer .media-preview-content {
+  margin-top: 10px; /* 根据iOS风格缩略图大小调整图片位置 */
 }
 
 .android-native-app .media-viewer-close {
@@ -1232,7 +1362,7 @@ onUnmounted(() => {
   }
 }
 
-/* 媒体加载动画 */
+/* 媒体加载动画 - iOS风格 */
 .media-loading {
   position: absolute;
   top: 50%;
@@ -1240,22 +1370,25 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   text-align: center;
   color: white;
+  z-index: 1100;
 }
 
 .media-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid white;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top: 3px solid #007AFF;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
+  margin: 0 auto 12px;
 }
 
 .media-loading-text {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 400;
   opacity: 0.8;
   white-space: nowrap;
+  letter-spacing: -0.3px;
 }
 
 /* 空状态样式 */
@@ -1436,10 +1569,56 @@ onUnmounted(() => {
   font-family: monospace;
 }
 
+/* 详细进度信息样式 */
+.download-progress-details {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  padding: 12px 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 1002;
+  animation: fadeInUp 0.3s ease;
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
+  /* 调整底部Tab高度为65px（移动端） */
+  .media-preview-container {
+    bottom: calc(56px + 65px + env(safe-area-inset-bottom, 0)); /* 56px是新的缩略图区域高度 */
+  }
+  
+  /* 移动端图片预览位置调整 */
+  .media-preview-content {
+    margin-top: -10px; /* 由于缩略图变小，相应减少调整量 */
+  }
+  
+  .media-thumbnails {
+    bottom: calc(65px + env(safe-area-inset-bottom, 0));
+    height: 56px; /* iOS风格：缩略图区域高度减少 */
+  }
+  
+  /* 移动端缩略图大小调整 */
+  .thumb-item {
+    width: 32px; /* iOS风格：缩略图大小减少一半 */
+    height: 32px; /* iOS风格：缩略图大小减少一半 */
+    border-radius: 2px; /* 相应减少圆角 */
+  }
+  
   .download-progress-container {
     bottom: 120px;
+    width: 90%;
+    padding: 10px 14px;
+  }
+  
+  .download-progress-details {
+    bottom: 80px;
     width: 90%;
     padding: 10px 14px;
   }

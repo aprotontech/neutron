@@ -251,13 +251,13 @@
         </div>
         
         <!-- 下载进度显示 -->
-        <div class="download-progress-container" v-if="downloadProgressVisible && downloadProgress">
+        <div class="download-progress-container" v-if="downloadProgressVisible && downloadProgress && !downloadProgress.isCached">
           <div class="download-progress">
             <div class="download-progress-bar" :style="{ width: downloadProgress.progress + '%' }"></div>
           </div>
           <div class="download-progress-info">
             <span class="download-progress-text">
-              {{ downloadProgress.isCached ? '使用缓存' : '下载中' }}: 
+              {{ downloadProgress.isCached ? '使用缓存' : (downloadProgress.isCompleted ? '下载完' : '下载中') }}: 
               {{ downloadProgress.progress.toFixed(0) }}%
               <span v-if="downloadProgress.isPartitioned">
                 (分区 {{ downloadProgress.partitions || 0 }})
@@ -748,7 +748,7 @@ async function loadMediaFile(file) {
         }
         downloadProgressTimer.value = setTimeout(() => {
           downloadProgressVisible.value = false;
-        }, 3000);
+        }, 1000);
       }
     };
     
@@ -779,7 +779,7 @@ async function loadMediaFile(file) {
         }
         downloadProgressTimer.value = setTimeout(() => {
           downloadProgressVisible.value = false;
-        }, 3000);
+        }, 1000);
       }
     };
     

@@ -95,6 +95,9 @@ function switchTab(tab) {
 
 // 获取头部标题
 function getHeaderTitle() {
+  if (Capacitor.isNativePlatform()) {
+    return ">"
+  }
   switch (activeTab.value) {
     case 'gallery':
       return '图库'

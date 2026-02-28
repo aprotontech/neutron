@@ -738,7 +738,7 @@ export default class FileAPI {
 
                     // 可选：添加小的延迟以避免请求过于频繁
                     if (hasMoreData) {
-                        if (!Capacitor.isNativePlatform() && expectedCount > 0 && initialCount + totalSynced < expectedCount) {
+                        if (expectedCount > 0 && initialCount + totalSynced >= expectedCount) {
                             hasMoreData = false
                         } else {
                             await new Promise(resolve => setTimeout(resolve, 100));
