@@ -67,6 +67,23 @@
           autoplay
           @click.stop
         ></video>
+
+        <audio
+          v-else-if="currentFile?.type === '音频' && !isMediaLoading"
+          :src="currentMediaUrl"
+          controls
+          autoplay
+          @click.stop
+        ></audio>
+
+        <div
+          v-else-if="currentFile?.type === '文本' && !isMediaLoading"
+          class="text-viewer"
+          @click.stop
+        >
+          <pre v-if="isCodeFile && highlightedCode" class="code-content" v-html="highlightedCode"></pre>
+          <pre v-else class="plain-text-content">{{ currentTextContent }}</pre>
+        </div>
       </div>
     </div>
 
@@ -81,7 +98,7 @@
         >
           <img v-if="it.thumbnailUrl" :src="it.thumbnailUrl" :alt="it.name" />
           <div v-else class="thumb-placeholder">
-            <span class="thumb-icon">{{ it.type === '视频' ? '🎬' : '🖼️' }}</span>
+            <span class="thumb-icon">{{ thumbIcon(it.type) }}</span>
           </div>
         </div>
       </div>
@@ -232,7 +249,11 @@ const props = defineProps({
   fetchNearby: {
     type: Function,
     required: true
-  }
+  },
+  /** 可选：文本/代码高亮，(content, filename) => htmlString，用于 Files 等 */
+  highlightCode: { type: Function, default: null },
+  /** 可选：判断是否为代码文件，用于决定是否用 highlightCode 渲染 */
+  isCode: { type: Function, default: null }
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -270,6 +291,8 @@ const itemTouchStartY = ref(0)
 const lastTouchDx = ref(0)
 const downloadProgress = ref(null)
 const downloadProgressVisible = ref(false)
+const currentTextContent = ref('')
+const highlightedCode = ref('')
 
 const THUMB_RANGE = 15
 
@@ -295,6 +318,18 @@ const thumbList = computed(() => {
 })
 
 const startOffset = computed(() => Math.max(0, currentOffset.value - THUMB_RANGE))
+
+function thumbIcon(type) {
+  if (type === '视频') return '🎬'
+  if (type === '音频') return '🎵'
+  if (type === '文本') return '📄'
+  return '🖼️'
+}
+
+const isCodeFile = computed(() => {
+  const name = currentFile.value?.name
+  return name && typeof props.isCode === 'function' && props.isCode(name)
+})
 
 const formattedMediaTime = computed(() => {
   const info = fileInfo.value || {}
@@ -508,6 +543,9 @@ async function ensureItemsAround(offset) {
           mapSet(o, normalizeItem(item))
         }
       })
+      for (let o = start; o < start + (items?.length ?? 0); o++) {
+        loadThumbnailForOffset(o)
+      }
     }
   } catch (e) {
     console.error('Preview fetchNearby error', e)
@@ -525,6 +563,20 @@ function normalizeItem(item) {
   }
 }
 
+/** 当项为图片/视频且无缩略图时，用 fileApi 加载缩略图并更新 map（供 Files 列表视图等未预加载 thumb 的场景） */
+function loadThumbnailForOffset(offset) {
+  const item = previewMap.get(props.totalCount, offset)
+  if (!item || item.thumbnailUrl) return
+  if (item.type !== '图片' && item.type !== '视频') return
+  const path = item.path || item.filepath
+  if (!path) return
+  props.fileApi.getFileThumbnailUrl(path).then((url) => {
+    if (url) {
+      mapSet(offset, { ...item, thumbnailUrl: url })
+    }
+  }).catch(() => {})
+}
+
 async function loadMediaAtOffset(offset) {
   await ensureItemsAround(offset)
   const file = previewMap.get(props.totalCount, offset)
@@ -534,6 +586,8 @@ async function loadMediaAtOffset(offset) {
 
   currentOffset.value = offset
   currentMediaUrl.value = ''
+  currentTextContent.value = ''
+  highlightedCode.value = ''
   isMediaLoading.value = true
   fileInfo.value = null
   downloadProgress.value = null
@@ -559,16 +613,41 @@ async function loadMediaAtOffset(offset) {
       }
     }
 
-    const url = await props.fileApi.getFileUrl(path, null, progressCallback)
-    currentMediaUrl.value = url
-
-    if (file.type === '图片') {
-      const img = new Image()
-      img.onload = () => { isMediaLoading.value = false }
-      img.onerror = () => { isMediaLoading.value = false }
-      img.src = url
-    } else {
+    if (file.type === '文本') {
+      const url = await props.fileApi.getFileUrl(path, null, progressCallback)
+      const response = await fetch(url)
+      if (response.ok) {
+        const text = await response.text()
+        if (text.length > 100000) {
+          currentTextContent.value = text.substring(0, 100000) + '\n\n... (文件过大，已截断显示前100KB内容)'
+        } else {
+          currentTextContent.value = text
+        }
+        if (typeof props.highlightCode === 'function' && typeof props.isCode === 'function' && props.isCode(file.name)) {
+          try {
+            highlightedCode.value = props.highlightCode(text, file.name) || text
+          } catch (e) {
+            highlightedCode.value = ''
+          }
+        }
+      } else {
+        currentTextContent.value = '无法加载文件内容'
+      }
       isMediaLoading.value = false
+    } else {
+      const url = await props.fileApi.getFileUrl(path, null, progressCallback)
+      currentMediaUrl.value = url
+
+      if (file.type === '图片') {
+        const img = new Image()
+        img.onload = () => { isMediaLoading.value = false }
+        img.onerror = () => { isMediaLoading.value = false }
+        img.src = url
+      } else if (file.type === '音频' || file.type === '视频') {
+        isMediaLoading.value = false
+      } else {
+        isMediaLoading.value = false
+      }
     }
 
     await nextTick()
@@ -649,7 +728,7 @@ function handleBackgroundClick() {}
 
 watch(
   () => props.modelValue,
-  async   (visible) => {
+  async (visible) => {
     if (visible) {
       mapClear()
       const items = props.initialItems || []
@@ -664,6 +743,12 @@ watch(
       slideOpacity.value = 1
       slideX.value = 0
       await loadMediaAtOffset(props.initialOffset)
+      // 为附近项补全缩略图（Files 列表视图下 thumbUrl 常为空）
+      const start = Math.max(0, props.initialOffset - THUMB_RANGE)
+      const end = Math.min(props.totalCount - 1, props.initialOffset + THUMB_RANGE)
+      for (let o = start; o <= end; o++) {
+        loadThumbnailForOffset(o)
+      }
     }
   }
 )
@@ -835,13 +920,39 @@ watch(
 }
 
 .media-preview-content img,
-.media-preview-content video {
+.media-preview-content video,
+.media-preview-content audio {
   display: block;
   width: 100%;
   height: auto;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.media-preview-content .text-viewer {
+  width: 100%;
+  max-width: 90%;
+  max-height: 100%;
+  overflow: auto;
+  background: rgba(30, 30, 30, 0.9);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 0 auto;
+}
+
+.media-preview-content .text-viewer pre {
+  margin: 0;
+  padding: 0;
+  color: #c9d1d9;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.media-preview-content .text-viewer .code-content {
+  background: transparent !important;
 }
 
 .media-thumbnails {

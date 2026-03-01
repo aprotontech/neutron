@@ -201,74 +201,17 @@
         </div>
       </div>
 
-      <div
-        id="media-viewer"
-        class="media-viewer"
-        :class="{ active: isViewingImage || isViewingVideo || isViewingAudio || isViewingText }"
-        @click="handleMediaBackgroundClick"
-        @touchstart="handleMediaTouchStart"
-        @touchmove="handleMediaTouchMove"
-        @touchend="handleMediaTouchEnd"
-      >
-        <button class="media-viewer-close" @click="closeMediaViewer">✕</button>
-        <div
-          class="media-viewer-content"
-          @mousemove="handleMediaMouseMove"
-          @mouseleave="handleMediaMouseLeave"
-          :style="{
-            transform: `translateY(${mediaSlideOffset}px)`,
-            opacity: mediaSlideOpacity,
-            transition: mediaSlideOffset === 0 ? 'transform 0.3s ease, opacity 0.3s ease' : 'none'
-          }"
-        >
-          <!-- 加载动画 -->
-          <div v-if="isMediaLoading" class="media-loading">
-            <div class="media-spinner"></div>
-            <div class="media-loading-text">加载中...</div>
-          </div>
-          
-          <img v-if="isViewingImage && !isMediaLoading" :src="currentMediaUrl" :alt="currentMediaFile?.name" />
-          <video v-else-if="isViewingVideo && !isMediaLoading" :src="currentMediaUrl" controls autoplay></video>
-          <audio v-else-if="isViewingAudio && !isMediaLoading" :src="currentMediaUrl" controls autoplay></audio>
-          <div v-else-if="isViewingText && !isMediaLoading" class="text-viewer">
-            <pre v-if="FileTypeDetector.isCode(currentMediaFile?.name)" class="code-content" v-html="highlightedCode"></pre>
-            <pre v-else class="plain-text-content">{{ currentTextContent }}</pre>
-          </div>
-          
-          <!-- 桌面端导航按钮 -->
-          <button class="nav-btn nav-prev desktop-only" :class="{ 'show-hover': showNavButtons }" @click="prevMedia" v-if="hasPrevMedia">
-            <span class="nav-icon">←</span>
-          </button>
-          <button class="nav-btn nav-next desktop-only" :class="{ 'show-hover': showNavButtons }" @click="nextMedia" v-if="hasNextMedia">
-            <span class="nav-icon">→</span>
-          </button>
-        </div>
-        <div class="media-viewer-nav" v-if="currentMediaFile && !isMediaLoading">
-          <span class="nav-info">{{ currentMediaFile.name }}</span>
-          <span class="nav-counter" v-if="imageFiles.length > 1">
-            {{ currentMediaIndex + 1 }} / {{ imageFiles.length }}
-          </span>
-        </div>
-        
-        <!-- 下载进度显示 -->
-        <div class="download-progress-container" v-if="downloadProgressVisible && downloadProgress && !downloadProgress.isCached">
-          <div class="download-progress">
-            <div class="download-progress-bar" :style="{ width: downloadProgress.progress + '%' }"></div>
-          </div>
-          <div class="download-progress-info">
-            <span class="download-progress-text">
-              {{ downloadProgress.isCached ? '使用缓存' : (downloadProgress.isCompleted ? '下载完' : '下载中') }}: 
-              {{ downloadProgress.progress.toFixed(0) }}%
-              <span v-if="downloadProgress.isPartitioned">
-                (分区 {{ downloadProgress.partitions || 0 }})
-              </span>
-            </span>
-            <span class="download-progress-size">
-              {{ formatSize(downloadProgress.downloadedSize || 0) }} / {{ formatSize(downloadProgress.totalSize || 0) }}
-            </span>
-          </div>
-        </div>
-      </div>
+      <!-- 媒体/文件预览：使用统一 Preview 组件 -->
+      <Preview
+        v-model="isViewingMedia"
+        :total-count="previewableFiles.length"
+        :initial-offset="currentPreviewIndex"
+        :initial-items="previewInitialItems"
+        :file-api="fileAPI"
+        :fetch-nearby="fetchNearbyForPreview"
+        :highlight-code="highlightCodeForPreview"
+        :is-code="isCodeForPreview"
+      />
     </div>
   </div>
 </template>
@@ -302,6 +245,7 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import html from 'highlight.js/lib/languages/xml'
 import TransferClient from './lib/transfer'
+import Preview from './Preview.vue'
 
 // 注册 highlight.js 语言支持
 hljs.registerLanguage('javascript', javascript)
@@ -336,14 +280,9 @@ const loading = ref(false)
 const error = ref('')
 
 const fileAPI = new FileAPI()
-const isViewingImage = ref(false)
-const isViewingVideo = ref(false)
-const isViewingAudio = ref(false)
-const isViewingText = ref(false)
-const currentMediaFile = ref(null)
-const currentMediaUrl = ref('')
-const currentTextContent = ref('')
-const isMediaLoading = ref(false)
+const isViewingMedia = ref(false)
+const previewableFiles = ref([])
+const currentPreviewIndex = ref(-1)
 const showUserMenu = ref(false)
 const showPathList = ref(false)
 const showRightMenu = ref(false)
@@ -353,35 +292,62 @@ const touchedFile = ref(null)
 const lastTapTime = ref(0)
 const lastTappedFile = ref(null)
 
-// 图片导航相关
-const imageFiles = ref([])
-const currentMediaIndex = ref(-1)
-const showNavButtons = ref(false)
-const mediaTouchStartX = ref(0)
-const mediaTouchEndX = ref(0)
-const mediaTouchStartY = ref(0)
-const mediaTouchEndY = ref(0)
-const mediaMouseMoveTimer = ref(null)
-
-// 媒体预览手势相关（上下滑关闭、左右滑切图）
-const mediaSwipeAxis = ref(null) // 'x' | 'y' | null
-const mediaSwipeStartedOnClosableArea = ref(false)
-const mediaSlideOffset = ref(0) // 滑动偏移量，用于动画效果
-const mediaSlideOpacity = ref(1) // 滑动时的透明度，用于动画效果
-
-// 下载进度相关
-const downloadProgress = ref(null)
-const downloadProgressTimer = ref(null)
-const downloadProgressVisible = ref(false)
+// 预览列表由 Preview 组件内部管理，此处仅提供打开时的数据
 
 const isMobile = ref(false)
 const isAndroidApp = ref(false)
 const contentContainer = ref(null)
 let contentTouchStartListener = null
 
-const isMediaViewerActive = computed(() => {
-  return isViewingImage.value || isViewingVideo.value || isViewingAudio.value || isViewingText.value
+const isMediaViewerActive = computed(() => isViewingMedia.value)
+
+function getPreviewType(f) {
+  if (isImage(f)) return '图片'
+  if (isVideo(f)) return '视频'
+  if (isAudio(f)) return '音频'
+  if (isText(f)) return '文本'
+  return '文件'
+}
+
+const previewInitialItems = computed(() => {
+  return previewableFiles.value.map((f, i) => ({
+    offset: i,
+    path: f.path,
+    thumbnailUrl: f.thumbUrl || null,
+    name: f.name,
+    type: getPreviewType(f)
+  }))
 })
+
+function fetchNearbyForPreview(offset, count) {
+  const list = previewableFiles.value
+  const start = Math.max(0, offset)
+  const end = Math.min(list.length, offset + count)
+  const slice = list.slice(start, end)
+  return Promise.resolve(
+    slice.map((f, i) => ({
+      offset: start + i,
+      path: f.path,
+      thumbnailUrl: f.thumbUrl || null,
+      name: f.name,
+      type: getPreviewType(f)
+    }))
+  )
+}
+
+function highlightCodeForPreview(content, filename) {
+  const language = getLanguageFromFilename(filename)
+  try {
+    const result = hljs.highlight(content, { language })
+    return result.value
+  } catch (e) {
+    return content
+  }
+}
+
+function isCodeForPreview(name) {
+  return FileTypeDetector.isCode(name)
+}
 
 const backgroundScrollLock = {
   locked: false,
@@ -487,21 +453,6 @@ function getLanguageFromFilename(filename) {
 }
 
 // 计算高亮后的代码内容
-const highlightedCode = computed(() => {
-  if (!currentTextContent.value || !currentMediaFile.value) return ''
-  if (FileTypeDetector.isCode(currentMediaFile.value.name)) {
-    const language = getLanguageFromFilename(currentMediaFile.value.name)
-    try {
-      const result = hljs.highlight(currentTextContent.value, { language })
-      return result.value
-    } catch (error) {
-      console.error('代码高亮失败:', error)
-      return currentTextContent.value
-    }
-  }
-  return currentTextContent.value
-})
-
 function refreshCurrentList() {
   if (loading.value) return
   return loadFiles(currentPath.value)
@@ -566,411 +517,28 @@ async function openFile(f) {
   }
 }
 
-async function setMediaViewerUrl(file) {
-  try {
-    // 重置进度
-    downloadProgress.value = null;
-    downloadProgressVisible.value = false;
-    
-    // 创建进度回调函数
-    const progressCallback = (progressData) => {
-      downloadProgress.value = progressData;
-      downloadProgressVisible.value = true;
-      
-      // 如果下载完成，3秒后隐藏进度条
-      if (progressData.isCompleted) {
-        if (downloadProgressTimer.value) {
-          clearTimeout(downloadProgressTimer.value);
-        }
-        downloadProgressTimer.value = setTimeout(() => {
-          downloadProgressVisible.value = false;
-        }, 3000);
-      }
-    };
-    
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, null, progressCallback)
-  } catch  (e) {
-    console.log(e)
-    return false;
-  }
-
-  return true
-
-}
-
 async function openMediaViewer(file) {
-  currentMediaFile.value = file
-  isMediaLoading.value = true
-  
-  // 重置所有查看状态
-  isViewingImage.value = false
-  isViewingVideo.value = false
-  isViewingAudio.value = false
-  isViewingText.value = false
-  currentMediaUrl.value = ''
-  currentTextContent.value = ''
-  
-  if (!await fileAPI.getFileLocalCachedUrl(file.path)) {
-    // 检查文件大小限制（5MB）
+  if (!(await fileAPI.getFileLocalCachedUrl(file.path))) {
     if (file.size > Config.getMaxPreviewFileSize()) {
-      selectedFile.value = file // 设置选中的文件，以便下载按钮可以正常工作
-
-      // 显示确认对话框，让用户选择是否继续查看
+      selectedFile.value = file
       const maxSizeMB = Config.getMaxPreviewFileSize() / (1024 * 1024)
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
       const confirmMessage = `文件内容过大（${fileSizeMB}MB > ${maxSizeMB}MB），是否确认要进行查看？\n\n注意：大文件可能会导致加载缓慢或性能问题。`
-      
       if (!confirm(confirmMessage)) {
-        // 用户点击取消
-        isMediaLoading.value = false
         return
       }
-      // 用户点击确认，继续查看
       showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
     }
   }
-  
-  // 更新图片文件列表
-  updateImageFilesList()
-  
-  // 查找当前文件在图片列表中的位置
-  const index = imageFiles.value.findIndex(f => f.path === file.path)
-  currentMediaIndex.value = index
-  
-  if (isImage(file)) {
-    isViewingImage.value = true
-    await setMediaViewerUrl(file)
-    
-    // 图片加载完成后隐藏加载动画
-    const img = new Image()
-    img.onload = () => {
-      isMediaLoading.value = false
-    }
-    img.onerror = () => {
-      isMediaLoading.value = false
-    }
-    img.src = currentMediaUrl.value
-  } else if (isVideo(file)) {
-    isViewingVideo.value = true
-    await setMediaViewerUrl(file)
-
-    isMediaLoading.value = false
-  } else if (isAudio(file)) {
-    isViewingAudio.value = true
-    await setMediaViewerUrl(file)
-    isMediaLoading.value = false
-  } else if (isText(file)) {
-    isViewingText.value = true
-    try {
-      // 获取文本文件内容
-      const response = await fetch(await fileAPI.getFileUrl(file.path))
-      if (response.ok) {
-        const text = await response.text()
-        // 限制文本大小，避免过大文件导致性能问题
-        if (text.length > 100000) { // 100KB限制
-          currentTextContent.value = text.substring(0, 100000) + '\n\n... (文件过大，已截断显示前100KB内容)'
-        } else {
-          currentTextContent.value = text
-        }
-      } else {
-        currentTextContent.value = '无法加载文件内容'
-      }
-    } catch (error) {
-      console.error('加载文本文件失败:', error)
-      currentTextContent.value = '加载文件内容失败'
-    }
-    isMediaLoading.value = false
-  }
-}
-
-// 更新图片文件列表
-function updateImageFilesList() {
-  imageFiles.value = files.value.filter(f => isImage(f))
-}
-
-// 计算是否有前一张/后一张图片
-const hasPrevMedia = computed(() => {
-  return currentMediaIndex.value > 0 && imageFiles.value.length > 1
-})
-
-const hasNextMedia = computed(() => {
-  return currentMediaIndex.value < imageFiles.value.length - 1 && imageFiles.value.length > 1
-})
-
-// 切换到前一张图片
-async function prevMedia() {
-  if (!hasPrevMedia.value) return
-  
-  const prevIndex = currentMediaIndex.value - 1
-  const prevFile = imageFiles.value[prevIndex]
-  
-  if (prevFile) {
-    currentMediaIndex.value = prevIndex
-    await loadMediaFile(prevFile)
-  }
-}
-
-// 切换到后一张图片
-async function nextMedia() {
-  if (!hasNextMedia.value) return
-  
-  const nextIndex = currentMediaIndex.value + 1
-  const nextFile = imageFiles.value[nextIndex]
-  
-  if (nextFile) {
-    currentMediaIndex.value = nextIndex
-    await loadMediaFile(nextFile)
-  }
-}
-
-// 加载媒体文件
-async function loadMediaFile(file) {
-  currentMediaFile.value = file
-  isMediaLoading.value = true
-  
-  // 重置进度
-  downloadProgress.value = null;
-  downloadProgressVisible.value = false;
-  
-  if (isImage(file)) {
-    isViewingImage.value = true
-    isViewingVideo.value = false
-    
-    // 创建进度回调函数
-    const progressCallback = (progressData) => {
-      downloadProgress.value = progressData;
-      downloadProgressVisible.value = true;
-      
-      // 如果下载完成，3秒后隐藏进度条
-      if (progressData.isCompleted) {
-        if (downloadProgressTimer.value) {
-          clearTimeout(downloadProgressTimer.value);
-        }
-        downloadProgressTimer.value = setTimeout(() => {
-          downloadProgressVisible.value = false;
-        }, 1000);
-      }
-    };
-    
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'image', progressCallback)
-    
-    // 图片加载完成后隐藏加载动画
-    const img = new Image()
-    img.onload = () => {
-      isMediaLoading.value = false
-    }
-    img.onerror = () => {
-      isMediaLoading.value = false
-    }
-    img.src = currentMediaUrl.value
-  } else if (isVideo(file)) {
-    isViewingImage.value = false
-    isViewingVideo.value = true
-    
-    // 创建进度回调函数
-    const progressCallback = (progressData) => {
-      downloadProgress.value = progressData;
-      downloadProgressVisible.value = true;
-      
-      // 如果下载完成，3秒后隐藏进度条
-      if (progressData.isCompleted) {
-        if (downloadProgressTimer.value) {
-          clearTimeout(downloadProgressTimer.value);
-        }
-        downloadProgressTimer.value = setTimeout(() => {
-          downloadProgressVisible.value = false;
-        }, 1000);
-      }
-    };
-    
-    currentMediaUrl.value = await fileAPI.getFileUrl(file.path, 'video', progressCallback)
-    isMediaLoading.value = false
-  }
-}
-
-// 触摸滑动导航
-function handleMediaTouchStart(event) {
-  if (!isMediaViewerActive.value) return
-
-  const touch = event.touches[0]
-  mediaTouchStartX.value = touch.clientX
-  mediaTouchStartY.value = touch.clientY
-  mediaTouchEndX.value = touch.clientX
-  mediaTouchEndY.value = touch.clientY
-
-  mediaSwipeAxis.value = null
-
-  // 所有预览类型都支持上下滑关闭手势
-  // 但如果是视频/音频的控件区域，优先响应控件操作
-  const startedOnMediaElement = !!event.target.closest('img, video, audio, .text-viewer')
-  const startedOnMediaControls = !!event.target.closest('video, audio') && 
-    (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || 
-     event.target.hasAttribute('controls'))
-  
-  // 如果触摸开始于媒体控件，则不触发上下滑关闭
-  mediaSwipeStartedOnClosableArea.value = !startedOnMediaControls
-  
-  // 重置滑动动画
-  mediaSlideOffset.value = 0
-  mediaSlideOpacity.value = 1
-}
-
-function handleMediaTouchMove(event) {
-  if (!isMediaViewerActive.value) return
-
-  const touch = event.touches[0]
-  mediaTouchEndX.value = touch.clientX
-  mediaTouchEndY.value = touch.clientY
-
-  const deltaX = mediaTouchEndX.value - mediaTouchStartX.value
-  const deltaY = mediaTouchEndY.value - mediaTouchStartY.value
-
-  // 方向锁定（避免轻微抖动）
-  if (!mediaSwipeAxis.value) {
-    const absX = Math.abs(deltaX)
-    const absY = Math.abs(deltaY)
-    if (absX < 10 && absY < 10) return
-    mediaSwipeAxis.value = absX > absY ? 'x' : 'y'
-  }
-
-  // 纵向手势：阻止默认滚动，避免底层列表跟着滚
-  if (mediaSwipeAxis.value === 'y' && mediaSwipeStartedOnClosableArea.value) {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    // 更新滑动动画效果
-    const slideRatio = Math.min(Math.abs(deltaY) / 200, 1) // 最大滑动200px
-    mediaSlideOffset.value = deltaY
-    mediaSlideOpacity.value = 1 - slideRatio * 0.5 // 最多变淡50%
-  }
-}
-
-function handleMediaTouchEnd() {
-  if (!isMediaViewerActive.value) return
-
-  const diffX = mediaTouchStartX.value - mediaTouchEndX.value
-  const diffY = mediaTouchStartY.value - mediaTouchEndY.value
-
-  // 保持原来的左右滑逻辑：仅在“图片 + 多张”时切换
-  if (isViewingImage.value && imageFiles.value.length > 1) {
-    // 水平滑动距离大于垂直滑动距离，且滑动距离大于50px
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-      if (diffX > 0) {
-        // 向左滑动，显示下一张
-        nextMedia()
-      } else {
-        // 向右滑动，显示上一张
-        prevMedia()
-      }
-    }
-  }
-
-  // 上下滑关闭预览：仅在纵向为主，且距离足够时触发
-  if (mediaSwipeStartedOnClosableArea.value) {
-    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 80) {
-      closeMediaViewer()
-    } else {
-      // 如果没有触发关闭，则添加滑动返回动画
-      mediaSlideOffset.value = 0
-      mediaSlideOpacity.value = 1
-    }
-  }
-
-  // 重置触摸位置
-  mediaTouchStartX.value = 0
-  mediaTouchEndX.value = 0
-  mediaTouchStartY.value = 0
-  mediaTouchEndY.value = 0
-  mediaSwipeAxis.value = null
-  mediaSwipeStartedOnClosableArea.value = false
-  // 滑动动画变量会在下次触摸开始时重置
-}
-
-// 鼠标移动显示/隐藏导航按钮
-function handleMediaMouseMove() {
-  showNavButtons.value = true
-  
-  // 清除之前的定时器
-  if (mediaMouseMoveTimer.value) {
-    clearTimeout(mediaMouseMoveTimer.value)
-  }
-  
-  // 设置定时器，2秒后隐藏按钮
-  mediaMouseMoveTimer.value = setTimeout(() => {
-    showNavButtons.value = false
-  }, 2000)
-}
-
-function handleMediaMouseLeave() {
-  showNavButtons.value = false
-  
-  if (mediaMouseMoveTimer.value) {
-    clearTimeout(mediaMouseMoveTimer.value)
-    mediaMouseMoveTimer.value = null
-  }
+  previewableFiles.value = files.value.filter(f => isPreviewable(f))
+  const index = previewableFiles.value.findIndex(f => f.path === file.path)
+  currentPreviewIndex.value = index >= 0 ? index : 0
+  isViewingMedia.value = true
 }
 
 function closeMediaViewer() {
-  isViewingImage.value = false
-  isViewingVideo.value = false
-  isViewingAudio.value = false
-  isViewingText.value = false
-  currentMediaFile.value = null
-  currentMediaUrl.value = ''
-  currentTextContent.value = ''
-  isMediaLoading.value = false
-  currentMediaIndex.value = -1
-  imageFiles.value = []
-  
-  // 重置滑动动画
-  mediaSlideOffset.value = 0
-  mediaSlideOpacity.value = 1
-  
-  // 清理鼠标移动定时器
-  if (mediaMouseMoveTimer.value) {
-    clearTimeout(mediaMouseMoveTimer.value)
-    mediaMouseMoveTimer.value = null
-  }
-}
-
-// 处理点击媒体查看器背景关闭预览
-function handleMediaBackgroundClick(event) {
-  // 只有在媒体查看器激活时才处理点击
-  if (!isViewingImage.value && !isViewingVideo.value && !isViewingAudio.value && !isViewingText.value) {
-    return
-  }
-  
-  // 如果点击的是关闭按钮，不处理（关闭按钮有自己的点击事件）
-  if (event.target.closest('.media-viewer-close')) {
-    return
-  }
-  
-  // 如果点击的是导航按钮，不处理（导航按钮有自己的点击事件）
-  if (event.target.closest('.nav-btn')) {
-    return
-  }
-  
-  // 如果点击的是内容区域（图片、视频、音频、文本查看器），不处理
-  const contentElement = event.target.closest('.media-viewer-content')
-  if (contentElement) {
-    // 进一步检查是否点击的是内容区域内的媒体元素
-    const mediaElements = contentElement.querySelectorAll('img, video, audio, .text-viewer, .media-loading')
-    for (const mediaElement of mediaElements) {
-      if (mediaElement.contains(event.target)) {
-        return
-      }
-    }
-    // 如果点击的是内容区域但不是媒体元素本身（比如内容区域的空白部分），也不关闭
-    return
-  }
-  
-  // 如果点击的是媒体查看器导航信息，不处理
-  if (event.target.closest('.media-viewer-nav')) {
-    return
-  }
-  
-  // 否则，点击的是背景区域，关闭媒体查看器
-  closeMediaViewer()
+  isViewingMedia.value = false
+  currentPreviewIndex.value = -1
 }
 
 // 更新是否为移动设备视图
@@ -1377,17 +945,8 @@ onMounted(() => {
   }
  
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && (isViewingImage.value || isViewingVideo.value)) {
+    if (e.key === 'Escape' && isViewingMedia.value) {
       closeMediaViewer()
-    } else if (isViewingImage.value && imageFiles.value.length > 1) {
-      // 左右箭头键切换图片
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        prevMedia()
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        nextMedia()
-      }
     }
   })
   
@@ -1485,12 +1044,10 @@ watch(files, (newFiles, oldFiles) => {
     })
   }
   
-  // 更新图片文件列表
-  updateImageFilesList()
-  
-  // 如果当前正在查看的图片不在新列表中，关闭查看器
-  if (currentMediaFile.value && isViewingImage.value) {
-    const stillExists = newFiles.some(file => file.path === currentMediaFile.value.path)
+  // 如果当前正在预览的文件不在新列表中，关闭预览
+  if (isViewingMedia.value && previewableFiles.value.length > 0 && currentPreviewIndex.value >= 0) {
+    const currentPath = previewableFiles.value[currentPreviewIndex.value]?.path
+    const stillExists = newFiles.some(file => file.path === currentPath)
     if (!stillExists) {
       closeMediaViewer()
     }
