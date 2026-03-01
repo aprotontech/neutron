@@ -57,8 +57,8 @@ class ImageRepo {
 
         // 初始化排序比较函数
         this.sortFunctions = {
-            [SortOrder.ETIME]: (a, b) => a.id - b.id, // 
-            [SortOrder.MTIME]: (a, b) => a.id - b.id  // 
+            [SortOrder.ETIME]: (a, b) => b.etime - a.etime, // 按拍摄时间倒序（最新的在前）
+            [SortOrder.MTIME]: (a, b) => a.id - b.id
         };
     }
 

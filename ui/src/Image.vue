@@ -1,25 +1,40 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
-    <!-- 图库内容 -->
-    <div class="gallery-content" ref="scrollContainer">
-      <!-- 顶部工具栏（移动设备显示） -->
-      <div class="gallery-tools mobile-only" v-if="!isViewingMedia" @click.stop>
-        <div class="dropdown">
-          <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
-          <div class="menu" v-if="menuOpen">
-            <button class="menu-item disabled">按最近添加排序</button>
-            <button class="menu-item disabled">按拍摄日期排序</button>
-            <button class="menu-item" @click="setFilter('images')">
-              <span class="menu-check" aria-hidden="true">{{ filterType === 'images' ? '✓' : '' }}</span>
-              只显示图片
-            </button>
-            <button class="menu-item" @click="setFilter('videos')">
-              <span class="menu-check" aria-hidden="true">{{ filterType === 'videos' ? '✓' : '' }}</span>
-              只显示视频
-            </button>
-          </div>
+    <!-- 顶部工具栏（移动设备显示） -->
+    <div class="gallery-tools mobile-only" v-if="!isViewingMedia" @click.stop>
+      <div class="dropdown">
+        <button class="menu-btn" @click.stop="toggleMenu">⋮</button>
+        <div class="menu" v-if="menuOpen">
+          <button 
+            class="menu-item" 
+            :class="{ disabled: false }"
+            @click="setSortOrder('mtime')"
+          >
+            <span class="menu-check" aria-hidden="true">{{ sortOrder === 'mtime' ? '✓' : '' }}</span>
+            按最近添加排序
+          </button>
+          <button 
+            class="menu-item" 
+            :class="{ disabled: !allHistorySynced }"
+            @click="setSortOrder('etime')"
+          >
+            <span class="menu-check" aria-hidden="true">{{ sortOrder === 'etime' ? '✓' : '' }}</span>
+            按拍摄日期排序
+          </button>
+          <button class="menu-item" @click="setFilter('images')">
+            <span class="menu-check" aria-hidden="true">{{ filterType === 'images' ? '✓' : '' }}</span>
+            只显示图片
+          </button>
+          <button class="menu-item" @click="setFilter('videos')">
+            <span class="menu-check" aria-hidden="true">{{ filterType === 'videos' ? '✓' : '' }}</span>
+            只显示视频
+          </button>
         </div>
       </div>
+    </div>
+    
+    <!-- 图库内容 -->
+    <div class="gallery-content" ref="scrollContainer">
       <!-- 图片网格 -->
           <div class="image-grid">
             <div 
@@ -42,9 +57,6 @@
             />
             <div v-else class="image-placeholder">
               <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
-              <div v-if="image.loadingThumbnail" class="thumbnail-loading">
-                <div class="loading-spinner"></div>
-              </div>
             </div>
           </div>
         </div>
@@ -103,7 +115,19 @@
       >
         <div v-if="isMediaLoading" class="media-loading">
           <div class="media-spinner"></div>
-          <div class="media-loading-text">加载中...</div>
+          <div class="media-loading-text">
+            <div v-if="downloadProgress && downloadProgress.totalSize">
+              <div class="media-loading-progress">
+                加载中: {{ downloadProgress.progress.toFixed(0) }}%
+              </div>
+              <div class="media-loading-size">
+                {{ formatSize(downloadProgress.downloadedSize || 0) }} / {{ formatSize(downloadProgress.totalSize || 0) }}
+              </div>
+            </div>
+            <div v-else>
+              加载中...
+            </div>
+          </div>
         </div>
         
         <div class="media-preview-content">
@@ -133,8 +157,36 @@
             :class="['thumb-item', { active: idx === currentMediaIndex } ]"
             @click.stop="jumpToIndex(idx)"
           >
-            <img :src="it.thumbnailUrl || ''" :alt="it.name" />
+            <img v-if="it.thumbnailUrl" :src="it.thumbnailUrl" :alt="it.name" />
+            <div v-else class="thumb-placeholder">
+              <span class="thumb-icon">{{ it.type === '视频' ? '🎬' : '🖼️' }}</span>
+            </div>
           </div>
+        </div>
+      </div>
+      
+      <!-- 第五部分：底部工具按钮区域 -->
+      <div class="media-toolbar" v-if="isViewingMedia">
+        <div class="toolbar-buttons">
+          <!-- 左侧：分享按钮（禁用） -->
+          <button class="toolbar-btn disabled" title="分享">
+            <span class="toolbar-icon">↗️</span>
+          </button>
+          
+          <!-- 中间：收藏按钮（禁用） -->
+          <button class="toolbar-btn disabled" title="收藏">
+            <span class="toolbar-icon">⭐</span>
+          </button>
+          
+          <!-- 中间：详情按钮 -->
+          <button class="toolbar-btn" @click="openDetailsModal" title="详细信息">
+            <span class="toolbar-icon">ℹ️</span>
+          </button>
+          
+          <!-- 右侧：删除按钮（禁用） -->
+          <button class="toolbar-btn disabled" title="删除">
+            <span class="toolbar-icon">🗑️</span>
+          </button>
         </div>
       </div>
       
@@ -216,11 +268,28 @@ const observedElements = new Map()
 const menuOpen = ref(false)
 const filterType = ref('all') // 'all' | 'images' | 'videos'
 
+// 排序状态
+const sortOrder = ref('mtime') // 'mtime' | 'etime' - 默认按最近添加排序
+const allHistorySynced = ref(false) // 是否所有历史记录已同步
+
 function toggleMenu() { menuOpen.value = !menuOpen.value }
 function setFilter(val) {
   if (filterType.value === val) filterType.value = 'all'
   else filterType.value = val
   menuOpen.value = false
+}
+
+// 设置排序方式
+function setSortOrder(order) {
+  if (order === 'etime' && !allHistorySynced.value) {
+    // 如果按拍摄日期排序但历史记录未完全同步，不允许切换
+    console.log('Cannot switch to etime sort: history not fully synced');
+    return;
+  }
+  sortOrder.value = order;
+  menuOpen.value = false;
+  // 重新加载图片
+  refreshGallery();
 }
 
 // 文件大小格式化函数
@@ -333,7 +402,7 @@ async function loadImages(offset = 0) {
   if (loading.value) return
   loading.value = true
   try {
-    const res = await fileAPI.getImageRepo(offset, pageSize)
+    const res = await fileAPI.getImageRepo(offset, pageSize, sortOrder.value)
     if (!res) return
 
     const items = res.items || []
@@ -356,6 +425,9 @@ async function loadImages(offset = 0) {
     totalImages.value = res.total || totalImages.value || 0
     currentOffset.value = images.value.length
     hasMore.value = currentOffset.value < totalImages.value
+
+    // 检查是否所有历史记录已同步
+    allHistorySynced.value = fileAPI.isImageRepoSyncFinished();
 
     // ensure observer is ready after DOM updated
     await nextTick()
@@ -590,6 +662,7 @@ function refreshGallery() {
   currentOffset.value = 0
   hasMore.value = true
   images.value = []
+  allHistorySynced.value = false // 重置同步状态
   loadImages(0)
 }
 
@@ -723,10 +796,15 @@ onUnmounted(() => {
 .gallery-tools {
   display: flex;
   gap: 10px;
-  position: absolute;
+  position: fixed;
   right: 12px;
-  top: 6px;
+  top: 66px;
   z-index: 1100;
+}
+
+/* Android原生应用中，三点按钮需要考虑状态栏安全区 */
+.image-gallery.android-native-app .gallery-tools {
+  top: calc(16px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
 }
 
 .tool-btn {
@@ -913,18 +991,6 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 
-.thumbnail-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.8);
-}
-
 .loading-spinner {
   width: 20px;
   height: 20px;
@@ -1017,7 +1083,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background: rgba(0,0,0,0.95);
-  z-index: 1000;
+  z-index: 2000; /* 提高z-index确保在底部Tab导航之上 */
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -1117,7 +1183,7 @@ onUnmounted(() => {
   top: calc(env(safe-area-inset-top, 0) + 88px); /* 从工具栏底部开始，调整为新高度 */
   left: 0;
   right: 0;
-  bottom: calc(56px + 70px + env(safe-area-inset-bottom, 0)); /* 到缩略图区域顶部结束，56px是新的缩略图区域高度 */
+  bottom: calc(56px + 70px + env(safe-area-inset-bottom, 0)); /* 到缩略图区域顶部结束，56px是缩略图区域高度，70px是工具按钮区域高度 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1169,7 +1235,7 @@ onUnmounted(() => {
 /* 第四部分：缩略图区域 */
 .media-thumbnails {
   position: absolute;
-  bottom: calc(70px + env(safe-area-inset-bottom, 0)); /* 避免被底部Tab遮挡，70px是底部Tab高度 */
+  bottom: calc(70px + env(safe-area-inset-bottom, 0)); /* 位于工具按钮区域之上，70px是工具按钮区域高度 */
   left: 0;
   right: 0;
   height: 56px; /* iOS风格：缩略图区域高度减少 */
@@ -1216,11 +1282,92 @@ onUnmounted(() => {
   display:block;
   pointer-events: none;
 }
+.thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+}
+.thumb-icon {
+  font-size: 16px;
+  opacity: 0.7;
+}
 .thumb-item.active { 
   border-color: #007AFF;
   opacity: 1;
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+/* 第五部分：底部工具按钮区域 */
+.media-toolbar {
+  position: absolute;
+  bottom: env(safe-area-inset-bottom, 0); /* 紧贴屏幕底部，覆盖底部Tab位置 */
+  left: 0;
+  right: 0;
+  height: 70px; /* 与底部Tab相同高度 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1102;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+}
+
+.toolbar-buttons {
+  display: flex;
+  width: 100%;
+  max-width: 500px;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.toolbar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px 12px;
+  min-width: 60px;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+.toolbar-btn:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+.toolbar-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.disabled:hover {
+  opacity: 0.4;
+  transform: none;
+}
+
+.toolbar-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.toolbar-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 /* details modal */
@@ -1269,15 +1416,15 @@ onUnmounted(() => {
 
 /* Android 原生 App 模式下，预览层整体和关闭按钮避开状态栏 */
 .android-native-app .media-viewer {
-  top: env(safe-area-inset-top, 0);
-  height: calc(100% - env(safe-area-inset-top, 0));
+  top: 0;
+  height: 100%;
   /* Native模式下确保触摸事件正常 */
   touch-action: pan-y;
 }
 
 /* Native模式下，媒体预览窗口的工具栏不再重复应用安全区域偏移 */
 .android-native-app .media-viewer .media-topbar {
-  top: 0; /* 不再使用 env(safe-area-inset-top, 0)，因为父容器已经应用了 */
+  top: env(safe-area-inset-top, 0); /* 应用安全区域偏移 */
 }
 
 /* Native模式下，进度条位置调整 */
@@ -1294,6 +1441,11 @@ onUnmounted(() => {
 /* Native模式下，预览内容位置调整 */
 .android-native-app .media-viewer .media-preview-content {
   margin-top: 10px; /* 根据iOS风格缩略图大小调整图片位置 */
+}
+
+/* Native模式下，工具按钮区域位置调整 */
+.android-native-app .media-viewer .media-toolbar {
+  bottom: env(safe-area-inset-bottom, 0); /* 紧贴屏幕底部 */
 }
 
 .android-native-app .media-viewer-close {
@@ -1389,6 +1541,21 @@ onUnmounted(() => {
   opacity: 0.8;
   white-space: nowrap;
   letter-spacing: -0.3px;
+}
+
+.media-loading-progress {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #007AFF;
+}
+
+.media-loading-size {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+  font-family: monospace;
+  letter-spacing: 0.5px;
 }
 
 /* 空状态样式 */

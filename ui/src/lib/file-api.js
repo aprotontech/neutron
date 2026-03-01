@@ -43,6 +43,12 @@ export default class FileAPI {
         this._pendingRequests = new Map(); // key -> Promise
         // Request queues for concurrency limiting: requestType -> { count, queue }
         this._requestQueues = new Map();
+
+        // Background sync state management
+        this._backgroundSyncInProgress = false;
+        this._backgroundSyncPromise = null;
+        this._backgroundSyncRetryCount = 0;
+        this._maxBackgroundSyncRetries = 3;
     }
 
     /**
@@ -630,10 +636,10 @@ export default class FileAPI {
      * Get image repository with pagination
      * @param {number} offset - Starting offset
      * @param {number} count - Number of items to retrieve
-     * @param {string} order - Sort order: 'etime' or 'mtime' (default: 'etime')
+     * @param {string} order - Sort order: 'etime' or 'mtime' (default: 'mtime')
      * @returns {Promise<Object>} - Object with total count and items array
      */
-    async getImageRepo(offset, count, order = 'etime') {
+    async getImageRepo(offset, count, order = 'mtime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
 
         const currentTotalCount = this.imageRepo.getLocalTotalCount();
@@ -673,6 +679,11 @@ export default class FileAPI {
 
         console.log(`Retrieved ${items.length} items from image repo cache (total: ${totalCount})`);
 
+        // 如果是原生模式且同步未完成，启动后台同步
+        if (Capacitor.isNativePlatform() && !this.isImageRepoSyncFinished()) {
+            this._startBackgroundSync();
+        }
+
         return {
             success: true,
             items,
@@ -681,6 +692,76 @@ export default class FileAPI {
             count: items.length,
             order,
         };
+    }
+
+    isImageRepoSyncFinished() {
+        return this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
+    }
+
+    /**
+     * 启动后台同步（避免重复执行）
+     * @private
+     */
+    async _startBackgroundSync() {
+        // 如果已经在同步中，直接返回现有的promise
+        if (this._backgroundSyncInProgress) {
+            console.log('Background sync already in progress, waiting for existing sync...');
+            return this._backgroundSyncPromise;
+        }
+
+        console.log('Starting background sync for image repository...');
+        this._backgroundSyncInProgress = true;
+        this._backgroundSyncRetryCount = 0;
+
+        // 创建后台同步的promise
+        this._backgroundSyncPromise = (async () => {
+            let lastError = null;
+
+            // 重试循环
+            while (this._backgroundSyncRetryCount <= this._maxBackgroundSyncRetries) {
+                try {
+                    console.log(`Background sync attempt ${this._backgroundSyncRetryCount + 1}/${this._maxBackgroundSyncRetries + 1}`);
+
+                    // 使用expectedCount = -1表示同步所有数据
+                    const syncResult = await this.syncImageRepoHistory(-1);
+
+                    if (syncResult.success) {
+                        console.log(`Background sync completed successfully. Total synced: ${syncResult.totalSynced} items`);
+                        this._backgroundSyncRetryCount = 0; // 重置重试计数
+                        return syncResult;
+                    } else {
+                        console.error(`Background sync failed: ${syncResult.error}`);
+                        lastError = new Error(`Sync failed: ${syncResult.error}`);
+                    }
+                } catch (error) {
+                    console.error(`Background sync error (attempt ${this._backgroundSyncRetryCount + 1}):`, error);
+                    lastError = error;
+                }
+
+                // 如果还有重试机会，等待一段时间后重试
+                if (this._backgroundSyncRetryCount < this._maxBackgroundSyncRetries) {
+                    this._backgroundSyncRetryCount++;
+                    const retryDelay = Math.min(1000 * Math.pow(2, this._backgroundSyncRetryCount), 10000); // 指数退避，最大10秒
+                    console.log(`Retrying background sync in ${retryDelay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                } else {
+                    break;
+                }
+            }
+
+            // 所有重试都失败
+            console.error(`Background sync failed after ${this._maxBackgroundSyncRetries + 1} attempts. Last error:`, lastError);
+            throw lastError || new Error('Background sync failed');
+
+        })().finally(() => {
+            // 重置同步状态
+            this._backgroundSyncInProgress = false;
+            this._backgroundSyncPromise = null;
+            this._backgroundSyncRetryCount = 0;
+        });
+
+        // 不等待同步完成，立即返回
+        return this._backgroundSyncPromise;
     }
 
     async syncImageRepoHistory(expectedCount = -1) {
