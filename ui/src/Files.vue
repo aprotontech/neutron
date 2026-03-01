@@ -527,7 +527,7 @@ async function openMediaViewer(file) {
       if (!confirm(confirmMessage)) {
         return
       }
-      showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
+      // showToastMessage('正在加载大文件，请稍候...', 'info', 3000)
     }
   }
   previewableFiles.value = files.value.filter(f => isPreviewable(f))

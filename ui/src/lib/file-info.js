@@ -23,7 +23,9 @@ export default class CachedFileInformation {
             const size = typeof fileInfo.size === 'number' ? fileInfo.size : null;
             const mtime = fileInfo.modTime || fileInfo.mtime || null;
             const mime_type = fileInfo.mimeType || fileInfo.mime_type || null;
-            const exif = fileInfo.exif ? JSON.stringify(fileInfo.exif) : null;
+            // Server sends exifData; support both for compatibility
+            const exifObj = fileInfo.exifData || fileInfo.exif;
+            const exif = exifObj ? JSON.stringify(exifObj) : null;
 
             // Replace existing record for this file_path
             await db.run(`DELETE FROM ${tables.CACHED_FILE_INFOS} WHERE file_path = ?`, [filePath]);
@@ -67,12 +69,15 @@ export default class CachedFileInformation {
                 exif = null;
             }
 
+            // Preview.vue expects exifData (same shape as server FileInformation)
             return {
                 name: filePath.split('/').pop(),
                 isDir: !!row.is_dir,
                 size: row.size,
                 modTime: row.mtime,
+                mtime: row.mtime,
                 mimeType: row.mime_type,
+                exifData: exif,
                 exif: exif
             };
         } catch (error) {

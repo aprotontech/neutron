@@ -50,7 +50,7 @@
               v-if="image.thumbnailUrl" 
               :src="image.thumbnailUrl" 
               :alt="image.name"
-              loading="lazy"
+              loading="eager"
               decoding="async"
               fetchpriority="low"
               @load="image.loaded = true"
@@ -220,10 +220,11 @@ function updateColumns() {
 function initObserver() {
   if (intersectionObserver.value) intersectionObserver.value.disconnect()
 
+  // 扩大 rootMargin，快速滑动时提前加载，减少白屏
   intersectionObserver.value = new IntersectionObserver(handleIntersection, {
     root: scrollContainer.value,
-    rootMargin: '200px',
-    threshold: 0.1
+    rootMargin: '400px 0px',
+    threshold: 0.01
   })
 }
 

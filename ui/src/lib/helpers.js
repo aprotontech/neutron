@@ -13,6 +13,7 @@ export class FileTypeDetector {
         'image/bmp': ['.bmp'],
         'image/webp': ['.webp'],
         'image/svg+xml': ['.svg'],
+        'image/heic': ['.heic', '.heif'],
 
         'video/mp4': ['.mp4', '.m4v'],
         'video/webm': ['.webm'],

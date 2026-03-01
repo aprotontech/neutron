@@ -356,9 +356,21 @@ function getExifValue(exifData, key) {
 }
 
 function formatDateTime(dateStr) {
-  if (!dateStr) return '未知时间'
+  if (dateStr === undefined || dateStr === null) return '未知时间'
   try {
-    const date = new Date(dateStr)
+    let date
+    if (typeof dateStr === 'number') {
+      // 服务端 mtime 为 Unix 秒，JS Date 需要毫秒
+      const ms = dateStr < 1e12 ? dateStr * 1000 : dateStr
+      date = new Date(ms)
+    } else if (typeof dateStr === 'string') {
+      // EXIF 日期格式 "YYYY:MM:DD HH:mm:ss" 需转为 "YYYY-MM-DD HH:mm:ss" 才能被正确解析
+      const normalized = dateStr.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3')
+      date = new Date(normalized)
+    } else {
+      date = new Date(dateStr)
+    }
+    if (Number.isNaN(date.getTime())) return String(dateStr)
     return date.toLocaleString('zh-CN', {
       year: 'numeric',
       month: 'long',
@@ -368,7 +380,7 @@ function formatDateTime(dateStr) {
       second: '2-digit'
     })
   } catch (e) {
-    return dateStr
+    return String(dateStr)
   }
 }
 
@@ -514,7 +526,10 @@ async function openDetailsModal() {
     if (path) {
       fileInfoLoading.value = true
       try {
-        fileInfo.value = await props.fileApi.getFileInfo(path)
+        let info = await props.fileApi.getFileInfo(path)
+        // Native 缓存返回 exif，详情页统一使用 exifData
+        if (info && !info.exifData && info.exif) info = { ...info, exifData: info.exif }
+        fileInfo.value = info
       } catch (e) {
         fileInfo.value = null
       } finally {
@@ -596,7 +611,9 @@ async function loadMediaAtOffset(offset) {
   try {
     fileInfoLoading.value = true
     try {
-      fileInfo.value = await props.fileApi.getFileInfo(path)
+      let info = await props.fileApi.getFileInfo(path)
+      if (info && !info.exifData && info.exif) info = { ...info, exifData: info.exif }
+      fileInfo.value = info
     } catch (e) {
       fileInfo.value = null
     } finally {
