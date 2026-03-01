@@ -211,19 +211,110 @@
         <div class="details-backdrop" @click="closeDetailsModal"></div>
         <div class="details-panel">
           <div class="details-header">
-            <h3>文件信息</h3>
-            <button @click="closeDetailsModal">关闭</button>
+            <h3>详细信息</h3>
+            <button class="details-close-btn" @click="closeDetailsModal">完成</button>
           </div>
           <div class="details-body">
-            <div v-if="fileInfoLoading">加载中...</div>
-            <div v-else>
-              <div v-if="fileInfo">
-                <div v-for="(v, k) in fileInfo" :key="k" class="detail-row">
-                  <span class="detail-key">{{ k }}</span>
-                  <span class="detail-val">{{ v }}</span>
+            <div v-if="fileInfoLoading" class="details-loading">
+              <div class="loading-spinner"></div>
+              <span>加载中...</span>
+            </div>
+            <div v-else-if="!fileInfo" class="details-empty">
+              <div class="empty-icon">ℹ️</div>
+              <p>无可用信息</p>
+            </div>
+            <div v-else class="details-content">
+              <!-- 第一区块：拍摄时间 -->
+              <div class="details-section">
+                <div class="section-content">
+                  <div class="time-display">{{ formatDateTime(getCaptureTime(fileInfo) || currentMediaFile?.mtime) }}</div>
                 </div>
               </div>
-              <div v-else>无信息</div>
+              
+              <!-- 第二区块：文件名 -->
+              <div class="details-section">
+                <div class="section-content">
+                  <div class="filename-display">{{ currentMediaFile?.name || '未知文件' }}</div>
+                </div>
+              </div>
+              
+              <!-- 第三区块：Exif信息 -->
+              <div class="details-section">
+                <div class="section-content exif-info">
+                  <!-- 第一行：拍摄设备和图片格式 -->
+                  <div class="exif-row header-row">
+                    <div class="exif-item">
+                      <div class="exif-label">拍摄设备</div>
+                      <div class="exif-value">{{ getExifModel(fileInfo) || '未知设备' }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">图片格式</div>
+                      <div class="exif-value">{{ getImageFormat(fileInfo) }}</div>
+                    </div>
+                  </div>
+                  
+                  <!-- 第二行：焦距和光圈 -->
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">焦距</div>
+                      <div class="exif-value">{{ formatFocalLength(getExifFocalLength(fileInfo)) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">光圈</div>
+                      <div class="exif-value">{{ formatAperture(getExifFNumber(fileInfo)) }}</div>
+                    </div>
+                  </div>
+                  
+                  <!-- 第三行：图片尺寸和文件大小 -->
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">图片尺寸</div>
+                      <div class="exif-value">{{ formatImageDimensions(fileInfo) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">文件大小</div>
+                      <div class="exif-value">{{ formatFileSize(fileInfo?.size) }}</div>
+                    </div>
+                  </div>
+                  
+                  <!-- 第四行：ISO、焦距、光圈、快门时间 -->
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">ISO</div>
+                      <div class="exif-value">{{ getExifISO(fileInfo) || '--' }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">焦距</div>
+                      <div class="exif-value">{{ formatFocalLength(getExifFocalLength(fileInfo)) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">光圈</div>
+                      <div class="exif-value">{{ formatAperture(getExifFNumber(fileInfo)) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">快门</div>
+                      <div class="exif-value">{{ formatShutterSpeed(getExifExposureTime(fileInfo)) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 第四区块：拍摄位置 -->
+              <div class="details-section" v-if="hasLocation(fileInfo)">
+                <div class="section-content location-info">
+                  <div class="location-coordinates">
+                    <span class="coord-label">坐标：</span>
+                    <span class="coord-value">{{ formatCoordinates(fileInfo) }}</span>
+                  </div>
+                  <div class="location-map" ref="mapContainer">
+                    <!-- 高德地图将在这里显示 -->
+                    <div class="map-placeholder">
+                      <div class="map-icon">🗺️</div>
+                      <p>地图加载中...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -540,9 +631,8 @@ async function openDetailsModal() {
     fileInfoLoading.value = true
     try {
       const fileinfo = await fileAPI.getFileInfo(currentMediaFile.value.path)
-      if (fileinfo && fileinfo.exif) {
-        fileInfo.value = fileinfo.exif
-      } else {
+      console.log(fileinfo)
+      if (fileinfo) {   
         fileInfo.value = fileinfo
       }
     } catch (e) {
@@ -554,6 +644,223 @@ async function openDetailsModal() {
 }
 
 function closeDetailsModal() { showDetailsModal.value = false }
+
+// 详情对话框辅助函数
+// 从Value对象中提取值
+function getExifValue(exifData, key) {
+  if (!exifData || !exifData[key]) return null
+  const valueObj = exifData[key]
+  if (valueObj.numberValue !== undefined && valueObj.numberValue !== null) return valueObj.numberValue
+  if (valueObj.stringValue !== undefined && valueObj.stringValue !== null) {
+    // 去除字符串值的引号
+    const str = valueObj.stringValue
+    return str.replace(/^["']|["']$/g, '')
+  }
+  return null
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '未知时间'
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch (e) {
+    return dateStr
+  }
+}
+
+// 从fileInfo中获取拍摄时间
+function getCaptureTime(fileInfo) {
+  if (!fileInfo) return null
+  
+  // 优先从exifData中获取
+  if (fileInfo.exifData) {
+    const dateTimeOriginal = getExifValue(fileInfo.exifData, 'DateTimeOriginal')
+    const createDate = getExifValue(fileInfo.exifData, 'CreateDate')
+    const modifyDate = getExifValue(fileInfo.exifData, 'ModifyDate')
+    const parsedDateTime = getExifValue(fileInfo.exifData, 'ParsedDateTime')
+    
+    return parsedDateTime || dateTimeOriginal || createDate || modifyDate
+  }
+  
+  // 回退到fileInfo的其他字段
+  return fileInfo.mtime || fileInfo.modTime || fileInfo.lastModified
+}
+
+// 从fileInfo中获取EXIF值的辅助函数
+function getExifModel(fileInfo) {
+  if (!fileInfo) return null
+  if (fileInfo.exifData) {
+    return getExifValue(fileInfo.exifData, 'Model') || getExifValue(fileInfo.exifData, 'Make')
+  }
+  return fileInfo.Model || fileInfo.Make
+}
+
+function getExifFocalLength(fileInfo) {
+  if (!fileInfo) return null
+  if (fileInfo.exifData) {
+    return getExifValue(fileInfo.exifData, 'FocalLength')
+  }
+  return fileInfo.FocalLength
+}
+
+function getExifFNumber(fileInfo) {
+  if (!fileInfo) return null
+  if (fileInfo.exifData) {
+    return getExifValue(fileInfo.exifData, 'FNumber')
+  }
+  return fileInfo.FNumber
+}
+
+function getExifISO(fileInfo) {
+  if (!fileInfo) return null
+  if (fileInfo.exifData) {
+    return getExifValue(fileInfo.exifData, 'ISOSpeedRatings') || getExifValue(fileInfo.exifData, 'ISO')
+  }
+  return fileInfo.ISO || fileInfo.ISOSpeedRatings
+}
+
+function getExifExposureTime(fileInfo) {
+  if (!fileInfo) return null
+  if (fileInfo.exifData) {
+    return getExifValue(fileInfo.exifData, 'ExposureTime')
+  }
+  return fileInfo.ExposureTime
+}
+
+function getImageFormat(fileInfo) {
+  if (!fileInfo) return '未知格式'
+  
+  // 从exifData中获取MIME类型
+  if (fileInfo.exifData) {
+    const mimeType = getExifValue(fileInfo.exifData, 'MIMEType')
+    if (mimeType) {
+      return mimeType.split('/')[1]?.toUpperCase() || '未知格式'
+    }
+  }
+  
+  // 从fileInfo直接获取
+  if (fileInfo.MIMEType) {
+    return fileInfo.MIMEType.split('/')[1]?.toUpperCase() || '未知格式'
+  }
+  
+  // 从文件名推断
+  if (currentMediaFile.value?.name) {
+    const ext = currentMediaFile.value.name.split('.').pop()?.toLowerCase()
+    if (ext === 'jpg' || ext === 'jpeg') return 'JPEG'
+    if (ext === 'png') return 'PNG'
+    if (ext === 'gif') return 'GIF'
+    if (ext === 'heic') return 'HEIC'
+    if (ext === 'webp') return 'WebP'
+  }
+  return '未知格式'
+}
+
+function formatFocalLength(focalLength) {
+  if (!focalLength) return '--'
+  if (typeof focalLength === 'string') {
+    if (focalLength.includes('mm')) return focalLength
+    return `${focalLength}mm`
+  }
+  if (typeof focalLength === 'number') {
+    return `${focalLength}mm`
+  }
+  return '--'
+}
+
+function formatAperture(fNumber) {
+  if (!fNumber) return '--'
+  if (typeof fNumber === 'string') {
+    if (fNumber.startsWith('f/')) return fNumber
+    return `f/${fNumber}`
+  }
+  if (typeof fNumber === 'number') {
+    return `f/${fNumber}`
+  }
+  return '--'
+}
+
+function formatImageDimensions(fileInfo) {
+  if (!fileInfo) return '--'
+  
+  let width, height
+  
+  // 从exifData中获取
+  if (fileInfo.exifData) {
+    width = getExifValue(fileInfo.exifData, 'ImageWidth') || getExifValue(fileInfo.exifData, 'PixelXDimension')
+    height = getExifValue(fileInfo.exifData, 'ImageHeight') || getExifValue(fileInfo.exifData, 'PixelYDimension')
+  }
+  
+  // 从fileInfo直接获取
+  if (!width) width = fileInfo.ImageWidth || fileInfo.PixelXDimension
+  if (!height) height = fileInfo.ImageHeight || fileInfo.PixelYDimension
+  
+  if (width && height) {
+    return `${width} × ${height}`
+  }
+  return '--'
+}
+
+function formatFileSize(size) {
+  if (!size) return '--'
+  return FileSizeFormatter.format(size)
+}
+
+function formatShutterSpeed(exposureTime) {
+  if (!exposureTime) return '--'
+  if (typeof exposureTime === 'string') {
+    return exposureTime
+  }
+  if (typeof exposureTime === 'number') {
+    if (exposureTime >= 1) {
+      return `${exposureTime}s`
+    } else {
+      return `1/${Math.round(1/exposureTime)}s`
+    }
+  }
+  return '--'
+}
+
+function hasLocation(fileInfo) {
+  if (!fileInfo) return false
+  
+  // 从exifData中检查GPS信息
+  if (fileInfo.exifData) {
+    const lat = getExifValue(fileInfo.exifData, 'GPSLatitude')
+    const lon = getExifValue(fileInfo.exifData, 'GPSLongitude')
+    if (lat && lon) return true
+  }
+  
+  // 从fileInfo直接检查
+  return fileInfo && (fileInfo.GPSLatitude || fileInfo.gpsLatitude || fileInfo.GPSLongitude || fileInfo.gpsLongitude)
+}
+
+function formatCoordinates(fileInfo) {
+  if (!fileInfo) return '未知位置'
+  
+  let lat, lon
+  
+  // 从exifData中获取
+  if (fileInfo.exifData) {
+    lat = getExifValue(fileInfo.exifData, 'GPSLatitude')
+    lon = getExifValue(fileInfo.exifData, 'GPSLongitude')
+  }
+  
+  // 从fileInfo直接获取
+  if (!lat) lat = fileInfo.GPSLatitude || fileInfo.gpsLatitude
+  if (!lon) lon = fileInfo.GPSLongitude || fileInfo.gpsLongitude
+  
+  if (lat && lon) {
+  }
+  return '未知位置'
+}
 
 function jumpToIndex(idx) {
   if (idx < 0 || idx >= imageFiles.value.length) return
@@ -1371,14 +1678,253 @@ onUnmounted(() => {
 }
 
 /* details modal */
-.details-modal { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center }
-.details-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6) }
-.details-panel { position: relative; background: white; width: min(720px, 92%); max-height: 80vh; overflow: auto; border-radius: 10px; z-index: 1201 }
-.details-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #eee }
-.details-body { padding: 12px 16px }
-.detail-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #f3f3f3 }
-.detail-key { font-weight:600; color:#333 }
-.detail-val { color:#555; margin-left:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+/* iOS风格详情对话框 */
+.details-modal { 
+  position: fixed; 
+  inset: 0; 
+  z-index: 2001; /* 高于预览窗口 */
+  display: flex; 
+  align-items: flex-end; /* 从底部弹出 */
+  justify-content: center;
+}
+
+.details-backdrop { 
+  position: absolute; 
+  inset: 0; 
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.details-panel { 
+  position: relative; 
+  background: white; 
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh; 
+  overflow: hidden;
+  border-radius: 20px 20px 0 0;
+  z-index: 2002;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.details-header { 
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.details-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #000;
+  margin: 0;
+}
+
+.details-close-btn {
+  background: none;
+  border: none;
+  color: #007AFF;
+  font-size: 17px;
+  font-weight: 500;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.details-body { 
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.details-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.details-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #8e8e93;
+}
+
+.details-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.details-content {
+  padding: 0;
+}
+
+/* 区块样式 */
+.details-section {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.details-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  width: 80px;
+}
+
+.section-content {
+  font-size: 12px;
+  color: #000;
+  flex: 1;
+}
+
+/* 第一区块：拍摄时间 */
+.time-display {
+  font-size: 12px;
+  font-weight: 400;
+  color: #000;
+}
+
+/* 第二区块：文件名 */
+.filename-display {
+  font-size: 12px;
+  font-weight: 400;
+  color: #000;
+  word-break: break-all;
+}
+
+/* 第三区块：Exif信息 */
+.exif-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.exif-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.exif-row.header-row {
+  margin-bottom: 8px;
+}
+
+.exif-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exif-label {
+  font-size: 12px;
+  color: #8e8e93;
+  flex-shrink: 0;
+}
+
+.exif-value {
+  font-size: 10px;
+  color: #000;
+  font-weight: 400;
+  word-break: break-word;
+  flex: 1;
+}
+
+/* 第四区块：拍摄位置 */
+.location-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.location-coordinates {
+  font-size: 10px;
+  color: #000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coord-label {
+  color: #8e8e93;
+  flex-shrink: 0;
+}
+
+.coord-value {
+  font-family: monospace;
+  font-weight: 500;
+  flex: 1;
+}
+
+.location-map {
+  height: 180px;
+  background: #f8f8f8;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8e8e93;
+}
+
+.map-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.map-placeholder p {
+  font-size: 15px;
+  margin: 0;
+}
+
+/* 加载动画 */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007AFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 .media-viewer-close {
   position: absolute;
