@@ -13,7 +13,7 @@ import (
 )
 
 func StartDiscover(cmd *cobra.Command, args []string) {
-	server := discover.NewDiscoverServer()
+	server := discover.NewDiscoverServer(config.GlobalConfig)
 
 	with_prefix := func(url_path string) string {
 		return path.Join(config.GlobalConfig.WebServer.Prefix, url_path)

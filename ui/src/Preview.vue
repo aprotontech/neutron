@@ -212,16 +212,11 @@
             </div>
             <div class="details-section" v-if="hasLocation(fileInfo)">
               <div class="section-content location-info">
-                <div class="location-coordinates">
-                  <span class="coord-label">坐标：</span>
-                  <span class="coord-value">{{ formatCoordinates(fileInfo) }}</span>
+                <div class="location-address">
+                  <span class="address-label">位置：</span>
+                  <span class="address-value">{{ locationAddress || '获取地址中...' }}</span>
                 </div>
-                <div class="location-map" ref="mapContainer">
-                  <div class="map-placeholder">
-                    <div class="map-icon">🗺️</div>
-                    <p>地图加载中...</p>
-                  </div>
-                </div>
+                <div class="location-map"></div>
               </div>
             </div>
           </div>
@@ -232,9 +227,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
-import { FileSizeFormatter, DateFormatter } from './lib/helpers.js'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { FileSizeFormatter, DateFormatter  } from './lib/helpers.js'
 import { createPreviewMap } from './lib/preview.js'
+import AMapLoader from '@amap/amap-jsapi-loader'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -293,6 +289,8 @@ const downloadProgress = ref(null)
 const downloadProgressVisible = ref(false)
 const currentTextContent = ref('')
 const highlightedCode = ref('')
+const mapInstance = ref(null)
+const locationAddress = ref('')
 
 const THUMB_RANGE = 15
 
@@ -393,7 +391,7 @@ function getCaptureTime(fileInfoObj) {
     const parsedDateTime = getExifValue(fileInfoObj.exifData, 'ParsedDateTime')
     return parsedDateTime || dateTimeOriginal || createDate || modifyDate
   }
-  return fileInfoObj.mtime || fileInfoObj.modTime || fileInfoObj.lastModified
+  return fileInfoObj.mtime || fileInfoObj.lastModified
 }
 
 function getExifModel(fileInfoObj) {
@@ -766,9 +764,109 @@ watch(
       for (let o = start; o <= end; o++) {
         loadThumbnailForOffset(o)
       }
+    } else {
+      // 关闭预览时销毁地图实例
+      if (mapInstance.value) {
+        mapInstance.value.destroy()
+        mapInstance.value = null
+      }
     }
   }
 )
+
+// 监听详细信息模态框的显示状态，加载地图
+watch(
+  () => showDetailsModal.value,
+  async (visible) => {
+    if (visible && hasLocation(fileInfo.value) && !mapInstance.value) {
+      // 重置地址信息
+      locationAddress.value = ''
+      await initMap()
+    }
+  }
+)
+
+// 高德地图初始化函数
+async function initMap() {
+  try {
+    window._AMapSecurityConfig = {
+      securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || ''
+    }
+
+    const AMap = await AMapLoader.load({
+      key: import.meta.env.VITE_AMAP_KEY || '',
+      version: '2.0',
+      plugins: ['AMap.Geocoder']
+    })
+
+    const container = document.querySelector('.location-map')
+    if (!container) return
+
+    // 获取坐标
+    const lat = getLatitude(fileInfo.value)
+    const lng = getLongitude(fileInfo.value)
+
+    if (!lat || !lng) return
+
+    // 创建地图实例
+    mapInstance.value = new AMap.Map(container, {
+      zoom: 15,
+      center: [lng, lat]
+    })
+
+    // 添加标记点
+    const marker = new AMap.Marker({
+      position: [lng, lat],
+      title: '拍摄位置'
+    })
+
+    mapInstance.value.add(marker)
+
+    // 逆地理编码获取地址
+    const geocoder = new AMap.Geocoder({
+      city: '全国'
+    })
+
+    geocoder.getAddress([lng, lat], (status, result) => {
+      if (status === 'complete' && result.info === 'OK' && result.regeocode) {
+        locationAddress.value = result.regeocode.formattedAddress || '未知位置'
+      } else {
+        locationAddress.value = '无法获取地址信息'
+      }
+    })
+  } catch (error) {
+    console.error('初始化地图失败:', error)
+    locationAddress.value = '获取地址失败'
+  }
+}
+
+// 获取纬度
+function getLatitude(fileInfoObj) {
+  if (!fileInfoObj) return null
+  let lat = fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude
+  if (fileInfoObj.exifData) {
+    lat = lat || getExifValue(fileInfoObj.exifData, 'GPSLatitude')
+  }
+  return lat
+}
+
+// 获取经度
+function getLongitude(fileInfoObj) {
+  if (!fileInfoObj) return null
+  let lon = fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude
+  if (fileInfoObj.exifData) {
+    lon = lon || getExifValue(fileInfoObj.exifData, 'GPSLongitude')
+  }
+  return lon
+}
+
+// 组件卸载时销毁地图
+onUnmounted(() => {
+  if (mapInstance.value) {
+    mapInstance.value.destroy()
+    mapInstance.value = null
+  }
+})
 </script>
 
 <style scoped>
@@ -1309,9 +1407,10 @@ watch(
   gap: 12px;
 }
 
-.location-coordinates {
+.location-address {
   font-size: 10px;
   color: #000;
+  line-height: 1.4;
 }
 
 .location-map {
@@ -1319,31 +1418,5 @@ watch(
   background: #f8f8f8;
   border-radius: 12px;
   overflow: hidden;
-}
-
-.map-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #8e8e93;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #007AFF;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.5;
 }
 </style>

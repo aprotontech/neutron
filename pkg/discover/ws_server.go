@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	protobuf "google.golang.org/protobuf/proto"
 
+	"github.com/aproton/neutron/cmd/neutron/config"
 	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
@@ -44,6 +45,8 @@ type WebSocketUser struct {
 type DiscoverServer struct {
 	mutex sync.RWMutex
 
+	config *config.Config
+
 	clients map[string]*WebSocketClient
 	users   map[string]*WebSocketUser
 
@@ -53,9 +56,10 @@ type DiscoverServer struct {
 	tokenCaches *cache.Cache
 }
 
-func NewDiscoverServer() *DiscoverServer {
+func NewDiscoverServer(config *config.Config) *DiscoverServer {
 
 	return &DiscoverServer{
+		config:           config,
 		clients:          make(map[string]*WebSocketClient),
 		users:            make(map[string]*WebSocketUser),
 		tokenCaches:      cache.New(24*time.Hour, time.Hour),

@@ -21,7 +21,7 @@ export default class CachedFileInformation {
 
             const is_dir = fileInfo.isDir ? 1 : 0;
             const size = typeof fileInfo.size === 'number' ? fileInfo.size : null;
-            const mtime = fileInfo.modTime || fileInfo.mtime || null;
+            const mtime = fileInfo.mtime || null;
             const mime_type = fileInfo.mimeType || fileInfo.mime_type || null;
             // Server sends exifData; support both for compatibility
             const exifObj = fileInfo.exifData || fileInfo.exif;
@@ -74,7 +74,6 @@ export default class CachedFileInformation {
                 name: filePath.split('/').pop(),
                 isDir: !!row.is_dir,
                 size: row.size,
-                modTime: row.mtime,
                 mtime: row.mtime,
                 mimeType: row.mime_type,
                 exifData: exif,

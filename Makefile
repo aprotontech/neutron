@@ -6,6 +6,12 @@ VITE_NEUTRON_WEBSOCKET_ADDR = ws://192.168.1.115:8080/ws
 ANDROID_APK_PATH = ./ui/android/app/build/outputs/apk/debug/app-debug.apk
 ANDROID_BUILD_TYPE = assembleDebug
 
+
+ifneq (,$(wildcard ui/.env))
+    include ui/.env
+    export
+endif
+
 ifeq ($(ENV), production)
 	VITE_NEUTRON_HTTP_API = https://www.huxiaolong.cn
 	VITE_NEUTRON_WEBSOCKET_ADDR = wss://www.huxiaolong.cn/ws

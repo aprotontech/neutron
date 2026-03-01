@@ -12,12 +12,17 @@ TODO:
 - 文件列表左滑右滑不对 [DONE]
 - HEIC格式不支持 [DONE]
 - 有部分图片详情时间不对 [DONE]
-- 图库滑的太快白屏
+- 图库滑的太快白屏 [DOING]
+- 修复遗留的exif字段(新字段exifData)问题 [DOING]
+
+- 增加APP的图标
+
+- 支持 HEIC + MOV的苹果动态效果
 
 - 进一步优化图库页面
   - 支持按照拍摄时间排序 [DONE]
-  - 支持查看Exif信息 [DOING]
-  - 支持查看位置信息
+  - 支持查看Exif信息 [DONE]
+  - 支持查看位置信息 [DONE]
   - 支持预览时下方增加缩略图 [DONE]
   - 支持预览时左右滑动切换图片 [DONE]
   - 预览时关闭右上角菜单 [DONE]
@@ -111,7 +116,7 @@ TODO:
   - 优化golang消息的field字段获取逻辑，支持struct解析 -> 使用protobuf [DONE]
   - Javascript中的所有配置，迁移到一个独立的Config文件，并且部分参数可以在设置页面可以设置 [DONE]
   - 支持应用在线更新
-  - 将Image.vue中的预览窗口抽取出来作为独立的文件，供Files.vue和Image.vue共同使用
+  - 将Image.vue中的预览窗口抽取出来作为独立的文件，供Files.vue和Image.vue共同使用 [DONE]
 
 - 安全问题
   - storageserver和discover之间使用公私钥

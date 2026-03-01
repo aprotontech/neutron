@@ -13,14 +13,6 @@ const BlobAvailable = typeof Blob !== 'undefined';
 
 // Minimal FileAPI that tries HTTP endpoint then falls back to mock data
 export default class FileAPI {
-    // File Info:
-    // name
-    // isDir
-    // size
-    // modTime
-    // thumbUrl
-    // path
-    // mimeType
 
     constructor() {
         // Check if running in Capacitor environment
