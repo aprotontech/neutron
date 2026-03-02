@@ -100,6 +100,8 @@ type RemoteMessage struct {
 	//	*RemoteMessage_ImageRepoHistoryRequest
 	//	*RemoteMessage_ImageRepoHistoryItem
 	//	*RemoteMessage_ImageRepoHistoryResponse
+	//	*RemoteMessage_ImageRepoPageRequest
+	//	*RemoteMessage_ImageRepoPageResponse
 	//	*RemoteMessage_PrepareFileReceiveRequest
 	//	*RemoteMessage_PrepareFileReceiveResponse
 	//	*RemoteMessage_GetFileInfoRequest
@@ -261,6 +263,24 @@ func (x *RemoteMessage) GetImageRepoHistoryResponse() *ImageRepoHistoryResponse 
 	if x != nil {
 		if x, ok := x.Payload.(*RemoteMessage_ImageRepoHistoryResponse); ok {
 			return x.ImageRepoHistoryResponse
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetImageRepoPageRequest() *ImageRepoPageRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ImageRepoPageRequest); ok {
+			return x.ImageRepoPageRequest
+		}
+	}
+	return nil
+}
+
+func (x *RemoteMessage) GetImageRepoPageResponse() *ImageRepoPageResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*RemoteMessage_ImageRepoPageResponse); ok {
+			return x.ImageRepoPageResponse
 		}
 	}
 	return nil
@@ -443,6 +463,14 @@ type RemoteMessage_ImageRepoHistoryResponse struct {
 	ImageRepoHistoryResponse *ImageRepoHistoryResponse `protobuf:"bytes,1504,opt,name=image_repo_history_response,json=imageRepoHistoryResponse,proto3,oneof"`
 }
 
+type RemoteMessage_ImageRepoPageRequest struct {
+	ImageRepoPageRequest *ImageRepoPageRequest `protobuf:"bytes,1505,opt,name=image_repo_page_request,json=imageRepoPageRequest,proto3,oneof"`
+}
+
+type RemoteMessage_ImageRepoPageResponse struct {
+	ImageRepoPageResponse *ImageRepoPageResponse `protobuf:"bytes,1506,opt,name=image_repo_page_response,json=imageRepoPageResponse,proto3,oneof"`
+}
+
 type RemoteMessage_PrepareFileReceiveRequest struct {
 	PrepareFileReceiveRequest *PrepareFileReceiveRequest `protobuf:"bytes,1507,opt,name=prepare_file_receive_request,json=prepareFileReceiveRequest,proto3,oneof"`
 }
@@ -522,6 +550,10 @@ func (*RemoteMessage_ImageRepoHistoryItem) isRemoteMessage_Payload() {}
 
 func (*RemoteMessage_ImageRepoHistoryResponse) isRemoteMessage_Payload() {}
 
+func (*RemoteMessage_ImageRepoPageRequest) isRemoteMessage_Payload() {}
+
+func (*RemoteMessage_ImageRepoPageResponse) isRemoteMessage_Payload() {}
+
 func (*RemoteMessage_PrepareFileReceiveRequest) isRemoteMessage_Payload() {}
 
 func (*RemoteMessage_PrepareFileReceiveResponse) isRemoteMessage_Payload() {}
@@ -561,7 +593,7 @@ const file_message_proto_rawDesc = "" +
 	"\fErrorMessage\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x121\n" +
-	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\"\xba\x10\n" +
+	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\"\xef\x11\n" +
 	"\rRemoteMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x16\n" +
 	"\x06source\x18\x02 \x01(\tR\x06source\x12 \n" +
@@ -575,7 +607,9 @@ const file_message_proto_rawDesc = "" +
 	"\x10file_information\x18\xdd\v \x01(\v2\x18.neutron.FileInformationH\x00R\x0ffileInformation\x12`\n" +
 	"\x1aimage_repo_history_request\x18\xde\v \x01(\v2 .neutron.ImageRepoHistoryRequestH\x00R\x17imageRepoHistoryRequest\x12W\n" +
 	"\x17image_repo_history_item\x18\xdf\v \x01(\v2\x1d.neutron.ImageRepoHistoryItemH\x00R\x14imageRepoHistoryItem\x12c\n" +
-	"\x1bimage_repo_history_response\x18\xe0\v \x01(\v2!.neutron.ImageRepoHistoryResponseH\x00R\x18imageRepoHistoryResponse\x12f\n" +
+	"\x1bimage_repo_history_response\x18\xe0\v \x01(\v2!.neutron.ImageRepoHistoryResponseH\x00R\x18imageRepoHistoryResponse\x12W\n" +
+	"\x17image_repo_page_request\x18\xe1\v \x01(\v2\x1d.neutron.ImageRepoPageRequestH\x00R\x14imageRepoPageRequest\x12Z\n" +
+	"\x18image_repo_page_response\x18\xe2\v \x01(\v2\x1e.neutron.ImageRepoPageResponseH\x00R\x15imageRepoPageResponse\x12f\n" +
 	"\x1cprepare_file_receive_request\x18\xe3\v \x01(\v2\".neutron.PrepareFileReceiveRequestH\x00R\x19prepareFileReceiveRequest\x12i\n" +
 	"\x1dprepare_file_receive_response\x18\xe4\v \x01(\v2#.neutron.PrepareFileReceiveResponseH\x00R\x1aprepareFileReceiveResponse\x12Q\n" +
 	"\x15get_file_info_request\x18\xe5\v \x01(\v2\x1b.neutron.GetFileInfoRequestH\x00R\x12getFileInfoRequest\x12J\n" +
@@ -617,21 +651,23 @@ var file_message_proto_goTypes = []any{
 	(*ImageRepoHistoryRequest)(nil),       // 7: neutron.ImageRepoHistoryRequest
 	(*ImageRepoHistoryItem)(nil),          // 8: neutron.ImageRepoHistoryItem
 	(*ImageRepoHistoryResponse)(nil),      // 9: neutron.ImageRepoHistoryResponse
-	(*PrepareFileReceiveRequest)(nil),     // 10: neutron.PrepareFileReceiveRequest
-	(*PrepareFileReceiveResponse)(nil),    // 11: neutron.PrepareFileReceiveResponse
-	(*GetFileInfoRequest)(nil),            // 12: neutron.GetFileInfoRequest
-	(*ListFilesRequest)(nil),              // 13: neutron.ListFilesRequest
-	(*ListFilesResponse)(nil),             // 14: neutron.ListFilesResponse
-	(*GetFileSystemVersionRequest)(nil),   // 15: neutron.GetFileSystemVersionRequest
-	(*GetFileSystemVersionResponse)(nil),  // 16: neutron.GetFileSystemVersionResponse
-	(*GetThumbnailRequest)(nil),           // 17: neutron.GetThumbnailRequest
-	(*GetThumbnailResponse)(nil),          // 18: neutron.GetThumbnailResponse
-	(*PlayVideoRequest)(nil),              // 19: neutron.PlayVideoRequest
-	(*PlayVideoResponse)(nil),             // 20: neutron.PlayVideoResponse
-	(*WebRTCOfferContent)(nil),            // 21: neutron.WebRTCOfferContent
-	(*WebRTCAnswerContent)(nil),           // 22: neutron.WebRTCAnswerContent
-	(*WebRTCAnswerCandidatesContent)(nil), // 23: neutron.WebRTCAnswerCandidatesContent
-	(*WebRTCCandidateContent)(nil),        // 24: neutron.WebRTCCandidateContent
+	(*ImageRepoPageRequest)(nil),          // 10: neutron.ImageRepoPageRequest
+	(*ImageRepoPageResponse)(nil),         // 11: neutron.ImageRepoPageResponse
+	(*PrepareFileReceiveRequest)(nil),     // 12: neutron.PrepareFileReceiveRequest
+	(*PrepareFileReceiveResponse)(nil),    // 13: neutron.PrepareFileReceiveResponse
+	(*GetFileInfoRequest)(nil),            // 14: neutron.GetFileInfoRequest
+	(*ListFilesRequest)(nil),              // 15: neutron.ListFilesRequest
+	(*ListFilesResponse)(nil),             // 16: neutron.ListFilesResponse
+	(*GetFileSystemVersionRequest)(nil),   // 17: neutron.GetFileSystemVersionRequest
+	(*GetFileSystemVersionResponse)(nil),  // 18: neutron.GetFileSystemVersionResponse
+	(*GetThumbnailRequest)(nil),           // 19: neutron.GetThumbnailRequest
+	(*GetThumbnailResponse)(nil),          // 20: neutron.GetThumbnailResponse
+	(*PlayVideoRequest)(nil),              // 21: neutron.PlayVideoRequest
+	(*PlayVideoResponse)(nil),             // 22: neutron.PlayVideoResponse
+	(*WebRTCOfferContent)(nil),            // 23: neutron.WebRTCOfferContent
+	(*WebRTCAnswerContent)(nil),           // 24: neutron.WebRTCAnswerContent
+	(*WebRTCAnswerCandidatesContent)(nil), // 25: neutron.WebRTCAnswerCandidatesContent
+	(*WebRTCCandidateContent)(nil),        // 26: neutron.WebRTCCandidateContent
 }
 var file_message_proto_depIdxs = []int32{
 	2,  // 0: neutron.ErrorMessage.details:type_name -> google.protobuf.Struct
@@ -643,26 +679,28 @@ var file_message_proto_depIdxs = []int32{
 	7,  // 6: neutron.RemoteMessage.image_repo_history_request:type_name -> neutron.ImageRepoHistoryRequest
 	8,  // 7: neutron.RemoteMessage.image_repo_history_item:type_name -> neutron.ImageRepoHistoryItem
 	9,  // 8: neutron.RemoteMessage.image_repo_history_response:type_name -> neutron.ImageRepoHistoryResponse
-	10, // 9: neutron.RemoteMessage.prepare_file_receive_request:type_name -> neutron.PrepareFileReceiveRequest
-	11, // 10: neutron.RemoteMessage.prepare_file_receive_response:type_name -> neutron.PrepareFileReceiveResponse
-	12, // 11: neutron.RemoteMessage.get_file_info_request:type_name -> neutron.GetFileInfoRequest
-	13, // 12: neutron.RemoteMessage.list_files_request:type_name -> neutron.ListFilesRequest
-	14, // 13: neutron.RemoteMessage.list_files_response:type_name -> neutron.ListFilesResponse
-	15, // 14: neutron.RemoteMessage.get_file_system_version_request:type_name -> neutron.GetFileSystemVersionRequest
-	16, // 15: neutron.RemoteMessage.get_file_system_version_response:type_name -> neutron.GetFileSystemVersionResponse
-	17, // 16: neutron.RemoteMessage.get_thumbnail_request:type_name -> neutron.GetThumbnailRequest
-	18, // 17: neutron.RemoteMessage.get_thumbnail_response:type_name -> neutron.GetThumbnailResponse
-	19, // 18: neutron.RemoteMessage.play_video_request:type_name -> neutron.PlayVideoRequest
-	20, // 19: neutron.RemoteMessage.play_video_response:type_name -> neutron.PlayVideoResponse
-	21, // 20: neutron.RemoteMessage.webrtc_offer_content:type_name -> neutron.WebRTCOfferContent
-	22, // 21: neutron.RemoteMessage.webrtc_answer_content:type_name -> neutron.WebRTCAnswerContent
-	23, // 22: neutron.RemoteMessage.webrtc_answer_candidates_content:type_name -> neutron.WebRTCAnswerCandidatesContent
-	24, // 23: neutron.RemoteMessage.webrtc_candidate_content:type_name -> neutron.WebRTCCandidateContent
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	10, // 9: neutron.RemoteMessage.image_repo_page_request:type_name -> neutron.ImageRepoPageRequest
+	11, // 10: neutron.RemoteMessage.image_repo_page_response:type_name -> neutron.ImageRepoPageResponse
+	12, // 11: neutron.RemoteMessage.prepare_file_receive_request:type_name -> neutron.PrepareFileReceiveRequest
+	13, // 12: neutron.RemoteMessage.prepare_file_receive_response:type_name -> neutron.PrepareFileReceiveResponse
+	14, // 13: neutron.RemoteMessage.get_file_info_request:type_name -> neutron.GetFileInfoRequest
+	15, // 14: neutron.RemoteMessage.list_files_request:type_name -> neutron.ListFilesRequest
+	16, // 15: neutron.RemoteMessage.list_files_response:type_name -> neutron.ListFilesResponse
+	17, // 16: neutron.RemoteMessage.get_file_system_version_request:type_name -> neutron.GetFileSystemVersionRequest
+	18, // 17: neutron.RemoteMessage.get_file_system_version_response:type_name -> neutron.GetFileSystemVersionResponse
+	19, // 18: neutron.RemoteMessage.get_thumbnail_request:type_name -> neutron.GetThumbnailRequest
+	20, // 19: neutron.RemoteMessage.get_thumbnail_response:type_name -> neutron.GetThumbnailResponse
+	21, // 20: neutron.RemoteMessage.play_video_request:type_name -> neutron.PlayVideoRequest
+	22, // 21: neutron.RemoteMessage.play_video_response:type_name -> neutron.PlayVideoResponse
+	23, // 22: neutron.RemoteMessage.webrtc_offer_content:type_name -> neutron.WebRTCOfferContent
+	24, // 23: neutron.RemoteMessage.webrtc_answer_content:type_name -> neutron.WebRTCAnswerContent
+	25, // 24: neutron.RemoteMessage.webrtc_answer_candidates_content:type_name -> neutron.WebRTCAnswerCandidatesContent
+	26, // 25: neutron.RemoteMessage.webrtc_candidate_content:type_name -> neutron.WebRTCCandidateContent
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_message_proto_init() }
@@ -683,6 +721,8 @@ func file_message_proto_init() {
 		(*RemoteMessage_ImageRepoHistoryRequest)(nil),
 		(*RemoteMessage_ImageRepoHistoryItem)(nil),
 		(*RemoteMessage_ImageRepoHistoryResponse)(nil),
+		(*RemoteMessage_ImageRepoPageRequest)(nil),
+		(*RemoteMessage_ImageRepoPageResponse)(nil),
 		(*RemoteMessage_PrepareFileReceiveRequest)(nil),
 		(*RemoteMessage_PrepareFileReceiveResponse)(nil),
 		(*RemoteMessage_GetFileInfoRequest)(nil),

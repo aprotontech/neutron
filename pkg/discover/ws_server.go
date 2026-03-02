@@ -105,14 +105,14 @@ func (s *DiscoverServer) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "Invalid Token", http.StatusUnauthorized)
 			return
 		}
-
 	}
 
 	s.doWebSocketTraffic(loginData.(*neutronproto.LoginRequest), w, r)
 
 }
 
-func (s *DiscoverServer) doWebSocketTraffic(userData *neutronproto.LoginRequest, w http.ResponseWriter, r *http.Request) {
+func (s *DiscoverServer) doWebSocketTraffic(
+	userData *neutronproto.LoginRequest, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Warnf("Upgrade error:", err)
@@ -186,17 +186,16 @@ func (s *DiscoverServer) readMessage(conn *websocket.Conn) (*neutronproto.Remote
 	var signal neutronproto.RemoteMessage
 
 	// 根据消息类型进行解析
-	if messageType == websocket.BinaryMessage {
-		// 二进制消息：protobuf格式
+	switch messageType {
+	case websocket.BinaryMessage:
 		if err := protobuf.Unmarshal(msg, &signal); err != nil {
 			return nil, fmt.Errorf("protobuf unmarshal error: %v", err)
 		}
-	} else if messageType == websocket.TextMessage {
-		// 文本消息：JSON格式（向后兼容）
+	case websocket.TextMessage:
 		if err := protojson.Unmarshal(msg, &signal); err != nil {
 			return nil, fmt.Errorf("JSON unmarshal error: %v", err)
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("unsupported message type: %d", messageType)
 	}
 

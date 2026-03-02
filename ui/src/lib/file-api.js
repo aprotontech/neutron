@@ -634,57 +634,74 @@ export default class FileAPI {
     async getImageRepo(offset, count, order = 'mtime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
 
-        const currentTotalCount = this.imageRepo.getLocalTotalCount();
-        const requiredCount = offset + count;
-        console.log(`Cache check: currentTotalCount=${currentTotalCount}, requiredCount=${requiredCount}`);
+        if (Capacitor.isNativePlatform() || this.isImageRepoSyncFinished()) {
+            const items = await this.imageRepo.getList(order, offset, count);
+            const totalCount = this.imageRepo.getRemoteTotalCount();
 
-        if (currentTotalCount < requiredCount) {
-            const dedupKey = Hash.md5sum('getImageRepo', offset, count, order);
-            await this._executeWithDeduplication(dedupKey, async () => {
-                try {
-                    if (currentTotalCount == 0 && this.imageRepo.lastID === null) {
-                        await this.imageRepo.init()
-                    }
+            console.log(`Native mode: retrieved ${items.length} items from local cache (total: ${totalCount})`);
 
-                    if (this.imageRepo.getLocalTotalCount() >= requiredCount) {
-                        console.log('Cache was filled by another request, no need to sync');
-                        return;
-                    }
+            // 启动后台同步以继续同步剩余数据（非阻塞）
+            // this._startBackgroundSync();
 
-                    // 缓存不足，需要同步数据
-                    console.log(`Cache insufficient, syncing data...`);
+            return {
+                success: true,
+                items,
+                total: totalCount,
+                offset,
+                count: items.length,
+                order,
+            };
 
-                    // 同步数据，传入期望的数量
-                    const syncResult = await this.syncImageRepoHistory(requiredCount);
-
-                    if (!syncResult.success) {
-                        throw new Error(`Failed to sync image repo: ${syncResult.error}`);
-                    }
-                } catch (error) {
-                    console.error('Error getting image repo:', error);
-                }
-            });
+        } else {
+            if (Capacitor.isNativePlatform()) {
+                this._startBackgroundSync();
+            }
+            return await this._getImageRepoFromTransferClient(offset, count, order, 'xxx');
         }
-
-        const items = await this.imageRepo.getList(order, offset, count);
-        const totalCount = this.imageRepo.getRemoteTotalCount();
-
-        console.log(`Retrieved ${items.length} items from image repo cache (total: ${totalCount})`);
-
-        // 如果是原生模式且同步未完成，启动后台同步
-        if (Capacitor.isNativePlatform() && !this.isImageRepoSyncFinished()) {
-            this._startBackgroundSync();
-        }
-
-        return {
-            success: true,
-            items,
-            total: totalCount,
-            offset,
-            count: items.length,
-            order,
-        };
     }
+
+    /**
+     * 通用的从TransferClient获取图片仓库数据的方法
+     * @private
+     */
+    async _getImageRepoFromTransferClient(offset, count, order,) {
+        console.log(`using TransferClient.get().getImageRepoPage`);
+
+        try {
+            // 调用TransferClient获取数据
+            const response = await TransferClient.get().getImageRepoPage(offset, count, order);
+
+            // 处理protobuf响应
+            const items = response.items || [];
+            const totalCount = response.total || 0;
+
+            console.log(`retrieved ${items.length} items from TransferClient (total: ${totalCount})`);
+
+            return {
+                success: true,
+                items,
+                total: totalCount,
+                offset,
+                count: items.length,
+                order,
+            };
+        } catch (error) {
+            console.error(`Failed to get image repo from TransferClient:`, error);
+
+            // 返回空结果
+            return {
+                success: false,
+                items: [],
+                total: 0,
+                offset,
+                count: 0,
+                order,
+                error: error.message
+            };
+        }
+    }
+
+
 
     isImageRepoSyncFinished() {
         return this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();

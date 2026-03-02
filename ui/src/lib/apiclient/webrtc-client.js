@@ -359,4 +359,25 @@ export default class WebRTCClient extends BaseClient {
             });
         }
     }
+
+    async getImageRepoPage(offset, count, order) {
+        try {
+            const resp = await this.rpc.sendRpc('getImageRepoPage', 'ImageRepoPageRequest', neutron.ImageRepoPageRequest.create({
+                "types": ["image", "video"],
+                "offset": offset,
+                "order": order,
+                "count": count
+            }));
+
+            return resp;
+        } catch (err) {
+            console.error('getImageRepoPage error:', err);
+            // 返回空的protobuf对象而不是抛出错误
+            const ImageRepoPageResponse = neutron.ImageRepoPageResponse;
+            return new ImageRepoPageResponse({
+                total: 0,
+                items: []
+            });
+        }
+    }
 }

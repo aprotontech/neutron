@@ -23,12 +23,14 @@ type WebRTCRemoteClient struct {
 	combineAnswerCandidates bool
 }
 
-func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection, rpc *RPCHandles, clientID string) *WebRTCRemoteClient {
+func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection,
+	rpc *RPCHandles, storageServerID, clientID string) *WebRTCRemoteClient {
 	return &WebRTCRemoteClient{
 		peerConnection:          peerConnection,
 		rpc:                     rpc,
 		dcFileMap:               make(map[string]*WebRTCFileSender),
 		clientID:                clientID,
+		storageServerID:         storageServerID,
 		combineAnswerCandidates: true,
 	}
 }
@@ -104,8 +106,6 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, sdp string, handshakeWri
 	if err := peerConnection.SetRemoteDescription(offer); err != nil {
 		log.Warnf("SetRemoteDescription error: %v", err)
 	}
-
-	log.Infof("remote has been set %v", peerConnection.RemoteDescription() != nil)
 
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		if candidate != nil && !c.combineAnswerCandidates {

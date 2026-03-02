@@ -210,13 +210,13 @@
                 </div>
               </div>
             </div>
-            <div class="details-section" v-if="hasLocation(fileInfo)">
+            <div class="details-section" v-if="showLocationSection">
               <div class="section-content location-info">
                 <div class="location-address">
                   <span class="address-label">位置：</span>
                   <span class="address-value">{{ locationAddress || '获取地址中...' }}</span>
                 </div>
-                <div class="location-map"></div>
+                <div ref="mapContainer" class="location-map"></div>
               </div>
             </div>
           </div>
@@ -290,9 +290,16 @@ const downloadProgressVisible = ref(false)
 const currentTextContent = ref('')
 const highlightedCode = ref('')
 const mapInstance = ref(null)
+const AMapGlobal = ref(null)
 const locationAddress = ref('')
+const mapObserver = ref(null)
 
 const THUMB_RANGE = 15
+const mapContainer = ref(null)
+
+const showLocationSection = computed(() => {
+  return hasLocation(fileInfo.value)
+})
 
 function formatSize(b) {
   return FileSizeFormatter.format(b)
@@ -495,18 +502,6 @@ function hasLocation(fileInfoObj) {
   return !!(fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude || fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude)
 }
 
-function formatCoordinates(fileInfoObj) {
-  if (!fileInfoObj) return '未知位置'
-  let lat = fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude
-  let lon = fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude
-  if (fileInfoObj.exifData) {
-    lat = lat || getExifValue(fileInfoObj.exifData, 'GPSLatitude')
-    lon = lon || getExifValue(fileInfoObj.exifData, 'GPSLongitude')
-  }
-  if (lat && lon) return `${lat}, ${lon}`
-  return '未知位置'
-}
-
 function close() {
   emit('update:modelValue', false)
 }
@@ -539,6 +534,11 @@ async function openDetailsModal() {
 
 function closeDetailsModal() {
   showDetailsModal.value = false
+  // 关闭时销毁地图
+  if (mapInstance.value) {
+    mapInstance.value.destroy()
+    mapInstance.value = null
+  }
 }
 
 async function ensureItemsAround(offset) {
@@ -744,6 +744,7 @@ function handleBackgroundClick() {}
 watch(
   () => props.modelValue,
   async (visible) => {
+    console.log('props.modelValue', props.modelValue, visible)
     if (visible) {
       mapClear()
       const items = props.initialItems || []
@@ -778,10 +779,31 @@ watch(
 watch(
   () => showDetailsModal.value,
   async (visible) => {
-    if (visible && hasLocation(fileInfo.value) && !mapInstance.value) {
-      // 重置地址信息
+    console.log('showDetailsModal', showDetailsModal.value, visible)
+    if (visible && hasLocation(fileInfo.value)) {
+      const refresh = mapInstance.value != null
+      if (!mapInstance.value) {
+        locationAddress.value = ''
+        // 等待DOM完全渲染
+        await nextTick()
+        // 再次检查地图容器是否存在
+        if (!mapContainer.value) {
+          console.warn('地图容器未找到，等待DOM渲染')
+          // 延迟重试
+          setTimeout(async () => {
+            await initMap()
+            if (mapInstance.value) {
+              await updateMap(refresh)
+            }
+          }, 50)
+          return
+        }
+        await initMap()
+      }
+      await updateMap(refresh)
+    } else if (visible && !hasLocation(fileInfo.value)) {
+      // GPS信息不存在，清空地址信息
       locationAddress.value = ''
-      await initMap()
     }
   }
 )
@@ -789,6 +811,19 @@ watch(
 // 高德地图初始化函数
 async function initMap() {
   try {
+    // 确保地图容器存在
+    const container = mapContainer.value
+    if (!container) {
+      console.warn('地图容器未找到，无法初始化地图')
+      return
+    }
+
+    // 检查容器是否可见
+    if (container.offsetParent === null) {
+      console.warn('地图容器不可见，等待DOM渲染')
+      return
+    }
+
     window._AMapSecurityConfig = {
       securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || ''
     }
@@ -799,34 +834,62 @@ async function initMap() {
       plugins: ['AMap.Geocoder']
     })
 
-    const container = document.querySelector('.location-map')
-    if (!container) return
-
     // 获取坐标
     const lat = getLatitude(fileInfo.value)
     const lng = getLongitude(fileInfo.value)
 
-    if (!lat || !lng) return
+    console.log('initMap', lat, lng)
+
+    if (!lat || !lng) {
+      console.warn('没有有效的GPS坐标')
+      return
+    }
 
     // 创建地图实例
     mapInstance.value = new AMap.Map(container, {
       zoom: 15,
       center: [lng, lat]
     })
+    
+    // 保存AMap引用供后续使用
+    AMapGlobal.value = AMap
+    
+    console.log('地图初始化成功')
+  } catch (error) {
+    console.error('初始化地图失败:', error)
+    locationAddress.value = '获取地址失败'
+  }
+}
 
-    // 添加标记点
-    const marker = new AMap.Marker({
+// 更新地图函数（当切换到下一张有GPS信息的图片时调用）
+async function updateMap(refresh) {
+  try {
+    if (!mapInstance.value || !fileInfo.value || !AMapGlobal.value) return
+    
+    const lat = getLatitude(fileInfo.value)
+    const lng = getLongitude(fileInfo.value)
+
+    console.log('updateMap', lat, lng)
+    
+    if (!lat || !lng) {
+      locationAddress.value = ''
+      return
+    }
+
+    mapInstance.value.setCenter([lng, lat])
+
+    mapInstance.value.clearMap()
+    
+    const marker = new AMapGlobal.value.Marker({
       position: [lng, lat],
       title: '拍摄位置'
     })
-
     mapInstance.value.add(marker)
-
-    // 逆地理编码获取地址
-    const geocoder = new AMap.Geocoder({
+    
+    const geocoder = new AMapGlobal.value.Geocoder({
       city: '全国'
     })
-
+    
     geocoder.getAddress([lng, lat], (status, result) => {
       if (status === 'complete' && result.info === 'OK' && result.regeocode) {
         locationAddress.value = result.regeocode.formattedAddress || '未知位置'
@@ -834,8 +897,18 @@ async function initMap() {
         locationAddress.value = '无法获取地址信息'
       }
     })
+
+    if (refresh) {
+      setTimeout(() => {
+        console.log('resize')
+        if (mapInstance.value) {
+          mapInstance.value.resize()
+        }
+      }, 100)
+    }
+    
   } catch (error) {
-    console.error('初始化地图失败:', error)
+    console.error('更新地图失败:', error)
     locationAddress.value = '获取地址失败'
   }
 }
@@ -860,12 +933,60 @@ function getLongitude(fileInfoObj) {
   return lon
 }
 
-// 组件卸载时销毁地图
+// 设置地图容器观察器
+function setupMapContainerObserver() {
+  if (mapObserver.value) return
+  
+  // 查找可能包含地图容器的父元素
+  const detailsPanel = document.querySelector('.details-panel')
+  if (!detailsPanel) return
+  
+  mapObserver.value = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        // 检查是否有新的地图容器被添加
+        const mapContainerEl = detailsPanel.querySelector('.location-map')
+        if (mapContainerEl && !mapInstance.value && hasLocation(fileInfo.value)) {
+          console.log('检测到地图容器出现，尝试初始化地图')
+          initMap().then(() => {
+            if (mapInstance.value) {
+              updateMap(false)
+            }
+          })
+          // 初始化成功后停止观察
+          cleanupMapContainerObserver()
+          break
+        }
+      }
+    }
+  })
+  
+  // 开始观察details-panel的子节点变化
+  mapObserver.value.observe(detailsPanel, {
+    childList: true,
+    subtree: true
+  })
+  
+  console.log('已设置地图容器观察器')
+}
+
+// 清理地图容器观察器
+function cleanupMapContainerObserver() {
+  if (mapObserver.value) {
+    mapObserver.value.disconnect()
+    mapObserver.value = null
+    console.log('已清理地图容器观察器')
+  }
+}
+
+// 组件卸载时销毁地图和观察器
 onUnmounted(() => {
   if (mapInstance.value) {
     mapInstance.value.destroy()
     mapInstance.value = null
   }
+  AMapGlobal.value = null
+  cleanupMapContainerObserver()
 })
 </script>
 

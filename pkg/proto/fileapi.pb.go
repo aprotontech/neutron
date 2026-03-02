@@ -334,6 +334,126 @@ func (x *ImageRepoHistoryResponse) GetItems() []*ImageRepoHistoryItem {
 	return nil
 }
 
+type ImageRepoPageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Types         []string               `protobuf:"bytes,1,rep,name=types,proto3" json:"types,omitempty"`
+	Offset        int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Count         int32                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	Order         string                 `protobuf:"bytes,4,opt,name=order,proto3" json:"order,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImageRepoPageRequest) Reset() {
+	*x = ImageRepoPageRequest{}
+	mi := &file_fileapi_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageRepoPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageRepoPageRequest) ProtoMessage() {}
+
+func (x *ImageRepoPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageRepoPageRequest.ProtoReflect.Descriptor instead.
+func (*ImageRepoPageRequest) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ImageRepoPageRequest) GetTypes() []string {
+	if x != nil {
+		return x.Types
+	}
+	return nil
+}
+
+func (x *ImageRepoPageRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ImageRepoPageRequest) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *ImageRepoPageRequest) GetOrder() string {
+	if x != nil {
+		return x.Order
+	}
+	return ""
+}
+
+type ImageRepoPageResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Total         int32                   `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Items         []*ImageRepoHistoryItem `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImageRepoPageResponse) Reset() {
+	*x = ImageRepoPageResponse{}
+	mi := &file_fileapi_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImageRepoPageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImageRepoPageResponse) ProtoMessage() {}
+
+func (x *ImageRepoPageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fileapi_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImageRepoPageResponse.ProtoReflect.Descriptor instead.
+func (*ImageRepoPageResponse) Descriptor() ([]byte, []int) {
+	return file_fileapi_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ImageRepoPageResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ImageRepoPageResponse) GetItems() []*ImageRepoHistoryItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
 // Prepare file receive request (used in WebRTC)
 type PrepareFileReceiveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -347,7 +467,7 @@ type PrepareFileReceiveRequest struct {
 
 func (x *PrepareFileReceiveRequest) Reset() {
 	*x = PrepareFileReceiveRequest{}
-	mi := &file_fileapi_proto_msgTypes[4]
+	mi := &file_fileapi_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -359,7 +479,7 @@ func (x *PrepareFileReceiveRequest) String() string {
 func (*PrepareFileReceiveRequest) ProtoMessage() {}
 
 func (x *PrepareFileReceiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[4]
+	mi := &file_fileapi_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -372,7 +492,7 @@ func (x *PrepareFileReceiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareFileReceiveRequest.ProtoReflect.Descriptor instead.
 func (*PrepareFileReceiveRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{4}
+	return file_fileapi_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PrepareFileReceiveRequest) GetPath() string {
@@ -413,7 +533,7 @@ type PrepareFileReceiveResponse struct {
 
 func (x *PrepareFileReceiveResponse) Reset() {
 	*x = PrepareFileReceiveResponse{}
-	mi := &file_fileapi_proto_msgTypes[5]
+	mi := &file_fileapi_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +545,7 @@ func (x *PrepareFileReceiveResponse) String() string {
 func (*PrepareFileReceiveResponse) ProtoMessage() {}
 
 func (x *PrepareFileReceiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[5]
+	mi := &file_fileapi_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +558,7 @@ func (x *PrepareFileReceiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareFileReceiveResponse.ProtoReflect.Descriptor instead.
 func (*PrepareFileReceiveResponse) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{5}
+	return file_fileapi_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PrepareFileReceiveResponse) GetSize() int64 {
@@ -458,7 +578,7 @@ type GetFileInfoRequest struct {
 
 func (x *GetFileInfoRequest) Reset() {
 	*x = GetFileInfoRequest{}
-	mi := &file_fileapi_proto_msgTypes[6]
+	mi := &file_fileapi_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +590,7 @@ func (x *GetFileInfoRequest) String() string {
 func (*GetFileInfoRequest) ProtoMessage() {}
 
 func (x *GetFileInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[6]
+	mi := &file_fileapi_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,7 +603,7 @@ func (x *GetFileInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFileInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetFileInfoRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{6}
+	return file_fileapi_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetFileInfoRequest) GetPath() string {
@@ -503,7 +623,7 @@ type ListFilesRequest struct {
 
 func (x *ListFilesRequest) Reset() {
 	*x = ListFilesRequest{}
-	mi := &file_fileapi_proto_msgTypes[7]
+	mi := &file_fileapi_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +635,7 @@ func (x *ListFilesRequest) String() string {
 func (*ListFilesRequest) ProtoMessage() {}
 
 func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[7]
+	mi := &file_fileapi_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +648,7 @@ func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListFilesRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{7}
+	return file_fileapi_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListFilesRequest) GetPath() string {
@@ -548,7 +668,7 @@ type ListFilesResponse struct {
 
 func (x *ListFilesResponse) Reset() {
 	*x = ListFilesResponse{}
-	mi := &file_fileapi_proto_msgTypes[8]
+	mi := &file_fileapi_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -560,7 +680,7 @@ func (x *ListFilesResponse) String() string {
 func (*ListFilesResponse) ProtoMessage() {}
 
 func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[8]
+	mi := &file_fileapi_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -573,7 +693,7 @@ func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListFilesResponse) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{8}
+	return file_fileapi_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListFilesResponse) GetFiles() []*FileInformation {
@@ -592,7 +712,7 @@ type GetFileSystemVersionRequest struct {
 
 func (x *GetFileSystemVersionRequest) Reset() {
 	*x = GetFileSystemVersionRequest{}
-	mi := &file_fileapi_proto_msgTypes[9]
+	mi := &file_fileapi_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +724,7 @@ func (x *GetFileSystemVersionRequest) String() string {
 func (*GetFileSystemVersionRequest) ProtoMessage() {}
 
 func (x *GetFileSystemVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[9]
+	mi := &file_fileapi_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +737,7 @@ func (x *GetFileSystemVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFileSystemVersionRequest.ProtoReflect.Descriptor instead.
 func (*GetFileSystemVersionRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{9}
+	return file_fileapi_proto_rawDescGZIP(), []int{11}
 }
 
 // Get file system version response
@@ -630,7 +750,7 @@ type GetFileSystemVersionResponse struct {
 
 func (x *GetFileSystemVersionResponse) Reset() {
 	*x = GetFileSystemVersionResponse{}
-	mi := &file_fileapi_proto_msgTypes[10]
+	mi := &file_fileapi_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +762,7 @@ func (x *GetFileSystemVersionResponse) String() string {
 func (*GetFileSystemVersionResponse) ProtoMessage() {}
 
 func (x *GetFileSystemVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[10]
+	mi := &file_fileapi_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -655,7 +775,7 @@ func (x *GetFileSystemVersionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFileSystemVersionResponse.ProtoReflect.Descriptor instead.
 func (*GetFileSystemVersionResponse) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{10}
+	return file_fileapi_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetFileSystemVersionResponse) GetVersion() string {
@@ -676,7 +796,7 @@ type GetThumbnailRequest struct {
 
 func (x *GetThumbnailRequest) Reset() {
 	*x = GetThumbnailRequest{}
-	mi := &file_fileapi_proto_msgTypes[11]
+	mi := &file_fileapi_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +808,7 @@ func (x *GetThumbnailRequest) String() string {
 func (*GetThumbnailRequest) ProtoMessage() {}
 
 func (x *GetThumbnailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[11]
+	mi := &file_fileapi_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +821,7 @@ func (x *GetThumbnailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetThumbnailRequest.ProtoReflect.Descriptor instead.
 func (*GetThumbnailRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{11}
+	return file_fileapi_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetThumbnailRequest) GetPath() string {
@@ -728,7 +848,7 @@ type GetThumbnailResponse struct {
 
 func (x *GetThumbnailResponse) Reset() {
 	*x = GetThumbnailResponse{}
-	mi := &file_fileapi_proto_msgTypes[12]
+	mi := &file_fileapi_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -740,7 +860,7 @@ func (x *GetThumbnailResponse) String() string {
 func (*GetThumbnailResponse) ProtoMessage() {}
 
 func (x *GetThumbnailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[12]
+	mi := &file_fileapi_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -753,7 +873,7 @@ func (x *GetThumbnailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetThumbnailResponse.ProtoReflect.Descriptor instead.
 func (*GetThumbnailResponse) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{12}
+	return file_fileapi_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetThumbnailResponse) GetId() string {
@@ -773,7 +893,7 @@ type PlayVideoRequest struct {
 
 func (x *PlayVideoRequest) Reset() {
 	*x = PlayVideoRequest{}
-	mi := &file_fileapi_proto_msgTypes[13]
+	mi := &file_fileapi_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +905,7 @@ func (x *PlayVideoRequest) String() string {
 func (*PlayVideoRequest) ProtoMessage() {}
 
 func (x *PlayVideoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[13]
+	mi := &file_fileapi_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +918,7 @@ func (x *PlayVideoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayVideoRequest.ProtoReflect.Descriptor instead.
 func (*PlayVideoRequest) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{13}
+	return file_fileapi_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PlayVideoRequest) GetPath() string {
@@ -818,7 +938,7 @@ type PlayVideoResponse struct {
 
 func (x *PlayVideoResponse) Reset() {
 	*x = PlayVideoResponse{}
-	mi := &file_fileapi_proto_msgTypes[14]
+	mi := &file_fileapi_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +950,7 @@ func (x *PlayVideoResponse) String() string {
 func (*PlayVideoResponse) ProtoMessage() {}
 
 func (x *PlayVideoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_fileapi_proto_msgTypes[14]
+	mi := &file_fileapi_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +963,7 @@ func (x *PlayVideoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayVideoResponse.ProtoReflect.Descriptor instead.
 func (*PlayVideoResponse) Descriptor() ([]byte, []int) {
-	return file_fileapi_proto_rawDescGZIP(), []int{14}
+	return file_fileapi_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PlayVideoResponse) GetVideoInfo() map[string]*_struct.Value {
@@ -885,7 +1005,15 @@ const file_fileapi_proto_rawDesc = "" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x15\n" +
 	"\x06max_id\x18\x02 \x01(\x03R\x05maxId\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion\x123\n" +
-	"\x05items\x18\x04 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"q\n" +
+	"\x05items\x18\x04 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"p\n" +
+	"\x14ImageRepoPageRequest\x12\x14\n" +
+	"\x05types\x18\x01 \x03(\tR\x05types\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x14\n" +
+	"\x05order\x18\x04 \x01(\tR\x05order\"b\n" +
+	"\x15ImageRepoPageResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x123\n" +
+	"\x05items\x18\x02 \x03(\v2\x1d.neutron.ImageRepoHistoryItemR\x05items\"q\n" +
 	"\x19PrepareFileReceiveRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x16\n" +
@@ -928,39 +1056,42 @@ func file_fileapi_proto_rawDescGZIP() []byte {
 	return file_fileapi_proto_rawDescData
 }
 
-var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_fileapi_proto_goTypes = []any{
 	(*FileInformation)(nil),              // 0: neutron.FileInformation
 	(*ImageRepoHistoryRequest)(nil),      // 1: neutron.ImageRepoHistoryRequest
 	(*ImageRepoHistoryItem)(nil),         // 2: neutron.ImageRepoHistoryItem
 	(*ImageRepoHistoryResponse)(nil),     // 3: neutron.ImageRepoHistoryResponse
-	(*PrepareFileReceiveRequest)(nil),    // 4: neutron.PrepareFileReceiveRequest
-	(*PrepareFileReceiveResponse)(nil),   // 5: neutron.PrepareFileReceiveResponse
-	(*GetFileInfoRequest)(nil),           // 6: neutron.GetFileInfoRequest
-	(*ListFilesRequest)(nil),             // 7: neutron.ListFilesRequest
-	(*ListFilesResponse)(nil),            // 8: neutron.ListFilesResponse
-	(*GetFileSystemVersionRequest)(nil),  // 9: neutron.GetFileSystemVersionRequest
-	(*GetFileSystemVersionResponse)(nil), // 10: neutron.GetFileSystemVersionResponse
-	(*GetThumbnailRequest)(nil),          // 11: neutron.GetThumbnailRequest
-	(*GetThumbnailResponse)(nil),         // 12: neutron.GetThumbnailResponse
-	(*PlayVideoRequest)(nil),             // 13: neutron.PlayVideoRequest
-	(*PlayVideoResponse)(nil),            // 14: neutron.PlayVideoResponse
-	nil,                                  // 15: neutron.FileInformation.ExifDataEntry
-	nil,                                  // 16: neutron.PlayVideoResponse.VideoInfoEntry
-	(*_struct.Value)(nil),                // 17: google.protobuf.Value
+	(*ImageRepoPageRequest)(nil),         // 4: neutron.ImageRepoPageRequest
+	(*ImageRepoPageResponse)(nil),        // 5: neutron.ImageRepoPageResponse
+	(*PrepareFileReceiveRequest)(nil),    // 6: neutron.PrepareFileReceiveRequest
+	(*PrepareFileReceiveResponse)(nil),   // 7: neutron.PrepareFileReceiveResponse
+	(*GetFileInfoRequest)(nil),           // 8: neutron.GetFileInfoRequest
+	(*ListFilesRequest)(nil),             // 9: neutron.ListFilesRequest
+	(*ListFilesResponse)(nil),            // 10: neutron.ListFilesResponse
+	(*GetFileSystemVersionRequest)(nil),  // 11: neutron.GetFileSystemVersionRequest
+	(*GetFileSystemVersionResponse)(nil), // 12: neutron.GetFileSystemVersionResponse
+	(*GetThumbnailRequest)(nil),          // 13: neutron.GetThumbnailRequest
+	(*GetThumbnailResponse)(nil),         // 14: neutron.GetThumbnailResponse
+	(*PlayVideoRequest)(nil),             // 15: neutron.PlayVideoRequest
+	(*PlayVideoResponse)(nil),            // 16: neutron.PlayVideoResponse
+	nil,                                  // 17: neutron.FileInformation.ExifDataEntry
+	nil,                                  // 18: neutron.PlayVideoResponse.VideoInfoEntry
+	(*_struct.Value)(nil),                // 19: google.protobuf.Value
 }
 var file_fileapi_proto_depIdxs = []int32{
-	15, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
+	17, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
 	2,  // 1: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
-	0,  // 2: neutron.ListFilesResponse.files:type_name -> neutron.FileInformation
-	16, // 3: neutron.PlayVideoResponse.video_info:type_name -> neutron.PlayVideoResponse.VideoInfoEntry
-	17, // 4: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
-	17, // 5: neutron.PlayVideoResponse.VideoInfoEntry.value:type_name -> google.protobuf.Value
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	2,  // 2: neutron.ImageRepoPageResponse.items:type_name -> neutron.ImageRepoHistoryItem
+	0,  // 3: neutron.ListFilesResponse.files:type_name -> neutron.FileInformation
+	18, // 4: neutron.PlayVideoResponse.video_info:type_name -> neutron.PlayVideoResponse.VideoInfoEntry
+	19, // 5: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
+	19, // 6: neutron.PlayVideoResponse.VideoInfoEntry.value:type_name -> google.protobuf.Value
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_fileapi_proto_init() }
@@ -974,7 +1105,7 @@ func file_fileapi_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fileapi_proto_rawDesc), len(file_fileapi_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

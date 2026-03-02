@@ -32,4 +32,8 @@ export default class BaseClient {
     async getImageRepoHistory(version, lastId, count) {
         throw new Error('Not implemented');
     }
+
+    async getImageRepoPage(offset, count, order) {
+        throw new Error('Not implemented');
+    }
 }

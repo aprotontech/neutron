@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -249,10 +248,9 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 	}
 }
 
-type WriterFunc func([]byte) (int, error)
-
-func (f WriterFunc) Write(p []byte) (int, error) {
-	return f(p)
+func (s *RemoteStorageServer) Write(p []byte) (int, error) {
+	err := s.conn.WriteMessage(websocket.BinaryMessage, p)
+	return len(p), err
 }
 
 func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) error {
@@ -268,17 +266,11 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		return err
 	}
 
-	remoteClient := NewWebRTCRemoteClient(peerConnection, s.rpc, source)
+	remoteClient := NewWebRTCRemoteClient(peerConnection, s.rpc, s.config.DiscoverClient.StorageServerID, source)
 
 	s.mutex.Lock()
 	s.remoteClients[source] = remoteClient
 	s.mutex.Unlock()
 
-	var w io.Writer
-	w = WriterFunc(func(p []byte) (int, error) {
-		err := s.conn.WriteMessage(websocket.BinaryMessage, p)
-		return len(p), err
-	})
-
-	return remoteClient.Start(nil, sdp, w)
+	return remoteClient.Start(nil, sdp, s)
 }

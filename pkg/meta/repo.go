@@ -94,6 +94,41 @@ func (r *Repository) GetHistory(lastID, limit int64) ([]RepoHistoryItem, error) 
 	return items, nil
 }
 
+func (r *Repository) GetHistoryPage(offset, limit int, order string) ([]RepoHistoryItem, error) {
+	if r.db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+
+	// 构建查询
+	query := r.db.Where("is_valid = ?", true)
+
+	switch order {
+	case "etime":
+		query = query.Order("etime DESC, id DESC")
+	case "etime-asc":
+		query = query.Order("etime ASC, id ASC")
+	case "mtime":
+		query = query.Order("mtime DESC, id DESC")
+	case "mtime-asc":
+		query = query.Order("mtime ASC, id ASC")
+	default:
+		query = query.Order("id DESC")
+	}
+
+	// 应用分页
+	query = query.Offset(offset).Limit(limit)
+
+	// 获取分页数据
+	var items []RepoHistoryItem
+	err := query.Find(&items).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
 func (r *Repository) Update() error {
 	err := r.db.Exec(`
 		UPDATE repo_history 

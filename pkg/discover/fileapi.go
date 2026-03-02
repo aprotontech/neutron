@@ -37,6 +37,7 @@ func NewRPCHandles(filesystem fs.FileSystem, repo *meta.Repository) *RPCHandles 
 			"prepareFileReceive":   prepareFileReceive,
 			"getThumbnail":         getThumbnail,
 			"playVideo":            playVideo,
+			"getImageRepoPage":     getImageRepoPage,
 			"getImageRepoHistory":  getImageRepoHistory,
 			"getFileInfo":          getFileInfo,
 			"getFileSystemVersion": getFileSystemVersion,
@@ -298,6 +299,53 @@ func getFileSystemVersion(c *RPCHandles, client *WebRTCRemoteClient, req any) (a
 	_ = realReq // 不使用，但保持一致性
 	return &neutronproto.GetFileSystemVersionResponse{
 		Version: "",
+	}, nil
+}
+
+func getImageRepoPage(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
+	if v, ok := req.(*neutronproto.RemoteMessage_ImageRepoPageRequest); !ok || v == nil {
+		return nil, errors.New("invalidate input params")
+	}
+
+	realReq := req.(*neutronproto.RemoteMessage_ImageRepoPageRequest).ImageRepoPageRequest
+	types := realReq.GetTypes()
+	offset := int(realReq.GetOffset())
+	count := int(realReq.GetCount())
+	order := realReq.GetOrder()
+
+	log.Infof("Fetching image repo page... types=%v, offset=%d, count=%d, order=%s", types, offset, count, order)
+
+	// 获取总记录数
+	totalCount, _, err := c.repo.GetHistorySummary()
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取分页数据
+	imgs, err := c.repo.GetHistoryPage(offset, count, order)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换 ImageRepoHistoryItem
+	items := make([]*neutronproto.ImageRepoHistoryItem, 0, len(imgs))
+	for _, img := range imgs {
+		item := &neutronproto.ImageRepoHistoryItem{
+			Id:       img.ID,
+			Path:     img.FilePath, // 使用 FilePath 作为 Path
+			Type:     int32(img.Type),
+			Etime:    img.ExifTime, // ExifTime 是 int64 时间戳
+			Mtime:    img.ModTime,  // ModTime 是 int64 时间戳
+			FilePath: img.FilePath,
+		}
+		items = append(items, item)
+	}
+
+	return &neutronproto.RemoteMessage_ImageRepoPageResponse{
+		ImageRepoPageResponse: &neutronproto.ImageRepoPageResponse{
+			Total: int32(totalCount),
+			Items: items,
+		},
 	}, nil
 }
 
