@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +16,6 @@ import (
 	webrtc "github.com/pion/webrtc/v4"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -27,8 +26,6 @@ import (
 	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
-
-type FileAPI func(dcm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error)
 
 type RemoteStorageServer struct {
 	conn *websocket.Conn
@@ -41,7 +38,7 @@ type RemoteStorageServer struct {
 
 	api *webrtc.API
 
-	fileAPIS map[string]FileAPI
+	rpc *RPCHandles
 
 	db *gorm.DB
 
@@ -49,8 +46,6 @@ type RemoteStorageServer struct {
 	repo       *meta.Repository
 
 	version string
-
-	combineAnswerCandidates bool
 }
 
 func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
@@ -74,24 +69,18 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 		panic(err)
 	}
 
+	filesystem := fs.NewFileSystemDatabase(config, gdb)
+	imgRepo := meta.NewRepo(gdb)
+
 	return &RemoteStorageServer{
-		config:                  config,
-		conn:                    nil,
-		remoteClients:           map[string]*WebRTCRemoteClient{},
-		api:                     nil,
-		combineAnswerCandidates: true,
-		db:                      gdb,
-		fileAPIS: map[string]FileAPI{
-			"listFiles":            getFileList,
-			"prepareFileReceive":   prepareFileReceive,
-			"getThumbnail":         getThumbnail,
-			"playVideo":            playVideo,
-			"getImageRepoHistory":  getImageRepoHistory,
-			"getFileInfo":          getFileInfo,
-			"getFileSystemVersion": getFileSystemVersion,
-		},
-		filesystem: fs.NewFileSystemDatabase(config, gdb),
-		repo:       meta.NewRepo(gdb),
+		config:        config,
+		conn:          nil,
+		remoteClients: map[string]*WebRTCRemoteClient{},
+		api:           nil,
+		db:            gdb,
+		rpc:           NewRPCHandles(filesystem, imgRepo),
+		filesystem:    filesystem,
+		repo:          imgRepo,
 	}
 }
 
@@ -260,6 +249,12 @@ func (s *RemoteStorageServer) Start(ctx context.Context) error {
 	}
 }
 
+type WriterFunc func([]byte) (int, error)
+
+func (f WriterFunc) Write(p []byte) (int, error) {
+	return f(p)
+}
+
 func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) error {
 	log.Infof("Setting up remote connection for source: %s", source)
 	config := webrtc.Configuration{
@@ -273,41 +268,17 @@ func (s *RemoteStorageServer) setupRemoteConnection(source string, sdp string) e
 		return err
 	}
 
-	remoteClient := NewWebRTCRemoteClient(peerConnection)
+	remoteClient := NewWebRTCRemoteClient(peerConnection, s.rpc, source)
 
 	s.mutex.Lock()
 	s.remoteClients[source] = remoteClient
 	s.mutex.Unlock()
 
-	return remoteClient.Start(nil, source, sdp)
-}
+	var w io.Writer
+	w = WriterFunc(func(p []byte) (int, error) {
+		err := s.conn.WriteMessage(websocket.BinaryMessage, p)
+		return len(p), err
+	})
 
-// createResponseMessage creates a RemoteMessage with appropriate payload based on response type
-func (s *RemoteStorageServer) createResponseMessage(
-	response any, id string, source string) *neutronproto.RemoteMessage {
-	resMsg := &neutronproto.RemoteMessage{
-		Type:        "@response",
-		Source:      s.config.DiscoverClient.StorageServerID,
-		Id:          id,
-		Destination: source,
-	}
-
-	if err := neutronproto.SetRemoteMessagePayload(resMsg, response); err != nil {
-		log.Warnf("SetRemoteMessagePayload error: %v", err)
-		// Fallback to generic error response if payload setting fails
-		log.Warnf("failed to set response payload: %v", err)
-		resMsg.Payload = &neutronproto.RemoteMessage_Error{
-			Error: &neutronproto.ErrorMessage{
-				Success: false,
-				Error:   fmt.Sprintf("failed to set response payload: %v", err),
-				Details: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"original_response": structpb.NewStringValue(fmt.Sprintf("%v", response)),
-					},
-				},
-			},
-		}
-	}
-
-	return resMsg
+	return remoteClient.Start(nil, sdp, w)
 }

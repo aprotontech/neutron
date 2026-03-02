@@ -2,8 +2,9 @@ package discover
 
 import (
 	"context"
+	"fmt"
+	"io"
 
-	"github.com/gorilla/websocket"
 	webrtc "github.com/pion/webrtc/v4"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -13,20 +14,26 @@ import (
 )
 
 type WebRTCRemoteClient struct {
-	peerConnection  *webrtc.PeerConnection
-	thumbnailDC     *webrtc.DataChannel
-	dcFileMap       map[string]*WebRTCFileSender
-	storageServerID string
+	peerConnection          *webrtc.PeerConnection
+	rpc                     *RPCHandles
+	thumbnailDC             *webrtc.DataChannel
+	dcFileMap               map[string]*WebRTCFileSender
+	clientID                string
+	storageServerID         string
+	combineAnswerCandidates bool
 }
 
-func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteClient {
+func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection, rpc *RPCHandles, clientID string) *WebRTCRemoteClient {
 	return &WebRTCRemoteClient{
-		peerConnection: peerConnection,
-		dcFileMap:      make(map[string]*WebRTCFileSender),
+		peerConnection:          peerConnection,
+		rpc:                     rpc,
+		dcFileMap:               make(map[string]*WebRTCFileSender),
+		clientID:                clientID,
+		combineAnswerCandidates: true,
 	}
 }
 
-func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp string) error {
+func (c *WebRTCRemoteClient) Start(ctx context.Context, sdp string, handshakeWriter io.Writer) error {
 	peerConnection := c.peerConnection
 
 	peerConnection.OnConnectionStateChange(func(pcs webrtc.PeerConnectionState) {
@@ -66,35 +73,12 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 				log.Infof("RpcRequest[%s] type=%s, source=%s, payload=%v",
 					m.Id, m.Type, m.Source, m.Payload)
 
-				var err error
-				var response any
-				if api, ok := s.fileAPIS[m.Type]; ok {
-					response, err = api(s, c, m.GetPayload())
-					if err != nil {
-						log.Warnf("File API %s error: %v", m.Type, err)
-						details, _ := structpb.NewStruct(map[string]any{
-							"input": m.GetPayload(),
-						})
-						// Convert error to appropriate response type
-						response = &neutronproto.RemoteMessage_Error{
-							Error: &neutronproto.ErrorMessage{
-								Success: false,
-								Error:   err.Error(),
-								Details: details,
-							},
-						}
-					}
-
-				} else {
-					response = &neutronproto.ErrorMessage{
-						Error: "unknown api " + m.Type,
-					}
-				}
+				response := c.rpc.Process(c, &m)
 
 				log.Infof("RpcResponse[%s] payload=%v", m.Id, response)
 
 				// Create response message
-				resMsg := s.createResponseMessage(response, m.Id, source)
+				resMsg := c.createResponseMessage(response, m.Id, c.clientID)
 
 				res, err := proto.Marshal(resMsg)
 				if err != nil {
@@ -124,7 +108,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 	log.Infof("remote has been set %v", peerConnection.RemoteDescription() != nil)
 
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
-		if candidate != nil && !s.combineAnswerCandidates {
+		if candidate != nil && !c.combineAnswerCandidates {
 			log.Infof("OnICECandidate %v", candidate)
 
 			// Create candidate payload using WebRTCCandidateContent
@@ -135,7 +119,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 			candidateMsg := &neutronproto.RemoteMessage{
 				Type:        "candidate",
 				Source:      c.storageServerID,
-				Destination: source,
+				Destination: c.clientID,
 			}
 			// Set WebRTCCandidateContent as payload
 			candidateMsg.Payload = &neutronproto.RemoteMessage_WebrtcCandidateContent{
@@ -145,7 +129,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 			data, err := proto.Marshal(candidateMsg)
 			if err != nil {
 				log.Warnf("protobuf marshal candidate message error: %v", err)
-			} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+			} else if _, err := handshakeWriter.Write(data); err != nil {
 				log.Warnf("Write candidate error: %v", err)
 			}
 		}
@@ -163,7 +147,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 		log.Fatal(err)
 	}
 
-	if s.combineAnswerCandidates {
+	if c.combineAnswerCandidates {
 		<-gatherComplete
 
 		// Create answer+candidates payload using WebRTCAnswerCandidatesContent
@@ -175,7 +159,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 		answerMsg := &neutronproto.RemoteMessage{
 			Type:        "answer+candidates",
 			Source:      c.storageServerID,
-			Destination: source,
+			Destination: c.clientID,
 		}
 		// Set WebRTCAnswerCandidatesContent as payload
 		answerMsg.Payload = &neutronproto.RemoteMessage_WebrtcAnswerCandidatesContent{
@@ -185,7 +169,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 		data, err := proto.Marshal(answerMsg)
 		if err != nil {
 			log.Warnf("protobuf marshal answer message error: %v", err)
-		} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+		} else if _, err := handshakeWriter.Write(data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	} else {
@@ -197,7 +181,7 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 		answerMsg := &neutronproto.RemoteMessage{
 			Type:        "answer",
 			Source:      c.storageServerID,
-			Destination: source,
+			Destination: c.clientID,
 		}
 		// Set WebRTCAnswerContent as payload
 		answerMsg.Payload = &neutronproto.RemoteMessage_WebrtcAnswerContent{
@@ -207,8 +191,40 @@ func (c *WebRTCRemoteClient) Start(ctx context.Context, source string, sdp strin
 		data, err := proto.Marshal(answerMsg)
 		if err != nil {
 			log.Warnf("protobuf marshal answer message error: %v", err)
-		} else if err := s.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+		} else if _, err := handshakeWriter.Write(data); err != nil {
 			log.Warnf("Write answer error: %v", err)
 		}
 	}
+
+	return nil
+}
+
+// createResponseMessage creates a RemoteMessage with appropriate payload based on response type
+func (c *WebRTCRemoteClient) createResponseMessage(
+	response any, id string, source string) *neutronproto.RemoteMessage {
+	resMsg := &neutronproto.RemoteMessage{
+		Type:        "@response",
+		Source:      c.storageServerID,
+		Id:          id,
+		Destination: source,
+	}
+
+	if err := neutronproto.SetRemoteMessagePayload(resMsg, response); err != nil {
+		log.Warnf("SetRemoteMessagePayload error: %v", err)
+		// Fallback to generic error response if payload setting fails
+		log.Warnf("failed to set response payload: %v", err)
+		resMsg.Payload = &neutronproto.RemoteMessage_Error{
+			Error: &neutronproto.ErrorMessage{
+				Success: false,
+				Error:   fmt.Sprintf("failed to set response payload: %v", err),
+				Details: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"original_response": structpb.NewStringValue(fmt.Sprintf("%v", response)),
+					},
+				},
+			},
+		}
+	}
+
+	return resMsg
 }

@@ -14,19 +14,73 @@ import (
 	"github.com/aproton/neutron/cmd/neutron/config"
 	"github.com/aproton/neutron/pkg/fs"
 	"github.com/aproton/neutron/pkg/media"
+	"github.com/aproton/neutron/pkg/meta"
 	neutronproto "github.com/aproton/neutron/pkg/proto"
 	"github.com/aproton/neutron/pkg/utils"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
 
-func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+type FileAPI func(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error)
+
+type RPCHandles struct {
+	filesystem fs.FileSystem
+	repo       *meta.Repository
+	apis       map[string]FileAPI
+}
+
+func NewRPCHandles(filesystem fs.FileSystem, repo *meta.Repository) *RPCHandles {
+	return &RPCHandles{
+		filesystem: filesystem,
+		repo:       repo,
+		apis: map[string]FileAPI{
+			"listFiles":            getFileList,
+			"prepareFileReceive":   prepareFileReceive,
+			"getThumbnail":         getThumbnail,
+			"playVideo":            playVideo,
+			"getImageRepoHistory":  getImageRepoHistory,
+			"getFileInfo":          getFileInfo,
+			"getFileSystemVersion": getFileSystemVersion,
+		},
+	}
+}
+
+func (c *RPCHandles) Process(client *WebRTCRemoteClient, m *neutronproto.RemoteMessage) any {
+	var err error
+	var response any
+	if api, ok := c.apis[m.Type]; ok {
+		response, err = api(c, client, m.GetPayload())
+		if err != nil {
+			log.Warnf("File API %s error: %v", m.Type, err)
+			details, _ := structpb.NewStruct(map[string]any{
+				"input": m.GetPayload(),
+			})
+			// Convert error to appropriate response type
+			response = &neutronproto.RemoteMessage_Error{
+				Error: &neutronproto.ErrorMessage{
+					Success: false,
+					Error:   err.Error(),
+					Details: details,
+				},
+			}
+		}
+
+	} else {
+		response = &neutronproto.ErrorMessage{
+			Error: "unknown api " + m.Type,
+		}
+	}
+
+	return response
+}
+
+func getFileList(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_ListFilesRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
 	realReq := req.(*neutronproto.RemoteMessage_ListFilesRequest).ListFilesRequest
 	folder := realReq.GetPath()
 
-	fs, err := fsm.filesystem.List(folder)
+	fs, err := c.filesystem.List(folder)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +108,7 @@ func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 	}, nil
 }
 
-func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func getFileInfo(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_GetFileInfoRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
@@ -62,7 +116,7 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 	realReq := req.(*neutronproto.RemoteMessage_GetFileInfoRequest).GetFileInfoRequest
 	fpath := realReq.GetPath()
 
-	info, err := fsm.filesystem.Stat(fpath)
+	info, err := c.filesystem.Stat(fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +153,7 @@ func getFileInfo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) 
 	}, nil
 }
 
-func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func prepareFileReceive(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_PrepareFileReceiveRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
@@ -141,7 +195,7 @@ func prepareFileReceive(fsm *RemoteStorageServer, client *WebRTCRemoteClient, re
 	}, nil
 }
 
-func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func getThumbnail(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_GetThumbnailRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
@@ -160,7 +214,7 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 		return nil, os.ErrInvalid
 	}
 
-	info, err := fsm.filesystem.Stat(filePath)
+	info, err := c.filesystem.Stat(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +289,7 @@ func getThumbnail(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any)
 	}, nil
 }
 
-func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func getFileSystemVersion(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_GetFileSystemVersionRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
@@ -243,11 +297,11 @@ func getFileSystemVersion(fsm *RemoteStorageServer, client *WebRTCRemoteClient, 
 	realReq := req.(*neutronproto.RemoteMessage_GetFileSystemVersionRequest).GetFileSystemVersionRequest
 	_ = realReq // 不使用，但保持一致性
 	return &neutronproto.GetFileSystemVersionResponse{
-		Version: fsm.version,
+		Version: "",
 	}, nil
 }
 
-func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func getImageRepoHistory(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_ImageRepoHistoryRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
@@ -259,12 +313,12 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 
 	log.Infof("Fetching image repo history... types=%v, lastID=%d, count=%d", types, lastID, count)
 
-	totalCount, maxId, err := fsm.repo.GetHistorySummary()
+	totalCount, maxId, err := c.repo.GetHistorySummary()
 	if err != nil {
 		return nil, err
 	}
 
-	imgs, err := fsm.repo.GetHistory(lastID, count)
+	imgs, err := c.repo.GetHistory(lastID, count)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +347,7 @@ func getImageRepoHistory(fsm *RemoteStorageServer, client *WebRTCRemoteClient, r
 	}, nil
 }
 
-func playVideo(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
+func playVideo(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_PlayVideoRequest); !ok || v == nil {
 		return nil, errors.New("invalidate input params")
 	}
