@@ -9,7 +9,6 @@ import (
 	"path"
 	"path/filepath"
 
-	webrtc "github.com/pion/webrtc/v4"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/aproton/neutron/cmd/neutron/config"
@@ -19,15 +18,6 @@ import (
 	"github.com/aproton/neutron/pkg/utils"
 	"github.com/aproton/neutron/pkg/utils/log"
 )
-
-type FileFolderInfo map[string]interface{}
-
-func NewWebRTCRemoteClient(peerConnection *webrtc.PeerConnection) *WebRTCRemoteClient {
-	return &WebRTCRemoteClient{
-		peerConnection: peerConnection,
-		dcFileMap:      make(map[string]*WebRTCFileSender),
-	}
-}
 
 func getFileList(fsm *RemoteStorageServer, client *WebRTCRemoteClient, req any) (any, error) {
 	if v, ok := req.(*neutronproto.RemoteMessage_ListFilesRequest); !ok || v == nil {

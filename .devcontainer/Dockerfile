@@ -23,7 +23,7 @@ RUN ARCH=amd64; \
 
 # Add Go bin and GOPATH to aproton's bashrc
 RUN GO_HOME=$(/home/aproton/.local/go/bin/go env GOPATH); \
-    echo 'export PATH=$PATH:/home/aproton/.local/go/bin:'$GO_HOME >>/home/aproton/.bashrc
+    echo 'export PATH=$PATH:/home/aproton/.local/go/bin:'$GO_HOME/bin >>/home/aproton/.bashrc
 
 # Install NVM for aproton (installs into /home/aproton/.nvm) and install Node 20
 RUN export NVM_SOURCE=https://gitee.com/mirrors/nvm.git && \
