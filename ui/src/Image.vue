@@ -126,7 +126,7 @@ const menuOpen = ref(false)
 const filterType = ref('all') // 'all' | 'images' | 'videos'
 
 // 排序状态
-const sortOrder = ref('mtime') // 'mtime' | 'etime' - 默认按最近添加排序
+const sortOrder = ref('etime') // 'mtime' | 'etime' - 默认按最近添加排序
 const allHistorySynced = ref(false) // 是否所有历史记录已同步
 
 function toggleMenu() { menuOpen.value = !menuOpen.value }
@@ -134,23 +134,18 @@ function setFilter(val) {
   if (filterType.value === val) filterType.value = 'all'
   else filterType.value = val
   menuOpen.value = false
+  // 重新加载图片以应用新的过滤条件
+  refreshGallery();
 }
 
 // 设置排序方式
 function setSortOrder(order) {
-  if (order === 'etime' && !allHistorySynced.value) {
-    // 如果按拍摄日期排序但历史记录未完全同步，不允许切换
-    console.log('Cannot switch to etime sort: history not fully synced');
-    return;
-  }
   sortOrder.value = order;
   menuOpen.value = false;
   // 重新加载图片
   refreshGallery();
 }
 
-// 文件大小格式化函数
-function formatSize(b) { return FileSizeFormatter.format(b) }
 
 function matchesFilter(image) {
   if (!filterType.value || filterType.value === 'all') return true
@@ -344,18 +339,17 @@ function openMediaViewer(file) {
   isViewingMedia.value = true
 }
 
-// 详情相关已移至 Preview.vue
-
-function closeMediaViewer() {
-  isViewingMedia.value = false
-  currentMediaIndex.value = -1
-}
-
 function refreshGallery() {
   currentOffset.value = 0
   hasMore.value = true
   images.value = []
   allHistorySynced.value = false // 重置同步状态
+  
+  // 重置滚动条到顶部
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTop = 0;
+  }
+  
   loadImages(0)
 }
 

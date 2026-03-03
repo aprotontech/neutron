@@ -362,7 +362,7 @@ export default class WebRTCClient extends BaseClient {
 
     async getImageRepoPage(offset, count, order) {
         try {
-            const resp = await this.rpc.sendRpc('getImageRepoPage', 'ImageRepoPageRequest', neutron.ImageRepoPageRequest.create({
+            const resp = await this.rpc.sendRpc('getImageRepoPage', 'imageRepoPageRequest', neutron.ImageRepoPageRequest.create({
                 "types": ["image", "video"],
                 "offset": offset,
                 "order": order,

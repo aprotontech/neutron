@@ -634,7 +634,7 @@ export default class FileAPI {
     async getImageRepo(offset, count, order = 'mtime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
 
-        if (Capacitor.isNativePlatform() || this.isImageRepoSyncFinished()) {
+        if (Capacitor.isNativePlatform() && this.isImageRepoSyncFinished()) {
             const items = await this.imageRepo.getList(order, offset, count);
             const totalCount = this.imageRepo.getRemoteTotalCount();
 
@@ -677,6 +677,10 @@ export default class FileAPI {
 
             console.log(`retrieved ${items.length} items from TransferClient (total: ${totalCount})`);
 
+            items.map(item => {
+                item.file_path = item.path
+            })
+
             return {
                 success: true,
                 items,
@@ -704,7 +708,8 @@ export default class FileAPI {
 
 
     isImageRepoSyncFinished() {
-        return this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
+        return this.imageRepo.getLocalTotalCount() > 0 && this.imageRepo.getRemoteTotalCount() &&
+            this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
     }
 
     /**
