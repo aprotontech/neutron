@@ -30,6 +30,8 @@ export default class FileAPI {
 
         // Image repository for managing image history
         this.imageRepo = new ImageRepo();
+        // Store the init promise to ensure initialization completes
+        this._imageRepoInitPromise = this.imageRepo.init();
 
         // Concurrent request cache for deduplication
         this._pendingRequests = new Map(); // key -> Promise
@@ -41,6 +43,17 @@ export default class FileAPI {
         this._backgroundSyncPromise = null;
         this._backgroundSyncRetryCount = 0;
         this._maxBackgroundSyncRetries = 3;
+    }
+
+    /**
+     * Get singleton instance of FileAPI
+     * @returns {FileAPI} Singleton instance
+     */
+    static getInstance() {
+        if (!FileAPI.instance) {
+            FileAPI.instance = new FileAPI();
+        }
+        return FileAPI.instance;
     }
 
     /**
@@ -634,7 +647,16 @@ export default class FileAPI {
     async getImageRepo(offset, count, order = 'mtime') {
         console.log(`Requesting image repo: offset = ${offset}, count = ${count}, order = ${order}`);
 
-        if (Capacitor.isNativePlatform() && this.isImageRepoSyncFinished()) {
+        // Ensure ImageRepo is fully initialized before accessing its methods
+        if (this._imageRepoInitPromise) {
+            await this._imageRepoInitPromise;
+            this._imageRepoInitPromise = null; // Clear the promise after first use
+        }
+
+        const isImageRepoSyncFinished = this.imageRepo.getLocalTotalCount() > 0 && this.imageRepo.getRemoteTotalCount() &&
+            this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
+
+        if (Capacitor.isNativePlatform() && isImageRepoSyncFinished) {
             const items = await this.imageRepo.getList(order, offset, count);
             const totalCount = this.imageRepo.getRemoteTotalCount();
 
@@ -665,8 +687,6 @@ export default class FileAPI {
      * @private
      */
     async _getImageRepoFromTransferClient(offset, count, order,) {
-        console.log(`using TransferClient.get().getImageRepoPage`);
-
         try {
             // 调用TransferClient获取数据
             const response = await TransferClient.get().getImageRepoPage(offset, count, order);
@@ -703,13 +723,6 @@ export default class FileAPI {
                 error: error.message
             };
         }
-    }
-
-
-
-    isImageRepoSyncFinished() {
-        return this.imageRepo.getLocalTotalCount() > 0 && this.imageRepo.getRemoteTotalCount() &&
-            this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
     }
 
     /**

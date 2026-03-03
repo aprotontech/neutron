@@ -576,7 +576,7 @@ async function downloadApp() {
 async function getCacheSize() {
   try {
     loadingCacheSize.value = true
-    const fileAPI = new FileAPI()
+    const fileAPI = FileAPI.getInstance()
     const size = await fileAPI.getCacheSize()
     cacheSize.value = size
     cacheSizeFormatted.value = FileSizeFormatter.format(size)
@@ -596,8 +596,8 @@ async function clearCache() {
   }
   
   try {
-    // 创建FileAPI实例并清理缓存
-    const fileAPI = new FileAPI()
+    // 使用FileAPI单例实例并清理缓存
+    const fileAPI = FileAPI.getInstance()
     fileAPI.cleanAllCaches()
     
     // 清理后重新获取缓存大小

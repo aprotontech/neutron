@@ -162,10 +162,6 @@ class ImageRepo {
         return sortedItems.slice(startIndex, endIndex);
     }
 
-    /**
-     * 获取历史记录总数
-     * @returns {Promise<number>}
-     */
     getLocalTotalCount() {
         return this.historyMap.size;
     }
@@ -174,10 +170,6 @@ class ImageRepo {
         return this.remoteTotalCount;
     }
 
-    /**
-     * 获取当前最大的 ID
-     * @returns {Promise<string|null>}
-     */
     getLastID() {
         return this.lastID;
     }
@@ -442,6 +434,7 @@ class ImageRepo {
 
             if (localStorage.getItem(this.localStorageRemoteTotalCountKey)) {
                 this.remoteTotalCount = parseInt(localStorage.getItem(this.localStorageRemoteTotalCountKey))
+                console.log('this.remoteTotalCount', this.remoteTotalCount)
             }
 
             return this.historyMap.size;

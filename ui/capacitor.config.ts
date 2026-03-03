@@ -10,7 +10,7 @@ const androidKeystoreAliasPassword = process.env.ANDROID_KEY_PASSWORD || '';
 
 const config: CapacitorConfig = {
   appId: 'tech.aproton.neutron',
-  appName: '家庭相册',
+  appName: '年轮',
   webDir: 'www',
   
   android: {

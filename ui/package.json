@@ -32,6 +32,7 @@
     "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@originjs/vite-plugin-commonjs": "^1.0.3",
     "@rollup/plugin-commonjs": "^29.0.0",
     "@types/node": "^25.1.0",

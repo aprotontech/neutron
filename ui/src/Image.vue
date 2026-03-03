@@ -15,7 +15,7 @@
           </button>
           <button 
             class="menu-item" 
-            :class="{ disabled: !allHistorySynced }"
+            :class="{ disabled: false }"
             @click="setSortOrder('etime')"
           >
             <span class="menu-check" aria-hidden="true">{{ sortOrder === 'etime' ? '✓' : '' }}</span>
@@ -57,6 +57,12 @@
             />
             <div v-else class="image-placeholder">
               <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
+            </div>
+            <!-- 视频文件播放按钮 -->
+            <div v-if="image.type === '视频'" class="video-play-button">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 5V19L19 12L8 5Z" fill="white" fill-opacity="0.8"/>
+              </svg>
             </div>
           </div>
         </div>
@@ -108,7 +114,7 @@ import Preview from './Preview.vue'
 // --- 简化后的实现，专注于：分页列表、IntersectionObserver 缩略图预加载、预览下滑关闭 ---
 
 const isAndroidApp = ref(false)
-const fileAPI = new FileAPI()
+const fileAPI = FileAPI.getInstance()
 
 const scrollContainer = ref(null)
 const images = ref([])
@@ -281,9 +287,6 @@ async function loadImages(offset = 0) {
     totalImages.value = res.total || totalImages.value || 0
     currentOffset.value = images.value.length
     hasMore.value = currentOffset.value < totalImages.value
-
-    // 检查是否所有历史记录已同步
-    allHistorySynced.value = fileAPI.isImageRepoSyncFinished();
 
     // ensure observer is ready after DOM updated
     await nextTick()
@@ -646,6 +649,32 @@ onUnmounted(() => {
   display: block;
   pointer-events: auto;
   touch-action: pan-y;
+}
+
+/* 视频播放按钮样式 */
+.image-thumbnail .video-play-button {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+.image-thumbnail .video-play-button:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+.image-thumbnail .video-play-button svg {
+  width: 16px;
+  height: 16px;
+  margin-left: 2px; /* 让播放三角形稍微向右偏移，看起来更居中 */
 }
 
 .image-placeholder {

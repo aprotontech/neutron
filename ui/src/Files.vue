@@ -175,6 +175,12 @@
                 <img v-if="(isImage(file) || isVideo(file)) && file.thumbUrl" :src="file.thumbUrl" :alt="file.name" />
                 <div v-else-if="isVideo(file)" class="thumbnail-icon">🎬</div>
                 <div v-else class="thumbnail-icon">{{ getFileIcon(file) }}</div> 
+                <!-- 视频文件播放按钮 -->
+                <div v-if="isVideo(file)" class="video-play-button">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 5V19L19 12L8 5Z" fill="white" fill-opacity="0.8"/>
+                  </svg>
+                </div>
               </div>
               <div class="thumbnail-info">
                 <div class="thumbnail-name" :title="file.name">{{ file.name }}</div>
@@ -279,7 +285,7 @@ const selectedFile = ref(null)
 const loading = ref(false)
 const error = ref('')
 
-const fileAPI = new FileAPI()
+const fileAPI = FileAPI.getInstance()
 const isViewingMedia = ref(false)
 const previewableFiles = ref([])
 const currentPreviewIndex = ref(-1)
@@ -678,8 +684,7 @@ async function downloadCurrentFile() {
   try {
     showToastMessage('开始下载文件: ' + file.name, 'info')
     
-    // 调用FileAPI下载文件
-    const fileAPI = new FileAPI()
+    // 调用FileAPI下载文件（使用单例实例）
     const success = await fileAPI.downloadFile(filePath, file)
     
     if (success) {
@@ -1424,6 +1429,31 @@ html, body { height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, san
 .thumbnail-preview { width: 100%; height: 130px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); position: relative; overflow: hidden; }
 .thumbnail-preview img, .thumbnail-preview video { width: 100%; height: 100%; object-fit: cover; }
 .thumbnail-icon { font-size: 40px; color: #999; }
+/* 视频播放按钮样式 */
+.video-play-button {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+.video-play-button:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+.video-play-button svg {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px; /* 让播放三角形稍微向右偏移，看起来更居中 */
+}
 .thumbnail-info { padding: 10px; border-top: 1px solid #f0f0f0; }
 .thumbnail-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; margin-bottom: 5px; }
 .thumbnail-size { font-size: 11px; color: #999; }
