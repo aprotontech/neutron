@@ -33,18 +33,84 @@
       </div>
     </div>
     
+    <!-- 悬浮分组工具栏 -->
+    <div 
+      class="floating-group-toolbar" 
+      :class="[
+        {
+          visible: (!isViewingMedia && isNativePlatform && allHistorySynced) && (
+            groupType != 'all' || showGroupToolbar)
+        },
+        `group-type-${groupType}`
+      ]"
+      @mouseenter="handleToolbarMouseEnter"
+      @mouseleave="handleToolbarMouseLeave"
+    >
+      <div class="group-toolbar-content">
+        <button 
+          class="group-btn" 
+          :class="{ active: groupType === 'all' }"
+          @click="setGroupType('all')"
+        >
+          全部
+        </button>
+        <button 
+          class="group-btn" 
+          :class="{ active: groupType === 'year' }"
+          @click="setGroupType('year')"
+        >
+          年
+        </button>
+        <button 
+          class="group-btn" 
+          :class="{ active: groupType === 'month' }"
+          @click="setGroupType('month')"
+        >
+          月
+        </button>
+      </div>
+    </div>
+    
     <!-- 图库内容 -->
     <div class="gallery-content" ref="scrollContainer">
-      <!-- 图片网格 -->
-          <div class="image-grid">
-            <div 
-              v-for="(image, index) in images" 
-              :key="image.id" 
-              class="image-grid-item"
-              :ref="el => observeEl(el, index)"
-              @click="handleImageClick(image)"
-              v-show="matchesFilter(image)"
-            >
+      <!-- 分组显示 -->
+      <div v-if="groupType !== 'all' && groups.length > 0" class="group-grid">
+        <div 
+          v-for="group in groups" 
+          :key="group.time" 
+          class="group-grid-item"
+          @click="handleGroupClick(group)"
+        >
+          <div class="group-thumbnail">
+            <img 
+              v-if="group.imgUrl" 
+              :src="group.imgUrl" 
+              :alt="group.time"
+              loading="lazy"
+              decoding="async"
+            />
+            <div v-else class="group-placeholder">
+              <span class="group-icon">📅</span>
+            </div>
+            <div class="group-overlay">
+              <div class="group-time">{{ group.time }}</div>
+              <div class="group-count">{{ getGroupCount(group.time) }} 张</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 图片网格（全部显示） -->
+      <div v-else class="image-grid">
+        <div 
+          v-for="(image, index) in images" 
+          :key="image.id" 
+          class="image-grid-item"
+          :data-index="index"
+          :ref="el => observeEl(el, index)"
+          @click="handleImageClick(image)"
+          v-show="matchesFilter(image)"
+        >
           <div class="image-thumbnail">
             <img 
               v-if="image.thumbnailUrl" 
@@ -135,6 +201,21 @@ const filterType = ref('all') // 'all' | 'images' | 'videos'
 const sortOrder = ref('etime') // 'mtime' | 'etime' - 默认按最近添加排序
 const allHistorySynced = ref(false) // 是否所有历史记录已同步
 
+// 分组状态
+const groupType = ref('all') // 'all' | 'year' | 'month' - 默认显示全部
+const groups = ref([]) // 分组数据
+const loadingGroups = ref(false) // 是否正在加载分组数据
+const isNativePlatform = Capacitor.isNativePlatform() // 是否在原生平台
+
+// 滚动检测状态
+const showGroupToolbar = ref(false) // 是否显示分组工具栏
+const scrollThreshold = 100 // 滚动多少像素后显示工具栏
+let scrollTimeout = null // 隐藏工具栏的定时器
+const toolbarHideDelay = 2000 // 工具栏自动隐藏延迟（毫秒）
+
+// 保存全部图像列表的滚动位置
+const allImagesScrollTop = ref(0)
+
 function toggleMenu() { menuOpen.value = !menuOpen.value }
 function setFilter(val) {
   if (filterType.value === val) filterType.value = 'all'
@@ -198,11 +279,147 @@ function fetchNearbyForPreview(offset, count) {
 const itemHeight = 100 // 与样式中一致（调整为更紧凑的 iOS 风格）
 const columns = ref(1)
 
+// 设置分组类型
+async function setGroupType(type) {
+  if (groupType.value === type) return;
+  
+  // 保存当前的滚动位置
+  if (scrollContainer.value) {
+    if (groupType.value === 'all') {
+      // 如果当前是全部模式，保存滚动位置到变量
+      allImagesScrollTop.value = scrollContainer.value.scrollTop;
+    }
+  }
+  
+  groupType.value = type;
+  
+  if (type === 'all') {
+    // 切换到全部显示模式
+    if (images.value.length === 0) {
+      refreshGallery();
+    } else {
+      // 恢复保存的滚动位置
+      nextTick(() => {
+        if (scrollContainer.value) {
+          scrollContainer.value.scrollTop = allImagesScrollTop.value;
+        }
+      });
+    }
+  } else {
+    // 切换到分组显示模式，重置滚动条到顶部
+    await loadGroups(type);
+    nextTick(() => {
+      if (scrollContainer.value) {
+        scrollContainer.value.scrollTop = 0;
+      }
+    });
+  }
+}
+
+// 加载分组数据
+async function loadGroups(type) {
+  if (!isNativePlatform || !allHistorySynced.value) {
+    console.log('非原生平台或历史记录未同步完成，无法加载分组数据');
+    return;
+  }
+
+  loadingGroups.value = true;
+  try {
+    groups.value = await fileAPI.getImageGroup(type, sortOrder.value);
+    console.log(`加载了 ${groups.value.length} 个${type === 'year' ? '年' : '月'}分组`);
+  } catch (error) {
+    console.error('加载分组数据失败:', error);
+    groups.value = [];
+  } finally {
+    loadingGroups.value = false;
+  }
+}
+
+// 获取分组中的图片数量
+function getGroupCount(groupTime) {
+  // 根据分组类型和时间估算图片数量
+  // 这里可以根据实际数据计算，目前先返回一个估算值
+  
+  if (!groupTime) return '多';
+  
+  // 如果是按年分组（如 "2024"）
+  if (/^\d{4}$/.test(groupTime)) {
+    // 根据年份估算：越近的年份可能图片越多
+    const currentYear = new Date().getFullYear();
+    const year = parseInt(groupTime);
+    const yearDiff = currentYear - year;
+    
+    if (yearDiff === 0) return '今年';
+    if (yearDiff === 1) return '去年';
+    if (yearDiff <= 5) return '近期';
+    return '往年';
+  }
+  
+  // 如果是按月分组（如 "2024-01"）
+  if (/^\d{4}-\d{2}$/.test(groupTime)) {
+    const [year, month] = groupTime.split('-').map(Number);
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    
+    if (year === currentYear && month === currentMonth) return '本月';
+    if (year === currentYear && month === currentMonth - 1) return '上月';
+    if (year === currentYear) return '今年';
+    return '往年';
+  }
+  
+  return '多';
+}
+
+// 处理分组点击
+function handleGroupClick(group) {
+  console.log(`点击分组: ${group.time}, offset: ${group.offset}`);
+  
+  // 切换到全部显示模式
+  groupType.value = 'all';
+  
+  // 滚动到该分组的第一张图片位置
+  if (scrollContainer.value && group.offset !== undefined) {
+    // 计算目标位置
+    const targetIndex = Math.max(0, Math.min(group.offset, images.value.length - 1));
+    
+    // 确保图片已加载到目标位置附近
+    if (targetIndex >= images.value.length - pageSize) {
+      // 如果需要，加载更多图片
+      loadImages(images.value.length);
+    }
+    
+    // 滚动到目标位置 - 直接设置scrollTop，没有动画
+    nextTick(() => {
+      // 方法1：尝试通过data-index属性查找元素
+      const targetElement = document.querySelector(`.image-grid-item[data-index="${targetIndex}"]`);
+      if (targetElement) {
+        // 使用scrollIntoView但禁用动画
+        targetElement.scrollIntoView({ behavior: 'instant', block: 'start' });
+      } else {
+        // 方法2：如果找不到元素，使用估算的滚动位置
+        // 每个图片项大约100px高度，加上4px的间隙
+        const itemHeightWithGap = 104; // 100px高度 + 4px间隙
+        const targetScrollTop = targetIndex * itemHeightWithGap;
+        scrollContainer.value.scrollTop = targetScrollTop;
+      }
+    });
+  }
+}
+
 const spacerHeight = computed(() => {
   const remaining = Math.max(0, (totalImages.value || 0) - images.value.length)
   const cols = Math.max(1, columns.value)
   const rows = Math.ceil(remaining / cols)
   return rows * itemHeight
+})
+
+// 分组列表的spacer高度
+const groupSpacerHeight = computed(() => {
+  // 分组项高度（包括间距）
+  const groupItemHeight = 300 + 16; // group-thumbnail高度 + gap
+  // 计算分组列表的总高度
+  return groups.value.length * groupItemHeight;
 })
 
 function getFileType(filename) {
@@ -227,6 +444,71 @@ function initObserver() {
     rootMargin: '400px 0px',
     threshold: 0.01
   })
+}
+
+// 初始化滚动事件监听
+function initScrollListener() {
+  if (!scrollContainer.value) return
+  
+  // 添加滚动事件监听
+  scrollContainer.value.addEventListener('scroll', handleScroll)
+  
+  // 添加鼠标移动事件监听（用于重置隐藏定时器）
+  scrollContainer.value.addEventListener('mousemove', handleMouseMove)
+  scrollContainer.value.addEventListener('touchmove', handleMouseMove)
+}
+
+// 处理滚动事件
+function handleScroll() {
+  if (!scrollContainer.value) return
+  
+  const scrollTop = scrollContainer.value.scrollTop
+  
+  // 如果滚动距离超过阈值，显示工具栏
+  if (scrollTop > scrollThreshold) {
+    showGroupToolbar.value = true
+    resetToolbarHideTimer()
+  } else {
+    // 如果滚动到顶部，隐藏工具栏
+    showGroupToolbar.value = false
+    clearToolbarHideTimer()
+  }
+}
+
+// 处理鼠标/触摸移动事件
+function handleMouseMove() {
+  // 当用户与内容交互时，重置隐藏定时器
+  if (showGroupToolbar.value) {
+    resetToolbarHideTimer()
+  }
+}
+
+// 重置工具栏隐藏定时器
+function resetToolbarHideTimer() {
+  clearToolbarHideTimer()
+  scrollTimeout = setTimeout(() => {
+    showGroupToolbar.value = false
+  }, toolbarHideDelay)
+}
+
+// 清除工具栏隐藏定时器
+function clearToolbarHideTimer() {
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+}
+
+// 当工具栏可见时，鼠标移入停止隐藏
+function handleToolbarMouseEnter() {
+  clearToolbarHideTimer()
+}
+
+// 当工具栏可见时，鼠标移出重新开始隐藏计时
+function handleToolbarMouseLeave() {
+  if (showGroupToolbar.value) {
+    resetToolbarHideTimer()
+  }
 }
 
 function handleIntersection(entries) {
@@ -287,6 +569,17 @@ async function loadImages(offset = 0) {
     totalImages.value = res.total || totalImages.value || 0
     currentOffset.value = images.value.length
     hasMore.value = currentOffset.value < totalImages.value
+
+    // 检查历史记录是否已同步完成
+    if (isNativePlatform && !allHistorySynced.value) {
+      // 使用与FileAPI相同的逻辑判断同步状态
+      // 当有本地数据且知道远程总数时，就认为可以显示分组功能
+      // 不需要等到所有图片都加载完成
+      if (images.value.length > 0 && totalImages.value > 0) {
+        allHistorySynced.value = true;
+        console.log('有本地数据，可以显示分组功能');
+      }
+    }
 
     // ensure observer is ready after DOM updated
     await nextTick()
@@ -372,8 +665,24 @@ onMounted(() => {
   window.addEventListener('resize', updateColumns)
 
   // ensure template refs are populated before initializing observer
-  nextTick(() => {
+  nextTick(async () => {
+    // 如果是原生平台，先检查是否有本地数据
+    if (isNativePlatform) {
+      try {
+        // 尝试获取图片仓库信息，这会初始化ImageRepo并检查本地数据
+        const repoInfo = await fileAPI.getImageRepo(0, 1, sortOrder.value);
+        if (repoInfo && repoInfo.total > 0) {
+          // 如果有远程数据，就认为可以显示分组功能
+          allHistorySynced.value = true;
+          console.log('初始化时发现远程数据，可以显示分组功能');
+        }
+      } catch (error) {
+        console.log('初始化检查失败，将继续正常加载:', error);
+      }
+    }
+    
     initObserver()
+    initScrollListener() // 初始化滚动事件监听
     // if any elements were collected earlier, observe them now
     observedElements.forEach((el, idx) => {
       try {
@@ -388,6 +697,22 @@ onMounted(() => {
   // cleanup doc click listener on unmount
   onUnmounted(() => {
     document.removeEventListener('click', onDocClick)
+    window.removeEventListener('resize', updateColumns)
+    
+    // 清理滚动事件监听器
+    if (scrollContainer.value) {
+      scrollContainer.value.removeEventListener('scroll', handleScroll)
+      scrollContainer.value.removeEventListener('mousemove', handleMouseMove)
+      scrollContainer.value.removeEventListener('touchmove', handleMouseMove)
+    }
+    
+    // 清理定时器
+    clearToolbarHideTimer()
+    
+    // 清理IntersectionObserver
+    if (intersectionObserver.value) {
+      intersectionObserver.value.disconnect()
+    }
   })
 })
 
@@ -590,7 +915,7 @@ onUnmounted(() => {
   touch-action: pan-y; /* 允许垂直触摸滚动 */
   pointer-events: auto;
   overscroll-behavior: contain; /* 防止滚动链 */
-  scroll-behavior: smooth; /* 平滑滚动 */
+  /* scroll-behavior: smooth; 移除平滑滚动，根据用户要求直接显示 */
   /* 确保触摸事件不会被阻止 */
   -webkit-touch-callout: none; /* 禁用长按菜单 */
   /* 移除will-change和contain，它们在某些情况下可能降低性能 */
@@ -986,6 +1311,158 @@ onUnmounted(() => {
   animation: fadeInUp 0.3s ease;
 }
 
+/* 悬浮分组工具栏样式 */
+.floating-group-toolbar {
+  position: fixed;
+  bottom: 100px; /* 提高位置，避免与底部Tab导航太接近 */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100; /* 提高z-index，确保在底部Tab导航之上 */
+  background: rgba(255, 255, 255, 0.15); /* 改为更浅的半透明背景 */
+  backdrop-filter: blur(20px); /* 增加模糊效果 */
+  border-radius: 25px;
+  padding: 10px 16px; /* 增加内边距，使按钮更大 */
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  opacity: 0; /* 默认隐藏 */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none; /* 默认不可交互 */
+}
+
+/* 当工具栏可见时 */
+.floating-group-toolbar.visible {
+  opacity: 1;
+  pointer-events: auto; /* 允许交互 */
+  animation: fadeInUp 0.3s ease;
+}
+
+.group-toolbar-content {
+  display: flex;
+  gap: 8px;
+}
+
+.group-btn {
+  background: rgba(255, 255, 255, 0.2); /* 增加按钮背景透明度 */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.95); /* 默认白色文字 */
+  padding: 10px 20px; /* 增大按钮内边距 */
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 15px; /* 增大字体 */
+  font-weight: 500; /* 增加字体重量 */
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 60px; /* 设置最小宽度 */
+  text-align: center;
+}
+
+/* 当年月列表显示时，调整按钮样式 */
+.group-type-year .group-btn,
+.group-type-month .group-btn {
+  background: rgba(0, 0, 0, 0.08); /* 更深的背景 */
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.9); /* 黑色文字 */
+}
+
+.group-type-year .group-btn.active,
+.group-type-month .group-btn.active {
+  background: rgba(102, 126, 234, 0.9); /* 激活状态保持蓝色 */
+  border-color: rgba(102, 126, 234, 1);
+  color: white; /* 激活状态文字为白色 */
+}
+
+.group-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.group-btn.active {
+  background: rgba(102, 126, 234, 0.9); /* 提高激活状态透明度 */
+  border-color: rgba(102, 126, 234, 1);
+  color: white;
+  font-weight: 600; /* 增加字体重量 */
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3); /* 添加阴影效果 */
+}
+
+/* 分组网格样式 */
+.group-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); /* 渐变背景色 */
+  /* 移除min-height，让高度由内容决定 */
+  box-sizing: border-box;
+}
+
+.group-grid-item {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.group-grid-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.group-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 300px; /* 增加到1.5倍高度 */
+  overflow: hidden;
+  border-radius: 12px 12px 0 0; /* 只圆角顶部 */
+}
+
+.group-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.group-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.group-icon {
+  font-size: 48px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.group-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  color: white;
+  padding: 16px;
+  backdrop-filter: blur(5px);
+}
+
+.group-time {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.group-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
   /* 调整底部Tab高度为65px（移动端） */
@@ -1024,6 +1501,93 @@ onUnmounted(() => {
   
   .download-progress-info {
     font-size: 11px;
+  }
+  
+  /* 移动端悬浮工具栏适配 */
+  .floating-group-toolbar {
+    bottom: 90px; /* 相应提高移动端位置 */
+    padding: 8px 12px; /* 增加内边距 */
+  }
+  
+  .group-btn {
+    padding: 8px 16px; /* 增大按钮内边距 */
+    font-size: 14px; /* 增大字体 */
+    min-width: 55px; /* 调整最小宽度 */
+  }
+  
+  /* 移动端分组网格适配 */
+  .group-grid {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .group-grid-item {
+    border-radius: 10px;
+  }
+  
+  .group-thumbnail {
+    height: 240px;
+    border-radius: 10px 10px 0 0;
+  }
+  
+  .group-overlay {
+    padding: 12px;
+  }
+  
+  .group-time {
+    font-size: 15px;
+  }
+  
+  .group-count {
+    font-size: 12px;
+  }
+}
+
+/* 小屏幕设备适配 */
+@media (max-width: 480px) {
+  .floating-group-toolbar {
+    bottom: 80px; /* 相应提高小屏幕设备位置 */
+    padding: 6px 10px; /* 增加内边距 */
+  }
+  
+  .group-btn {
+    padding: 7px 14px; /* 增大按钮内边距 */
+    font-size: 13px; /* 增大字体 */
+    min-width: 50px; /* 调整最小宽度 */
+  }
+  
+  .group-grid {
+    padding: 8px;
+    gap: 10px;
+  }
+  
+  .group-grid-item {
+    border-radius: 8px;
+  }
+  
+  .group-thumbnail {
+    height: 210px;
+    border-radius: 8px 8px 0 0;
+  }
+  
+  .group-overlay {
+    padding: 10px;
+  }
+  
+  .group-time {
+    font-size: 14px;
+  }
+  
+  .group-count {
+    font-size: 11px;
+  }
+  
+  .group-overlay {
+    padding: 8px;
+  }
+  
+  .group-time {
+    font-size: 13px;
   }
 }
 </style>

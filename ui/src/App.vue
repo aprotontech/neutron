@@ -76,7 +76,7 @@ import { triggerAppResumed, triggerAppRefreshError } from './lib/app-events';
 const loginState = ref(UserAPI.isLogined())
 const isCapacitorNative = ref(false)
 const appState = ref('active')
-const activeTab = ref('browse') // 默认显示浏览Tab
+const activeTab = ref('gallery') // 默认显示图库Tab
 
 const isLoggedIn = computed(() => {
   return loginState.value

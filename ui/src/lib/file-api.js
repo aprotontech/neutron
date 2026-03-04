@@ -15,6 +15,7 @@ const BlobAvailable = typeof Blob !== 'undefined';
 export default class FileAPI {
 
     constructor() {
+        TransferClient.init('webrtc')
         // Check if running in Capacitor environment
         this.cacheManager = null
         this.localFileManager = null
@@ -43,6 +44,9 @@ export default class FileAPI {
         this._backgroundSyncPromise = null;
         this._backgroundSyncRetryCount = 0;
         this._maxBackgroundSyncRetries = 3;
+
+        // Sync status monitoring
+        this._syncStatusCallback = null;
     }
 
     /**
@@ -682,6 +686,129 @@ export default class FileAPI {
         }
     }
 
+    async getImageGroup(type = 'year', order = 'mtime') {
+        // 仅在native平台使用本地数据
+        if (!Capacitor.isNativePlatform()) {
+            console.warn('getImageGroup 仅在原生平台支持');
+            return [];
+        }
+
+        // 确保ImageRepo已初始化
+        if (this._imageRepoInitPromise) {
+            await this._imageRepoInitPromise;
+            this._imageRepoInitPromise = null;
+        }
+
+        // 检查History是否已同步完成
+        const isImageRepoSyncFinished = this.imageRepo.getLocalTotalCount() > 0 &&
+            this.imageRepo.getRemoteTotalCount() &&
+            this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
+
+        if (!isImageRepoSyncFinished) {
+            console.log('ImageRepo历史记录尚未同步完成，无法获取分组数据');
+            return [];
+        }
+
+        try {
+            // 调用ImageRepo的getImageGroup方法
+            const groups = await this.imageRepo.getImageGroup(type, order);
+
+            // 为每个分组获取缩略图URL
+            const groupsWithThumbnails = await Promise.all(
+                groups.map(async (group) => {
+                    try {
+                        const thumbnailUrl = await this.getFileThumbnailUrl(group.file_path, 200);
+                        return {
+                            ...group,
+                            imgUrl: thumbnailUrl || null
+                        };
+                    } catch (error) {
+                        console.warn(`无法获取分组 ${group.time} 的缩略图:`, error);
+                        return {
+                            ...group,
+                            imgUrl: null
+                        };
+                    }
+                })
+            );
+
+            return groupsWithThumbnails;
+        } catch (error) {
+            console.error('获取图片分组失败:', error);
+            return [];
+        }
+    }
+
+    async getImageSyncStatus(callback) {
+        // 只在native环境生效
+        if (!Capacitor.isNativePlatform()) {
+            return {
+                isNative: false,
+                isSyncing: false,
+                isSyncFinished: false,
+                localCount: 0,
+                remoteCount: 0,
+                progress: 0,
+                error: null
+            };
+        }
+
+        try {
+            // 确保ImageRepo已初始化
+            if (this._imageRepoInitPromise) {
+                await this._imageRepoInitPromise;
+                this._imageRepoInitPromise = null;
+            }
+
+            // 获取本地和远程计数
+            const localCount = this.imageRepo.getLocalTotalCount();
+            const remoteCount = this.imageRepo.getRemoteTotalCount();
+
+            // 计算同步进度
+            let progress = 0;
+            let isSyncFinished = false;
+
+            if (remoteCount > 0) {
+                progress = Math.min(100, Math.round((localCount / remoteCount) * 100));
+                isSyncFinished = localCount > 0 && remoteCount > 0 && localCount >= remoteCount;
+            }
+
+            // 检查是否正在同步
+            const isSyncing = this._backgroundSyncInProgress ||
+                (localCount > 0 && remoteCount > 0 && localCount < remoteCount);
+
+            const status = {
+                isNative: true,
+                isSyncing,
+                isSyncFinished,
+                localCount,
+                remoteCount,
+                progress,
+                error: null,
+            };
+
+            // 如果有回调函数，存储回调以便在同步过程中调用
+            if (callback && typeof callback === 'function') {
+                // 存储回调函数，供syncImageRepoHistory调用
+                this._syncStatusCallback = callback;
+            }
+
+            return status;
+
+        } catch (error) {
+            console.error('Error getting image sync status:', error);
+            return {
+                isNative: true,
+                isSyncing: false,
+                isSyncFinished: false,
+                localCount: 0,
+                remoteCount: 0,
+                progress: 0,
+                error: error.message
+            };
+        }
+    }
+
     /**
      * 通用的从TransferClient获取图片仓库数据的方法
      * @private
@@ -795,6 +922,8 @@ export default class FileAPI {
         try {
             console.log(`Starting image repository history sync... expectedCount=${expectedCount}`);
 
+            this._callbackCurrentSyncStatus();
+
             let version = "";
 
             const batchSize = 100; // 每次读取的数量
@@ -838,6 +967,8 @@ export default class FileAPI {
                     await this.imageRepo.updateHistory(response.total, items);
                     totalSynced += items.length;
 
+                    this._callbackCurrentSyncStatus();
+
                     // 如果返回的数量小于请求的数量，说明没有更多数据了
                     if (this.imageRepo.getLastID() >= response.maxId) {
                         hasMoreData = false;
@@ -865,6 +996,8 @@ export default class FileAPI {
             const stats = await this.imageRepo.getStatsByType();
             const timeRange = await this.imageRepo.getTimeRange();
 
+            this._callbackCurrentSyncStatus();
+
             return {
                 success: true,
                 totalSynced,
@@ -875,11 +1008,27 @@ export default class FileAPI {
 
         } catch (error) {
             console.error('Failed to sync image repository history:', error);
+
+            this._callbackCurrentSyncStatus(error.message);
             return {
                 success: false,
                 error: error.message,
                 totalSynced: 0
             };
+        }
+    }
+
+    _callbackCurrentSyncStatus(error_message = null) {
+        if (this._syncStatusCallback) {
+            try {
+                setTimeout(async () => {
+                    const curStatus = await this.getImageSyncStatus();
+                    curStatus.error = error_message;
+                    this._syncStatusCallback(curStatus);
+                }, 1);
+            } catch (error) {
+                console.warn('Error calling sync status callback', error);
+            }
         }
     }
 
@@ -929,6 +1078,5 @@ export default class FileAPI {
         if (this.imageRepo) {
             this.imageRepo.clear()
         }
-
     }
 }

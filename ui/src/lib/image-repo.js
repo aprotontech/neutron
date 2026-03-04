@@ -162,6 +162,61 @@ class ImageRepo {
         return sortedItems.slice(startIndex, endIndex);
     }
 
+    async getImageGroup(type = 'year', order = 'mtime') {
+        // 如果没有数据，返回空数组
+        if (this.historyMap.size === 0) {
+            return [];
+        }
+
+        // 获取排序函数
+        const sortFn = this.sortFunctions[order];
+        if (!sortFn) {
+            throw new Error(`不支持的排序方式: ${order}`);
+        }
+
+        // 从 Map 获取所有值并排序
+        const sortedItems = Array.from(this.historyMap.values()).sort(sortFn);
+
+        // 根据类型进行分组
+        const groups = new Map();
+
+        sortedItems.forEach((item, index) => {
+            // 使用拍摄时间（etime）进行分组，如果没有则使用修改时间（mtime）
+            const timestamp = item.etime || item.mtime;
+            if (!timestamp) return;
+
+            const date = new Date(timestamp * 1000);
+
+            let groupKey;
+            if (type === 'year') {
+                // 按年分组：YYYY
+                groupKey = date.getFullYear().toString();
+            } else if (type === 'month') {
+                // 按月分组：YYYY-MM
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                groupKey = `${year}-${month}`;
+            } else {
+                throw new Error(`不支持的group类型: ${type}。必须是 'year' 或 'month'`);
+            }
+
+            // 如果该分组还不存在，创建分组
+            if (!groups.has(groupKey)) {
+                groups.set(groupKey, {
+                    time: groupKey,
+                    file_path: item.file_path, // 使用该分组的第一张图片作为封面
+                    offset: index, // 记录该分组第一张图片在全局列表中的位置
+                    count: 1,
+                });
+            } else {
+                groups.get(groupKey).count += 1
+            }
+        });
+
+        // 将Map转换为数组并返回
+        return Array.from(groups.values());
+    }
+
     getLocalTotalCount() {
         return this.historyMap.size;
     }

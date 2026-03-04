@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">aprotontech</string>
-    <string name="title_activity_main">aprotontech</string>
+    <string name="app_name">年轮</string>
+    <string name="title_activity_main">年轮</string>
     <string name="package_name">tech.aproton.neutron</string>
     <string name="custom_url_scheme">tech.aproton.neutron</string>
 </resources>

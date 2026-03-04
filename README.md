@@ -43,6 +43,6 @@ adb logcat | grep -i Capacitor | grep 192.168
 ```
 
 ```shell
-DEBUG_WEBSITE_URL=http://192.168.1.108:5173 INSTALL=1 make android
+DEBUG_WEBSITE_URL=http://192.168.1.110:5173 INSTALL=1 make android
 DEBUG_WEBSITE_URL=https://www.huxiaolong.cn INSTALL=1 make android
 ```
