@@ -1,5 +1,35 @@
 <template>
   <div class="image-gallery" :class="{ 'android-native-app': isAndroidApp }">
+    <!-- 同步状态对话框 -->
+    <div v-if="showSyncDialog" class="sync-dialog-overlay" @click.self="closeSyncDialog">
+      <div class="sync-dialog">
+        <div class="sync-dialog-header">
+          <h3>数据同步中</h3>
+        </div>
+        <div class="sync-dialog-content">
+          <div class="sync-progress">
+            <div class="sync-progress-text">
+              {{ syncProgressText }}
+            </div>
+            <div class="sync-progress-bar">
+              <div class="sync-progress-fill" :style="{ width: syncProgress + '%' }"></div>
+            </div>
+          </div>
+          <div class="sync-info">
+            同步完成后可以获取更好的体验，是否等待？
+          </div>
+        </div>
+        <div class="sync-dialog-actions">
+          <button class="sync-btn sync-btn-cancel" @click="handleCancelSync">
+            取消
+          </button>
+          <button class="sync-btn sync-btn-wait" @click="handleWaitForSync">
+            等待同步完成
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- 顶部工具栏（移动设备显示） -->
     <div class="gallery-tools mobile-only" v-if="!isViewingMedia" @click.stop>
       <div class="dropdown">
@@ -94,7 +124,7 @@
             </div>
             <div class="group-overlay">
               <div class="group-time">{{ group.time }}</div>
-              <div class="group-count">{{ getGroupCount(group.time) }} 张</div>
+              <div class="group-count">{{ getGroupCount(group.time) }} {{ group.count }} 张</div>
             </div>
           </div>
         </div>
@@ -215,6 +245,13 @@ const toolbarHideDelay = 2000 // 工具栏自动隐藏延迟（毫秒）
 
 // 保存全部图像列表的滚动位置
 const allImagesScrollTop = ref(0)
+
+// 同步状态对话框
+const showSyncDialog = ref(false) // 是否显示同步对话框
+const syncProgress = ref(0) // 同步进度百分比
+const syncProgressText = ref('正在检查同步状态...') // 同步进度文本
+const userChoiceMade = ref(false) // 用户是否已做出选择
+const waitingForSync = ref(false) // 用户是否选择等待同步完成
 
 function toggleMenu() { menuOpen.value = !menuOpen.value }
 function setFilter(val) {
@@ -546,6 +583,7 @@ async function loadImages(offset = 0) {
   if (loading.value) return
   loading.value = true
   try {
+
     const res = await fileAPI.getImageRepo(offset, pageSize, sortOrder.value)
     if (!res) return
 
@@ -649,6 +687,133 @@ function refreshGallery() {
   loadImages(0)
 }
 
+// 同步相关方法
+async function checkSyncStatus() {
+  if (!isNativePlatform || userChoiceMade.value) {
+    return;
+  }
+  
+  try {
+    // 使用新的getImageSyncStatus函数获取同步状态
+    const syncStatus = await fileAPI.getImageSyncStatus(handleSyncStatusChange);
+    
+    if (syncStatus.isNative) {
+      // 更新同步进度显示
+      syncProgress.value = syncStatus.progress;
+      
+      if (syncStatus.error) {
+        syncProgressText.value = `同步错误: ${syncStatus.error}`;
+      } else if (syncStatus.isSyncFinished) {
+        syncProgressText.value = '同步完成！';
+        allHistorySynced.value = true;
+        
+        // 如果用户选择等待同步完成，自动关闭对话框
+        if (waitingForSync.value) {
+          setTimeout(() => {
+            closeSyncDialog();
+          }, 1000);
+        }
+      } else if (syncStatus.remoteCount > 0) {
+        syncProgressText.value = `已同步 ${syncStatus.localCount}/${syncStatus.remoteCount} 张图片信息 (${syncStatus.progress}%)`;
+      } else if (syncStatus.localCount > 0) {
+        syncProgressText.value = `正在同步中... (${syncStatus.localCount} 张已同步)`;
+      } else {
+        syncProgressText.value = '正在检查同步状态...';
+      }
+      
+      // 如果同步未完成且用户还没有做出选择，显示对话框
+      if (!syncStatus.isSyncFinished && !userChoiceMade.value && !showSyncDialog.value) {
+        showSyncDialog.value = true;
+      }
+    } else {
+      // 非Native环境，不需要同步对话框
+      syncProgressText.value = 'Web模式，无需同步';
+      allHistorySynced.value = true;
+    }
+  } catch (error) {
+    console.error('检查同步状态失败:', error);
+    syncProgressText.value = '检查同步状态失败';
+  }
+}
+
+// 同步状态变更回调函数
+function handleSyncStatusChange(newStatus) {
+  console.log('同步状态变更:', newStatus);
+  
+  // 更新本地状态
+  if (newStatus.isNative) {
+    syncProgress.value = newStatus.progress;
+    
+    if (newStatus.isSyncFinished) {
+      syncProgressText.value = '同步完成！';
+      allHistorySynced.value = true;
+      
+      // 如果用户选择等待同步完成，自动关闭对话框
+      if (waitingForSync.value) {
+        setTimeout(() => {
+          closeSyncDialog();
+        }, 1000);
+      }
+    } else if (newStatus.remoteCount > 0) {
+      syncProgressText.value = `已同步 ${newStatus.localCount}/${newStatus.remoteCount} 张图片信息 (${newStatus.progress}%)`;
+      
+      // 如果同步未完成且用户还没有做出选择，显示对话框
+      if (!newStatus.isSyncFinished && !userChoiceMade.value && !showSyncDialog.value) {
+        showSyncDialog.value = true;
+      }
+    } else if (newStatus.localCount > 0) {
+      syncProgressText.value = `正在同步中... (${newStatus.localCount} 张已同步)`;
+      
+      // 如果同步未完成且用户还没有做出选择，显示对话框
+      if (!newStatus.isSyncFinished && !userChoiceMade.value && !showSyncDialog.value) {
+        showSyncDialog.value = true;
+      }
+    }
+  }
+}
+
+// 关闭同步对话框
+function closeSyncDialog() {
+  showSyncDialog.value = false;
+  userChoiceMade.value = true;
+  waitingForSync.value = false;
+}
+
+// 处理取消同步
+function handleCancelSync() {
+  closeSyncDialog();
+  // 用户可以继续使用应用，只是没有分组功能
+  console.log('用户选择取消等待同步');
+}
+
+// 处理等待同步完成
+function handleWaitForSync() {
+  waitingForSync.value = true;
+  syncProgressText.value = '等待同步完成...';
+  console.log('用户选择等待同步完成');
+
+  setTimeout(async() => {
+    const syncStatus = await fileAPI.getImageSyncStatus();
+    handleSyncStatusChange(syncStatus)
+  }, 10)
+}
+
+// 开始同步状态检查
+async function startSyncCheck() {
+  if (!isNativePlatform || userChoiceMade.value) {
+    return;
+  }
+  
+  // 延迟检查，让页面先加载
+  setTimeout(async () => {
+    try {
+      await checkSyncStatus();
+    } catch (error) {
+      console.error('启动同步检查失败:', error);
+    }
+  }, 200);
+}
+
 onMounted(() => {
   // close menu when clicking outside
   const onDocClick = () => { menuOpen.value = false }
@@ -664,23 +829,13 @@ onMounted(() => {
   updateColumns()
   window.addEventListener('resize', updateColumns)
 
+  // 如果是原生平台，启动同步状态检查
+  if (isNativePlatform) {
+    startSyncCheck();
+  }
+
   // ensure template refs are populated before initializing observer
   nextTick(async () => {
-    // 如果是原生平台，先检查是否有本地数据
-    if (isNativePlatform) {
-      try {
-        // 尝试获取图片仓库信息，这会初始化ImageRepo并检查本地数据
-        const repoInfo = await fileAPI.getImageRepo(0, 1, sortOrder.value);
-        if (repoInfo && repoInfo.total > 0) {
-          // 如果有远程数据，就认为可以显示分组功能
-          allHistorySynced.value = true;
-          console.log('初始化时发现远程数据，可以显示分组功能');
-        }
-      } catch (error) {
-        console.log('初始化检查失败，将继续正常加载:', error);
-      }
-    }
-    
     initObserver()
     initScrollListener() // 初始化滚动事件监听
     // if any elements were collected earlier, observe them now
@@ -1588,6 +1743,200 @@ onUnmounted(() => {
   
   .group-time {
     font-size: 13px;
+  }
+}
+
+/* 同步对话框样式 */
+.sync-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.sync-dialog {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: dialog-appear 0.3s ease-out;
+}
+
+@keyframes dialog-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.sync-dialog-header {
+  padding: 24px 24px 16px;
+  text-align: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.sync-dialog-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.sync-dialog-content {
+  padding: 24px;
+}
+
+.sync-progress {
+  margin-bottom: 20px;
+}
+
+.sync-progress-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.sync-progress-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sync-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.sync-info {
+  font-size: 15px;
+  color: #333;
+  text-align: center;
+  line-height: 1.5;
+  padding: 12px 0;
+}
+
+.sync-dialog-actions {
+  display: flex;
+  padding: 16px 24px 24px;
+  gap: 12px;
+}
+
+.sync-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.sync-btn-cancel {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.sync-btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.sync-btn-wait {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.sync-btn-wait:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.sync-btn-wait:active {
+  transform: translateY(0);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .sync-dialog {
+    width: 85%;
+    max-width: 320px;
+  }
+  
+  .sync-dialog-header {
+    padding: 20px 20px 12px;
+  }
+  
+  .sync-dialog-header h3 {
+    font-size: 18px;
+  }
+  
+  .sync-dialog-content {
+    padding: 20px;
+  }
+  
+  .sync-info {
+    font-size: 14px;
+  }
+  
+  .sync-dialog-actions {
+    padding: 12px 20px 20px;
+  }
+  
+  .sync-btn {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sync-dialog {
+    width: 90%;
+    max-width: 280px;
+  }
+  
+  .sync-dialog-header {
+    padding: 16px 16px 10px;
+  }
+  
+  .sync-dialog-header h3 {
+    font-size: 16px;
+  }
+  
+  .sync-dialog-content {
+    padding: 16px;
+  }
+  
+  .sync-info {
+    font-size: 13px;
+  }
+  
+  .sync-dialog-actions {
+    padding: 10px 16px 16px;
+    flex-direction: column;
+  }
+  
+  .sync-btn {
+    padding: 10px 14px;
+    font-size: 14px;
   }
 }
 </style>
