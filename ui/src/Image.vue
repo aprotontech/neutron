@@ -204,6 +204,7 @@
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
+import BatchFileApi from './lib/batch.js'
 import { FileTypeDetector, FileSizeFormatter } from './lib/helpers.js'
 import Preview from './Preview.vue'
 
@@ -362,8 +363,60 @@ async function loadGroups(type) {
 
   loadingGroups.value = true;
   try {
+    // 获取分组数据
     groups.value = await fileAPI.getImageGroup(type, sortOrder.value);
     console.log(`加载了 ${groups.value.length} 个${type === 'year' ? '年' : '月'}分组`);
+
+    // 如果分组数据为空，直接返回
+    if (groups.value.length === 0) {
+      return;
+    }
+
+    // 使用BatchFileApi批量获取分组封面的图片URL（使用异步模式）
+    const batchFileApi = new BatchFileApi(fileAPI);
+    
+    // 准备批量获取的图片路径列表
+    const filePathList = groups.value.map(group => ({
+      filePath: group.file_path,
+      locals: ['raw', '800', '400', '200'], // 优先获取400px的缩略图，如果没有则获取200px
+      remote: '800' // 远程获取800px的缩略图
+    }));
+
+    // 批量获取图片URL（使用异步模式）
+    const batchResults = await batchFileApi.getFilesUrl(filePathList, true);
+    
+    // 将获取到的图片URL设置到分组数据中
+    groups.value.forEach((group, index) => {
+      const result = batchResults[index];
+      if (result && result.url) {
+        // 如果有缓存的URL，直接使用
+        group.imgUrl = result.url;
+        console.log(`分组 ${group.time} 封面图片URL从缓存获取成功: ${result.url.substring(0, 50)}...`);
+      } else if (result && result.fetchPromise) {
+        // 如果需要异步获取，设置占位符并开始异步获取
+        group.imgUrl = ''; // 先设置为空，显示占位符
+        group.fetchPromise = result.fetchPromise;
+        
+        // 异步获取图片URL
+        result.fetchPromise.then(remoteResult => {
+          if (remoteResult && remoteResult.url) {
+            group.imgUrl = remoteResult.url;
+            console.log(`分组 ${group.time} 封面图片URL异步获取成功: ${remoteResult.url.substring(0, 50)}...`);
+          } else {
+            console.warn(`分组 ${group.time} 封面图片URL异步获取失败:`, remoteResult?.error || '未知错误');
+          }
+        }).catch(error => {
+          console.error(`分组 ${group.time} 封面图片URL异步获取异常:`, error);
+        });
+        
+        console.log(`分组 ${group.time} 封面图片URL开始异步获取`);
+      } else {
+        console.warn(`分组 ${group.time} 封面图片URL获取失败:`, result?.error || '未知错误');
+        group.imgUrl = ''; // 保持为空，显示占位符
+      }
+    });
+
+    console.log(`批量获取了 ${groups.value.filter(g => g.imgUrl).length}/${groups.value.length} 个分组封面图片URL，${groups.value.filter(g => g.fetchPromise).length} 个正在异步获取`);
   } catch (error) {
     console.error('加载分组数据失败:', error);
     groups.value = [];
@@ -707,12 +760,10 @@ async function checkSyncStatus() {
         syncProgressText.value = '同步完成！';
         allHistorySynced.value = true;
         
-        // 如果用户选择等待同步完成，自动关闭对话框
-        if (waitingForSync.value) {
-          setTimeout(() => {
-            closeSyncDialog();
-          }, 1000);
-        }
+        // 同步完成后自动关闭对话框
+        setTimeout(() => {
+          closeSyncDialog();
+        }, 1000);
       } else if (syncStatus.remoteCount > 0) {
         syncProgressText.value = `已同步 ${syncStatus.localCount}/${syncStatus.remoteCount} 张图片信息 (${syncStatus.progress}%)`;
       } else if (syncStatus.localCount > 0) {
@@ -748,12 +799,10 @@ function handleSyncStatusChange(newStatus) {
       syncProgressText.value = '同步完成！';
       allHistorySynced.value = true;
       
-      // 如果用户选择等待同步完成，自动关闭对话框
-      if (waitingForSync.value) {
-        setTimeout(() => {
-          closeSyncDialog();
-        }, 1000);
-      }
+      // 同步完成后自动关闭对话框
+      setTimeout(() => {
+        closeSyncDialog();
+      }, 1000);
     } else if (newStatus.remoteCount > 0) {
       syncProgressText.value = `已同步 ${newStatus.localCount}/${newStatus.remoteCount} 张图片信息 (${newStatus.progress}%)`;
       

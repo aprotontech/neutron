@@ -254,38 +254,67 @@ func getThumbnail(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, erro
 		return nil, err
 	}
 
-	go func() {
-		// If not cached, generate thumbnail
+	idStr := hex.EncodeToString(id)
+
+	// 检查是否需要使用独立的 data channel 传输大缩略图
+	useSeparateChannel := size > 200
+	var dataChannelLabel string
+	var thumbnailSize int64
+
+	if useSeparateChannel {
+		dataChannelLabel = "thumbnail-" + idStr
+
 		if _, err := os.Stat(cachePath); err != nil {
 			if err := media.Thumbnail(srcPath, cachePath, int(size)); err != nil {
-				log.Warnf("generate thumbnail failed: %v", err)
+				log.Warnf("generate large thumbnail failed: %v", err)
+				return nil, fmt.Errorf("generate thumbnail failed: %v", err)
+			}
+		}
+
+		if fileInfo, err := os.Stat(cachePath); err == nil {
+			thumbnailSize = fileInfo.Size()
+		}
+
+		client.dcFileMap[dataChannelLabel] = NewWebRTCFileSender(cachePath, 0, 0)
+
+		log.Infof("Large thumbnail %s will be sent via separate data channel %s, size=%d",
+			filePath, dataChannelLabel, thumbnailSize)
+	} else {
+		go func() {
+			// If not cached, generate thumbnail
+			if _, err := os.Stat(cachePath); err != nil {
+				if err := media.Thumbnail(srcPath, cachePath, int(size)); err != nil {
+					log.Warnf("generate thumbnail failed: %v", err)
+					return
+				}
+			}
+
+			data, err := os.ReadFile(cachePath)
+			if err != nil {
+				log.Warnf("not found thumbnail cache path %s", cachePath)
 				return
 			}
-		}
 
-		data, err := os.ReadFile(cachePath)
-		if err != nil {
-			log.Warnf("not found thumbnail cache path %s", cachePath)
-			return
-		}
+			// Packet: first 16 bytes = raw id, remainder = thumbnail bytes
+			packet := append(id, data...)
 
-		// Packet: first 16 bytes = raw id, remainder = thumbnail bytes
-		packet := append(id, data...)
-
-		if client.thumbnailDC == nil {
-			log.Warnf("thumbnail data channel not available, id=%s", hex.EncodeToString(id))
-		} else {
-			if err := client.thumbnailDC.Send(packet); err != nil {
-				log.Warnf("failed to send thumbnail on datachannel: %v", err)
+			if client.thumbnailDC == nil {
+				log.Warnf("thumbnail data channel not available, id=%s", idStr)
 			} else {
-				log.Infof("sent thumbnail %s on data channel, size=%d", cachePath, len(packet))
+				if err := client.thumbnailDC.Send(packet); err != nil {
+					log.Warnf("failed to send thumbnail on datachannel: %v", err)
+				} else {
+					log.Infof("sent thumbnail %s on data channel, size=%d", cachePath, len(packet))
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return &neutronproto.RemoteMessage_GetThumbnailResponse{
 		GetThumbnailResponse: &neutronproto.GetThumbnailResponse{
-			Id: hex.EncodeToString(id),
+			Id:          idStr,
+			DataChannel: dataChannelLabel,
+			Size:        int32(thumbnailSize),
 		},
 	}, nil
 }

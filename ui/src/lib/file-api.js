@@ -415,7 +415,6 @@ export default class FileAPI {
         return TransferClient.get().listFiles(path);
     }
 
-
     /**
      * Get file thumbnail with caching
      * @param {string} filePath - Full file path
@@ -712,27 +711,11 @@ export default class FileAPI {
         try {
             // 调用ImageRepo的getImageGroup方法
             const groups = await this.imageRepo.getImageGroup(type, order);
+            groups.map((group) => {
+                group.imgUrl = ''
+            })
 
-            // 为每个分组获取缩略图URL
-            const groupsWithThumbnails = await Promise.all(
-                groups.map(async (group) => {
-                    try {
-                        const thumbnailUrl = await this.getFileThumbnailUrl(group.file_path, 200);
-                        return {
-                            ...group,
-                            imgUrl: thumbnailUrl || null
-                        };
-                    } catch (error) {
-                        console.warn(`无法获取分组 ${group.time} 的缩略图:`, error);
-                        return {
-                            ...group,
-                            imgUrl: null
-                        };
-                    }
-                })
-            );
-
-            return groupsWithThumbnails;
+            return groups;
         } catch (error) {
             console.error('获取图片分组失败:', error);
             return [];

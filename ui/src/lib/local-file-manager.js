@@ -87,7 +87,7 @@ export default class LocalFileManager {
             }
 
             console.log(`[LocalFileManager] Write operation completed for: ${filePath}`);
-            
+
             // 下载完成后调用进度回调（100%）
             if (progressTracker.progressCallback) {
                 try {
@@ -106,7 +106,7 @@ export default class LocalFileManager {
                     console.warn('[LocalFileManager] Final progress callback error:', callbackError);
                 }
             }
-            
+
             return progressTracker;
         } catch (error) {
             console.error('[LocalFileManager] Write operation failed:', error);
@@ -428,7 +428,7 @@ export default class LocalFileManager {
                     progressTracker.progress = progress;
                     progressTracker.completed = totalSize === fileInfo.size;
                     progressTracker.localUrl = cacheFilePath;
-                    
+
                     // 调用进度回调函数
                     if (progressTracker.progressCallback) {
                         try {
@@ -764,6 +764,108 @@ export default class LocalFileManager {
         } catch (error) {
             console.error('Failed to get local file:', error);
             return null;
+        }
+    }
+
+    /**
+     * Batch get local files
+     * @param {Array<string>} filePaths - Array of remote file paths
+     * @param {number} partition - Partition number (default: 0)
+     * @param {number} total_parition - Total partitions (default: 1)
+     * @returns {Promise<Map<string, Object>>} - Map of filePath -> local file info
+     */
+    async batchGetLocalFiles(filePaths) {
+        try {
+            if (!filePaths || filePaths.length === 0) {
+                return new Map();
+            }
+
+            // Query database with IN clause
+            const db = await this._ensureDatabase();
+            const placeholders = filePaths.map(() => '?').join(',');
+            const query = `SELECT * FROM ${this.tableName} 
+                 WHERE file_path IN (${placeholders}) AND is_valid = 1 AND parition = 0 AND total_parition = 1
+                 ORDER BY downloaded_at DESC`;
+
+            const result = await db.query(query, filePaths);
+
+            const resultMap = new Map();
+            const validRecordIds = []; // 存储有效的记录ID用于批量更新
+            const invalidRecordIds = []; // 存储无效的记录ID用于批量更新
+
+            if (result.values && result.values.length > 0) {
+                // Group by file_path to get the latest record for each file
+                const groupedByPath = new Map();
+                for (const record of result.values) {
+                    if (!groupedByPath.has(record.file_path)) {
+                        groupedByPath.set(record.file_path, record);
+                    }
+                }
+
+                // Create array of entries and check file existence in parallel
+                const entries = Array.from(groupedByPath.entries());
+
+                // Wait for all file existence checks to complete, returning objects with all needed data
+                const fileCheckResults = await Promise.all(entries.map(async ([filePath, record]) => {
+                    const fileUri = await this._checkFileExists(record.local_directory, record.local_path);
+                    return { filePath, record, fileUri };
+                }));
+
+                // Process results directly from fileCheckResults
+                fileCheckResults.forEach(({ filePath, record, fileUri }) => {
+                    if (fileUri) {
+                        console.log(`[LocalFileManager] Batch: File exists in filesystem: ${record.local_path}`);
+
+                        // 收集有效的记录ID用于批量更新
+                        validRecordIds.push(record.id);
+
+                        resultMap.set(filePath, {
+                            localUrl: Capacitor.convertFileSrc(fileUri),
+                            localCache: {
+                                path: record.local_path,
+                                directory: record.local_directory,
+                            },
+                            fileInfo: {
+                                name: record.file_name,
+                                size: record.file_size,
+                                mimeType: record.mime_type,
+                                downloadedAt: record.downloaded_at,
+                                lastAccessed: Date.now() // 使用新的时间
+                            }
+                        });
+                    } else {
+                        // 收集无效的记录ID用于批量更新
+                        invalidRecordIds.push(record.id);
+                    }
+                });
+
+                // 批量更新有效的记录
+                if (validRecordIds.length > 0) {
+                    const now = Date.now();
+                    const validPlaceholders = validRecordIds.map(() => '?').join(',');
+                    await db.run(
+                        `UPDATE ${this.tableName} SET last_accessed = ? WHERE id IN (${validPlaceholders})`,
+                        [now, ...validRecordIds]
+                    );
+                    console.log(`[LocalFileManager] Batch updated last_accessed for ${validRecordIds.length} records`);
+                }
+
+                // 批量标记无效的记录
+                if (invalidRecordIds.length > 0) {
+                    const invalidPlaceholders = invalidRecordIds.map(() => '?').join(',');
+                    await db.run(
+                        `UPDATE ${this.tableName} SET is_valid = 0 WHERE id IN (${invalidPlaceholders})`,
+                        invalidRecordIds
+                    );
+                    console.log(`[LocalFileManager] Batch marked ${invalidRecordIds.length} records as invalid`);
+                }
+            }
+
+            console.log(`[LocalFileManager] Batch query completed: ${resultMap.size} files found out of ${filePaths.length}`);
+            return resultMap;
+        } catch (error) {
+            console.error('Failed to batch get local files:', error);
+            return new Map();
         }
     }
 

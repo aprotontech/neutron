@@ -841,7 +841,9 @@ func (x *GetThumbnailRequest) GetSize() int32 {
 // Get thumbnail response
 type GetThumbnailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // thumbnail ID for data channel
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                      // thumbnail ID for data channel
+	DataChannel   string                 `protobuf:"bytes,2,opt,name=data_channel,json=dataChannel,proto3" json:"data_channel,omitempty"` // data channel
+	Size          int32                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`                                 // thumbnail data size
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -881,6 +883,20 @@ func (x *GetThumbnailResponse) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *GetThumbnailResponse) GetDataChannel() string {
+	if x != nil {
+		return x.DataChannel
+	}
+	return ""
+}
+
+func (x *GetThumbnailResponse) GetSize() int32 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
 }
 
 // Play video request
@@ -1032,9 +1048,11 @@ const file_fileapi_proto_rawDesc = "" +
 	"\aversion\x18\x01 \x01(\tR\aversion\"=\n" +
 	"\x13GetThumbnailRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x05R\x04size\"&\n" +
+	"\x04size\x18\x02 \x01(\x05R\x04size\"]\n" +
 	"\x14GetThumbnailResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"&\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
+	"\fdata_channel\x18\x02 \x01(\tR\vdataChannel\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x05R\x04size\"&\n" +
 	"\x10PlayVideoRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\"\xb3\x01\n" +
 	"\x11PlayVideoResponse\x12H\n" +

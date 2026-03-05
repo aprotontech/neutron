@@ -3729,6 +3729,8 @@ export const neutron = $root.neutron = (() => {
          * @memberof neutron
          * @interface IGetThumbnailResponse
          * @property {string|null} [id] GetThumbnailResponse id
+         * @property {string|null} [dataChannel] GetThumbnailResponse dataChannel
+         * @property {number|null} [size] GetThumbnailResponse size
          */
 
         /**
@@ -3753,6 +3755,22 @@ export const neutron = $root.neutron = (() => {
          * @instance
          */
         GetThumbnailResponse.prototype.id = "";
+
+        /**
+         * GetThumbnailResponse dataChannel.
+         * @member {string} dataChannel
+         * @memberof neutron.GetThumbnailResponse
+         * @instance
+         */
+        GetThumbnailResponse.prototype.dataChannel = "";
+
+        /**
+         * GetThumbnailResponse size.
+         * @member {number} size
+         * @memberof neutron.GetThumbnailResponse
+         * @instance
+         */
+        GetThumbnailResponse.prototype.size = 0;
 
         /**
          * Creates a new GetThumbnailResponse instance using the specified properties.
@@ -3780,6 +3798,10 @@ export const neutron = $root.neutron = (() => {
                 writer = $Writer.create();
             if (message.id != null && Object.hasOwnProperty.call(message, "id"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+            if (message.dataChannel != null && Object.hasOwnProperty.call(message, "dataChannel"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.dataChannel);
+            if (message.size != null && Object.hasOwnProperty.call(message, "size"))
+                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.size);
             return writer;
         };
 
@@ -3820,6 +3842,14 @@ export const neutron = $root.neutron = (() => {
                         message.id = reader.string();
                         break;
                     }
+                case 2: {
+                        message.dataChannel = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.size = reader.int32();
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -3858,6 +3888,12 @@ export const neutron = $root.neutron = (() => {
             if (message.id != null && message.hasOwnProperty("id"))
                 if (!$util.isString(message.id))
                     return "id: string expected";
+            if (message.dataChannel != null && message.hasOwnProperty("dataChannel"))
+                if (!$util.isString(message.dataChannel))
+                    return "dataChannel: string expected";
+            if (message.size != null && message.hasOwnProperty("size"))
+                if (!$util.isInteger(message.size))
+                    return "size: integer expected";
             return null;
         };
 
@@ -3875,6 +3911,10 @@ export const neutron = $root.neutron = (() => {
             let message = new $root.neutron.GetThumbnailResponse();
             if (object.id != null)
                 message.id = String(object.id);
+            if (object.dataChannel != null)
+                message.dataChannel = String(object.dataChannel);
+            if (object.size != null)
+                message.size = object.size | 0;
             return message;
         };
 
@@ -3891,10 +3931,17 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults)
+            if (options.defaults) {
                 object.id = "";
+                object.dataChannel = "";
+                object.size = 0;
+            }
             if (message.id != null && message.hasOwnProperty("id"))
                 object.id = message.id;
+            if (message.dataChannel != null && message.hasOwnProperty("dataChannel"))
+                object.dataChannel = message.dataChannel;
+            if (message.size != null && message.hasOwnProperty("size"))
+                object.size = message.size;
             return object;
         };
 

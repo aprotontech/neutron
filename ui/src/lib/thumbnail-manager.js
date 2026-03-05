@@ -114,6 +114,39 @@ export default class CacheManager {
     }
 
     /**
+     * Batch get cache records from database
+     * @private
+     */
+    async _batchGetCacheRecords(cacheKeys) {
+        try {
+            const db = await this._getDatabase();
+            if (!db || !cacheKeys || cacheKeys.length === 0) {
+                return new Map();
+            }
+
+            // 构建 IN 查询，但需要注意 SQLite 的 IN 子句参数限制
+            // 为了安全，我们使用多个 OR 条件
+            const placeholders = cacheKeys.map(() => '?').join(',');
+            const query = `SELECT * FROM cache_files WHERE cachekey IN (${placeholders})`;
+
+            const result = await db.query(query, cacheKeys);
+
+            // 将结果转换为 Map，键为 cachekey
+            const resultMap = new Map();
+            if (result.values && result.values.length > 0) {
+                for (const record of result.values) {
+                    resultMap.set(record.cachekey, record);
+                }
+            }
+
+            return resultMap;
+        } catch (error) {
+            console.error('CacheManager: Error batch getting cache records:', error);
+            return new Map();
+        }
+    }
+
+    /**
      * Remove cache record from database
      * @private
      */

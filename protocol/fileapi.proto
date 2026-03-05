@@ -98,6 +98,9 @@ message GetThumbnailRequest {
 // Get thumbnail response
 message GetThumbnailResponse {
     string id = 1; // thumbnail ID for data channel
+    string data_channel = 2; // data channel
+
+    int32 size = 3; // thumbnail data size
 }
 
 // Play video request

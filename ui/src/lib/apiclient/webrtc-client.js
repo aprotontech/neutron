@@ -317,9 +317,23 @@ export default class WebRTCClient extends BaseClient {
             const thumbId = (resp && resp.id) ? resp.id : resp;
             if (!thumbId) return null;
 
-            // Wait for binary thumbnail data on the thumbnail datachannel
-            const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
-            return blob;
+            // 检查是否有独立的 data channel 用于大缩略图
+            const dcLabel = resp.dataChannel;
+            const thumbnailSize = resp.size || 0;
+
+            if (dcLabel && dcLabel !== 'thumbnail') {
+                // 使用独立的 data channel 接收大缩略图
+                console.log(`Using separate data channel ${dcLabel} for large thumbnail, size=${thumbnailSize}`);
+
+                const filedc = new WebRTCDataChannelFileContent(this.pc);
+                const blob = await filedc.receiveFileContent(dcLabel, thumbnailSize, 10000, 10000, 'image/jpeg');
+                return blob;
+            } else {
+                // 小缩略图使用默认的 thumbnail data channel
+                // Wait for binary thumbnail data on the thumbnail datachannel
+                const blob = await this.thumbnail.receiveThumbnail(thumbId, 30000);
+                return blob;
+            }
         } catch (err) {
             console.error('getFileThumbnail error:', err);
             throw err;
