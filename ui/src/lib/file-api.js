@@ -258,7 +258,13 @@ export default class FileAPI {
                 });
             } catch (e) {
                 console.warn('Overall progress callback error:', e);
+                // 如果回调抛出DOWNLOAD_CANCELLED异常，则传播该异常
+                if (e.message === 'DOWNLOAD_CANCELLED') {
+                    console.log(`[FileAPI] Download cancelled by progress callback for partition ${partitionIndex}`);
+                    throw e;
+                }
             }
+            return false;
         };
 
         let result = null
@@ -295,6 +301,7 @@ export default class FileAPI {
 
                         // 创建分区进度回调
                         const partitionProgressCallback = (progressData) => {
+                            // updateOverallProgress会传播DOWNLOAD_CANCELLED异常
                             updateOverallProgress(i, progressData.progress, partitionSize);
                         };
 
@@ -304,15 +311,18 @@ export default class FileAPI {
                         }
                     } catch (e) {
                         console.log(`download ${filePath} parition ${i}/${num_partitions} retry ${i}/${Config.getMaxRetryDownloadPartitionCount()} failed.`, e)
+                        // 如果是下载取消错误，重新抛出
+                        if (e.message === 'DOWNLOAD_CANCELLED') {
+                            throw e;
+                        }
                     }
                     await sleep(1000 * (j + 1));
                 }
-                if (downloadPartitionResult) {
+                if (downloadPartitionResult && !downloadPartitionResult.error) {
                     console.log(`finished partition ${i}/${num_partitions}`)
                 } else {
                     throw new Error("download chunk failed")
                 }
-
             }
 
             // 所有分片下载完成后，发送100%进度回调
@@ -330,6 +340,11 @@ export default class FileAPI {
                     });
                 } catch (e) {
                     console.warn('All partitions completed progress callback error:', e);
+                    // 如果回调抛出DOWNLOAD_CANCELLED异常，则传播该异常
+                    if (e.message === 'DOWNLOAD_CANCELLED') {
+                        console.log(`[FileAPI] Download cancelled before merging files`);
+                        throw e;
+                    }
                 }
             }
 
@@ -372,6 +387,11 @@ export default class FileAPI {
                         });
                     } catch (e) {
                         console.warn('Single file progress callback error:', e);
+                        // 如果回调抛出DOWNLOAD_CANCELLED异常，则传播该异常
+                        if (e.message === 'DOWNLOAD_CANCELLED') {
+                            console.log(`[FileAPI] Download cancelled by progress callback for single file`);
+                            throw e;
+                        }
                     }
                 }
             };

@@ -210,9 +210,7 @@ export default class WebRTCDataChannelFileContent {
                 streamReceiver.controller.close();
             }
 
-            console.log(channel.readyState);
             channel.close();
-            console.log(channel.readyState);
         };
 
         // 检查 idleTimeout 的函数

@@ -104,6 +104,7 @@ export default class LocalFileManager {
                     });
                 } catch (callbackError) {
                     console.warn('[LocalFileManager] Final progress callback error:', callbackError);
+                    throw callbackError;
                 }
             }
 
@@ -356,9 +357,10 @@ export default class LocalFileManager {
      * @private
      */
     async _writeFileWithProgress(filePath, fileInfo, fileContentStream, progressTracker) {
+        let cacheFileName = "";
         try {
             console.log('[LocalFileManager] Saving file to cache directory:', filePath);
-            const cacheFileName = uuidv4();
+            cacheFileName = uuidv4();
             let cacheDir = null;
             let directoryError = null;
 
@@ -381,70 +383,95 @@ export default class LocalFileManager {
             console.log(`[LocalFileManager] Using cache directory: ${cacheDir.directory}, path: ${cacheDir.path}`);
 
             let totalSize = 0;
-
-            const reader = fileContentStream.getReader();
+            let reader = null;
             let chunkCount = 0;
             let cacheFilePath = null; // 缓存文件路径，用于清理
 
-            while (true) {
-                const { done, value } = await reader.read();
+            try {
+                reader = fileContentStream.getReader();
 
-                if (done) {
-                    console.log(`[LocalFileManager] [100%] File download completed: Chunk ${chunkCount}, accumulated: ${totalSize}/${fileInfo.size}`);
-                    break;
-                }
+                while (true) {
+                    const { done, value } = await reader.read();
 
-                if (value) {
-                    chunkCount++;
-                    const isFirstChunk = totalSize === 0;
-                    const chunkSize = value.length || value.byteLength || 0;
-                    totalSize += chunkSize;
-
-                    const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
-                    if (Math.floor(progress) % 10 == 0) {
-                        console.log(`[LocalFileManager] [${progress.toFixed(0)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
+                    if (done) {
+                        console.log(`[LocalFileManager] [100%] File download completed: Chunk ${chunkCount}, accumulated: ${totalSize}/${fileInfo.size}`);
+                        break;
                     }
 
-                    // 将数据块转换为base64
-                    const blob = new Blob([value]);
-                    const base64Data = await Base64Encoder.encodeBlob(blob);
+                    if (value) {
+                        chunkCount++;
+                        const isFirstChunk = totalSize === 0;
+                        const chunkSize = value.length || value.byteLength || 0;
+                        totalSize += chunkSize;
 
-                    // 写入缓存目录
-                    await Filesystem.writeFile({
-                        path: cacheDir.path + "/" + cacheFileName,
-                        directory: cacheDir.directory,
-                        recursive: true,
-                        data: base64Data,
-                        encoding: Encoding.Base64,
-                        append: !isFirstChunk, // 第一个分块创建新文件，后续分块追加
-                    });
-
-                    // 保存缓存文件路径，用于后续清理
-                    if (isFirstChunk) {
-                        cacheFilePath = cacheDir.path + "/" + cacheFileName;
-                    }
-
-                    // 更新进度
-                    progressTracker.progress = progress;
-                    progressTracker.completed = totalSize === fileInfo.size;
-                    progressTracker.localUrl = cacheFilePath;
-
-                    // 调用进度回调函数
-                    if (progressTracker.progressCallback) {
-                        try {
-                            progressTracker.progressCallback({
-                                filePath: filePath,
-                                progress: progress,
-                                totalSize: fileInfo.size,
-                                downloadedSize: totalSize,
-                                partition: progressTracker.partition || 0,
-                                totalPartitions: progressTracker.totalPartitions || 1,
-                                isPartition: progressTracker.totalPartitions > 1,
-                                isCompleted: progressTracker.completed
-                            });
-                        } catch (callbackError) {
-                            console.warn('[LocalFileManager] Progress callback error:', callbackError);
+                        const progress = Math.min(99, (totalSize * 100) / fileInfo.size);
+                        if (Math.floor(progress) % 10 == 0) {
+                            console.log(`[LocalFileManager] [${progress.toFixed(0)}%] Chunk ${chunkCount}: ${chunkSize} bytes, accumulated: ${totalSize}/${fileInfo.size}`);
                         }
+
+                        // 将数据块转换为base64
+                        const blob = new Blob([value]);
+                        const base64Data = await Base64Encoder.encodeBlob(blob);
+
+                        // 写入缓存目录
+                        await Filesystem.writeFile({
+                            path: cacheDir.path + "/" + cacheFileName,
+                            directory: cacheDir.directory,
+                            recursive: true,
+                            data: base64Data,
+                            encoding: Encoding.Base64,
+                            append: !isFirstChunk, // 第一个分块创建新文件，后续分块追加
+                        });
+
+                        // 保存缓存文件路径，用于后续清理
+                        if (isFirstChunk) {
+                            cacheFilePath = cacheDir.path + "/" + cacheFileName;
+                        }
+
+                        // 更新进度
+                        progressTracker.progress = progress;
+                        progressTracker.completed = totalSize === fileInfo.size;
+                        progressTracker.localUrl = cacheFilePath;
+
+                        // 调用进度回调函数
+                        if (progressTracker.progressCallback) {
+                            try {
+                                progressTracker.progressCallback({
+                                    filePath: filePath,
+                                    progress: progress,
+                                    totalSize: fileInfo.size,
+                                    downloadedSize: totalSize,
+                                    partition: progressTracker.partition || 0,
+                                    totalPartitions: progressTracker.totalPartitions || 1,
+                                    isPartition: progressTracker.totalPartitions > 1,
+                                    isCompleted: progressTracker.completed
+                                });
+                            } catch (callbackError) {
+                                console.warn('[LocalFileManager] Progress callback error:', callbackError);
+                                // 如果回调抛出DOWNLOAD_CANCELLED错误，则停止下载
+                                if (callbackError.message === 'DOWNLOAD_CANCELLED') {
+                                    // 取消reader的读取
+                                    if (reader) {
+                                        try {
+                                            reader.cancel();
+                                            console.log('[LocalFileManager] Reader cancelled due to download cancellation');
+                                        } catch (cancelError) {
+                                            console.warn('[LocalFileManager] Failed to cancel reader:', cancelError);
+                                        }
+                                    }
+                                    throw callbackError;
+                                }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                // 确保reader被关闭
+                if (reader) {
+                    try {
+                        reader.releaseLock();
+                    } catch (releaseError) {
+                        console.warn('[LocalFileManager] Failed to release reader lock:', releaseError);
                     }
                 }
             }
@@ -484,6 +511,13 @@ export default class LocalFileManager {
         } catch (error) {
             console.error('[LocalFileManager] Write to cache failed:', error);
             progressTracker.error = error.message;
+
+            // 如果是下载取消错误
+            if (error.message === 'DOWNLOAD_CANCELLED' && cacheFileName) {
+                console.log(`[LocalFileManager] Cleaning up cache file due to download cancellation: ${cacheFileName}`);
+                await this._cleanupCacheFile(cacheDir, cacheFileName);
+            }
+
             throw error;
         }
     }

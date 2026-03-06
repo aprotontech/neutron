@@ -293,6 +293,8 @@ const mapInstance = ref(null)
 const AMapGlobal = ref(null)
 const locationAddress = ref('')
 const mapObserver = ref(null)
+// 用于取消当前下载的函数引用
+const cancelCurrentDownload = ref(null)
 
 const THUMB_RANGE = 15
 const mapContainer = ref(null)
@@ -503,6 +505,8 @@ function hasLocation(fileInfoObj) {
 }
 
 function close() {
+  // 关闭预览时，停止当前文件的下载
+  cancelCurrentDownloadIfNeeded();
   emit('update:modelValue', false)
 }
 
@@ -539,6 +543,31 @@ function closeDetailsModal() {
     mapInstance.value.destroy()
     mapInstance.value = null
   }
+}
+
+/**
+ * 取消当前正在进行的下载
+ */
+function cancelCurrentDownloadIfNeeded() {
+  if (cancelCurrentDownload.value && typeof cancelCurrentDownload.value === 'function') {
+    console.log('[Preview] Cancelling current download');
+    cancelCurrentDownload.value();
+    cancelCurrentDownload.value = null;
+  }
+}
+
+/**
+ * 设置当前下载的取消函数
+ */
+function setCurrentDownloadCanceller(canceller) {
+  cancelCurrentDownload.value = canceller;
+}
+
+/**
+ * 清除当前下载的取消函数
+ */
+function clearCurrentDownloadCanceller() {
+  cancelCurrentDownload.value = null;
 }
 
 async function ensureItemsAround(offset) {
@@ -591,6 +620,9 @@ function loadThumbnailForOffset(offset) {
 }
 
 async function loadMediaAtOffset(offset) {
+  // 加载新文件前，取消之前的下载
+  cancelCurrentDownloadIfNeeded();
+  
   await ensureItemsAround(offset)
   const file = previewMap.get(props.totalCount, offset)
   if (!file) return
@@ -605,6 +637,9 @@ async function loadMediaAtOffset(offset) {
   fileInfo.value = null
   downloadProgress.value = null
   downloadProgressVisible.value = false
+  
+  // 清除之前的取消函数
+  clearCurrentDownloadCanceller();
 
   try {
     fileInfoLoading.value = true
@@ -618,6 +653,9 @@ async function loadMediaAtOffset(offset) {
       fileInfoLoading.value = false
     }
 
+    // 创建下载取消标志
+    let downloadCancelled = false;
+    
     const progressCallback = (progressData) => {
       downloadProgress.value = progressData
       downloadProgressVisible.value = true
@@ -625,8 +663,24 @@ async function loadMediaAtOffset(offset) {
         setTimeout(() => {
           downloadProgressVisible.value = false
         }, 500)
+        // 下载完成后清除取消函数
+        clearCurrentDownloadCanceller();
+      }
+      
+      // 如果下载已被取消，抛出DOWNLOAD_CANCELLED异常
+      if (downloadCancelled) {
+        console.log('[Preview] Download cancelled via progress callback');
+        throw new Error('DOWNLOAD_CANCELLED');
       }
     }
+    
+    // 设置取消函数
+    setCurrentDownloadCanceller(() => {
+      console.log('[Preview] Download cancellation requested');
+      downloadCancelled = true;
+      downloadProgressVisible.value = false;
+      downloadProgress.value = null;
+    });
 
     if (file.type === '文本') {
       const url = await props.fileApi.getFileUrl(path, null, progressCallback)
@@ -730,6 +784,8 @@ function mediaTouchEnd() {
     }
   }
   if (Math.abs(slideOffset.value) > 120) {
+    // 上滑取消预览时，停止当前文件的下载
+    cancelCurrentDownloadIfNeeded();
     close()
   } else {
     slideOffset.value = 0

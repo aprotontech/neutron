@@ -8,7 +8,9 @@
       <!-- 统一的紫色状态栏 -->
       <div class="app-header" :class="{ 'android-native-app': isCapacitorNative }">
         <div class="header-left">
-          <h1>{{ getHeaderTitle() }}</h1>
+          <h1 v-if="getHeaderTitle()">{{ getHeaderTitle() }}</h1>
+          <!-- 即使标题为空，也保留一个占位元素确保高度 -->
+          <div v-else class="header-placeholder"></div>
         </div>
         <div class="header-right">
           <!-- 这里可以添加全局操作按钮 -->
@@ -22,7 +24,7 @@
         <Settings v-else-if="activeTab === 'settings'" @login-state-changed="handleLoginStateChanged" />
       </div>
       
-      <!-- 底部Tab导航 -->
+      <!-- 底部Tab导航 - 扁平化设计 -->
       <div class="tab-navigation bottom-tab">
         <button 
           class="tab-btn" 
@@ -31,6 +33,7 @@
         >
           <div class="tab-icon-container">
             <span class="tab-icon">🖼️</span>
+            <span class="tab-label">图库</span>
           </div>
         </button>
         <button 
@@ -40,6 +43,7 @@
         >
           <div class="tab-icon-container">
             <span class="tab-icon">📂</span>
+            <span class="tab-label">文件</span>
           </div>
         </button>
         <button 
@@ -49,6 +53,7 @@
         >
           <div class="tab-icon-container">
             <span class="tab-icon">⚙️</span>
+            <span class="tab-label">设置</span>
           </div>
         </button>
       </div>
@@ -96,7 +101,7 @@ function switchTab(tab) {
 // 获取头部标题
 function getHeaderTitle() {
   if (Capacitor.isNativePlatform()) {
-    return ">"
+    return ""
   }
   switch (activeTab.value) {
     case 'gallery':
@@ -314,31 +319,27 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* Tab导航样式 - 固定在窗口底部 */
+/* Tab导航样式 - 固定在窗口底部 - 扁平化设计 */
 .tab-navigation {
   display: flex;
-  background: white;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  background: #ffffff;
+  border-top: 1px solid #e0e0e0;
   z-index: 1000;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70px; /* 增加高度以容纳标签 */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background-color: rgba(255, 255, 255, 0.95);
+  height: 60px; /* 更紧凑的高度 */
 }
 
 /* 底部Tab导航 */
 .tab-navigation.bottom-tab {
-  border-top: 1px solid rgba(224, 224, 224, 0.5);
-  border-bottom: none;
+  border-top: 1px solid #e0e0e0;
 }
 
 .tab-btn {
   flex: 1;
-  padding: 12px 0;
+  padding: 8px 0;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -346,84 +347,81 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 4px;
+  transition: all 0.2s ease;
   position: relative;
-  height: 100%; /* 占满父容器高度 */
-  overflow: hidden;
+  height: 100%;
 }
 
 .tab-btn:hover {
-  background: rgba(102, 126, 234, 0.05);
+  background: #f5f5f5;
 }
 
 .tab-btn.active {
   color: #667eea;
+  background: #f0f4ff;
 }
 
 .tab-btn.active::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
+  left: 0;
+  right: 0;
   height: 3px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 3px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  background: #667eea;
 }
 
 .tab-icon-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tab-icon {
-  font-size: 22px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: grayscale(0.3);
-  opacity: 0.7;
+  font-size: 20px;
+  transition: all 0.2s ease;
 }
 
 .tab-btn.active .tab-icon {
-  transform: translateY(-4px) scale(1.15);
-  filter: grayscale(0);
+  transform: none;
+  filter: none;
   opacity: 1;
-  text-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  text-shadow: none;
 }
 
 .tab-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.3px;
-  opacity: 0.6;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.2px;
+  color: #666666;
+  transition: all 0.2s ease;
 }
 
 .tab-btn.active .tab-label {
-  opacity: 1;
-  font-weight: 600;
   color: #667eea;
-  transform: translateY(-2px);
+  font-weight: 600;
+  transform: none;
 }
 
-/* 统一的紫色状态栏 */
+/* 统一的紫色状态栏 - 扁平化设计 */
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #667eea;
   color: white;
-  padding: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  border-bottom: 1px solid #5a6fd8;
+  min-height: 48px; /* 确保即使标题为空也有足够高度 */
+  box-sizing: border-box;
 }
 
 /* Android 原生 App 模式下，为顶部预留状态栏高度 */
 .android-native-app .app-header {
-  padding-top: calc(0px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  padding-top: calc(12px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  min-height: calc(48px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
 }
 
 .header-left {
@@ -431,8 +429,14 @@ onUnmounted(() => {
 }
 
 .app-header h1 {
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header-placeholder {
+  height: 24px; /* 与h1大致相同的高度 */
+  visibility: hidden;
 }
 
 .header-right {
@@ -444,53 +448,55 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   position: relative;
-  background: #f5f7fa; /* 统一所有Tab页面的背景色 */
+  background: #ffffff; /* 扁平化设计使用纯白色背景 */
 }
 
 /* 移动端优化 */
 @media (max-width: 768px) {
   .app-header {
-    padding: 12px;
-    flex-direction: column;
-    gap: 12px;
+    padding: 10px 12px;
   }
   
   .app-header h1 {
     font-size: 16px;
-    margin-bottom: 6px;
   }
   
   .tab-navigation {
-    height: 65px; /* 移动端稍矮一些 */
+    height: 56px; /* 移动端更紧凑 */
   }
   
   .tab-btn {
-    padding: 10px 0;
+    padding: 6px 0;
   }
   
   .tab-icon {
-    font-size: 20px; /* 移动端图标稍大 */
+    font-size: 18px;
   }
   
   .tab-label {
-    font-size: 10px; /* 移动端文字稍小 */
-  }
-  
-  .tab-content {
-    /* 移动端不需要特殊高度设置，flex布局会自动处理 */
+    font-size: 9px;
   }
 }
 
 @media (max-width: 480px) {
   .app-header {
-    padding: 10px;
-    flex-direction: column;
-    gap: 10px;
+    padding: 8px 10px;
   }
   
   .app-header h1 {
     font-size: 14px;
-    margin-bottom: 4px;
+  }
+  
+  .tab-navigation {
+    height: 52px;
+  }
+  
+  .tab-icon {
+    font-size: 16px;
+  }
+  
+  .tab-label {
+    font-size: 8px;
   }
 }
 
