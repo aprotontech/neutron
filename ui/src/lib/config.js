@@ -14,7 +14,7 @@ export class Config {
     }
 
     static getNativeSplitPartitionDownloadSize() {
-        return 5 * 1024 * 1024
+        return 3 * 1024 * 1024
     }
 
     static getNativeDownloadPartitionSize() {

@@ -267,6 +267,8 @@ export default class FileAPI {
             return false;
         };
 
+        console.log("not found local cache file, start to download file: ", filePath)
+
         let result = null
         if (fileInfo.size > Config.getNativeSplitPartitionDownloadSize()) {
             const num_partitions = Math.ceil(fileInfo.size / Config.getNativeDownloadPartitionSize())
@@ -321,7 +323,8 @@ export default class FileAPI {
                 if (downloadPartitionResult && !downloadPartitionResult.error) {
                     console.log(`finished partition ${i}/${num_partitions}`)
                 } else {
-                    throw new Error("download chunk failed")
+                    console.log(`download ${filePath} partition ${i}/${num_partitions} failed`)
+                    throw new Error("download partition failed")
                 }
             }
 

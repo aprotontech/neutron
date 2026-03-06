@@ -111,6 +111,10 @@ export default class LocalFileManager {
             return progressTracker;
         } catch (error) {
             console.error('[LocalFileManager] Write operation failed:', error);
+            if (error.message == 'DOWNLOAD_CANCELLED') {
+                throw error
+            }
+
             return {
                 progress: 0,
                 completed: false,
@@ -357,11 +361,11 @@ export default class LocalFileManager {
      * @private
      */
     async _writeFileWithProgress(filePath, fileInfo, fileContentStream, progressTracker) {
+        let cacheDir = null;
         let cacheFileName = "";
         try {
             console.log('[LocalFileManager] Saving file to cache directory:', filePath);
             cacheFileName = uuidv4();
-            let cacheDir = null;
             let directoryError = null;
 
             // 尝试获取缓存目录
@@ -509,7 +513,7 @@ export default class LocalFileManager {
                 fileSize: totalSize
             };
         } catch (error) {
-            console.error('[LocalFileManager] Write to cache failed:', error);
+            console.error('[LocalFileManager] Write to cacheFile failed:', error);
             progressTracker.error = error.message;
 
             // 如果是下载取消错误
