@@ -14,6 +14,7 @@
       <div class="dropdown media-dropdown" @click.stop>
         <button class="menu-btn" @click.stop="toggleViewerMenu">⋮</button>
         <div class="menu" v-if="viewerMenuOpen">
+          <button class="menu-item" @click="downloadCurrentFile">下载</button>
           <button class="menu-item disabled">删除</button>
           <button class="menu-item" @click="openDetailsModal">详细信息</button>
         </div>
@@ -174,23 +175,13 @@
                     <div class="exif-value">{{ getExifModel(fileInfo) || '未知设备' }}</div>
                   </div>
                   <div class="exif-item">
-                    <div class="exif-label">图片格式</div>
+                    <div class="exif-label">文件格式</div>
                     <div class="exif-value">{{ getImageFormat(fileInfo) }}</div>
                   </div>
                 </div>
                 <div class="exif-row">
                   <div class="exif-item">
-                    <div class="exif-label">焦距</div>
-                    <div class="exif-value">{{ formatFocalLength(getExifFocalLength(fileInfo)) }}</div>
-                  </div>
-                  <div class="exif-item">
-                    <div class="exif-label">光圈</div>
-                    <div class="exif-value">{{ formatAperture(getExifFNumber(fileInfo)) }}</div>
-                  </div>
-                </div>
-                <div class="exif-row">
-                  <div class="exif-item">
-                    <div class="exif-label">图片尺寸</div>
+                    <div class="exif-label">文件尺寸</div>
                     <div class="exif-value">{{ formatImageDimensions(fileInfo) }}</div>
                   </div>
                   <div class="exif-item">
@@ -198,16 +189,44 @@
                     <div class="exif-value">{{ formatFileSize(fileInfo?.size) }}</div>
                   </div>
                 </div>
-                <div class="exif-row">
-                  <div class="exif-item">
-                    <div class="exif-label">ISO</div>
-                    <div class="exif-value">{{ getExifISO(fileInfo) || '--' }}</div>
+                
+                <!-- 图片文件的EXIF信息 -->
+                <template v-if="currentFile?.type === '图片'">
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">焦距</div>
+                      <div class="exif-value">{{ formatFocalLength(getExifFocalLength(fileInfo)) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">光圈</div>
+                      <div class="exif-value">{{ formatAperture(getExifFNumber(fileInfo)) }}</div>
+                    </div>
                   </div>
-                  <div class="exif-item">
-                    <div class="exif-label">快门</div>
-                    <div class="exif-value">{{ formatShutterSpeed(getExifExposureTime(fileInfo)) }}</div>
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">ISO</div>
+                      <div class="exif-value">{{ getExifISO(fileInfo) || '--' }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">快门</div>
+                      <div class="exif-value">{{ formatShutterSpeed(getExifExposureTime(fileInfo)) }}</div>
+                    </div>
                   </div>
-                </div>
+                </template>
+                
+                <!-- 视频文件的EXIF信息 -->
+                <template v-else-if="currentFile?.type === '视频'">
+                  <div class="exif-row">
+                    <div class="exif-item">
+                      <div class="exif-label">帧率</div>
+                      <div class="exif-value">{{ formatFrameRate(getVideoFrameRate(fileInfo)) }}</div>
+                    </div>
+                    <div class="exif-item">
+                      <div class="exif-label">时长</div>
+                      <div class="exif-value">{{ VideoDurationFormatter.getDurationFromExif(fileInfo?.exifData) || '--' }}</div>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
             <div class="details-section" v-if="showLocationSection">
@@ -228,7 +247,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import { FileSizeFormatter, DateFormatter  } from './lib/helpers.js'
+import { FileSizeFormatter, DateFormatter, VideoDurationFormatter } from './lib/helpers.js'
 import { createPreviewMap } from './lib/preview.js'
 import AMapLoader from '@amap/amap-jsapi-loader'
 
@@ -252,7 +271,7 @@ const props = defineProps({
   isCode: { type: Function, default: null }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'show-toast'])
 
 const isOpen = computed(() => props.modelValue)
 
@@ -437,6 +456,21 @@ function getExifExposureTime(fileInfoObj) {
   return fileInfoObj.ExposureTime
 }
 
+function getVideoFrameRate(fileInfoObj) {
+  if (!fileInfoObj) return null
+  if (fileInfoObj.exifData) {
+    // 尝试从不同的字段获取帧率
+    const frameRateKeys = ['VideoFrameRate', 'FrameRate', 'AvgFrameRate', 'VideoFrameRate#'];
+    for (const key of frameRateKeys) {
+      const value = getExifValue(fileInfoObj.exifData, key);
+      if (value !== null && value !== undefined) {
+        return value;
+      }
+    }
+  }
+  return fileInfoObj.VideoFrameRate || fileInfoObj.FrameRate;
+}
+
 function getImageFormat(fileInfoObj) {
   if (!fileInfoObj) return '未知格式'
   if (fileInfoObj.exifData) {
@@ -494,6 +528,35 @@ function formatShutterSpeed(et) {
   return '--'
 }
 
+function formatFrameRate(frameRate) {
+  if (!frameRate) return '--'
+  if (typeof frameRate === 'number') {
+    // 如果是整数，显示为整数
+    if (frameRate % 1 === 0) {
+      return `${frameRate} fps`;
+    } else {
+      // 保留一位小数
+      return `${frameRate.toFixed(1)} fps`;
+    }
+  }
+  if (typeof frameRate === 'string') {
+    // 如果已经是带单位的字符串，直接返回
+    if (frameRate.toLowerCase().includes('fps') || frameRate.toLowerCase().includes('hz')) {
+      return frameRate;
+    }
+    // 尝试解析为数字
+    const num = parseFloat(frameRate);
+    if (!isNaN(num)) {
+      if (num % 1 === 0) {
+        return `${num} fps`;
+      } else {
+        return `${num.toFixed(1)} fps`;
+      }
+    }
+  }
+  return frameRate;
+}
+
 function hasLocation(fileInfoObj) {
   if (!fileInfoObj) return false
   if (fileInfoObj.exifData) {
@@ -508,6 +571,35 @@ function close() {
   // 关闭预览时，停止当前文件的下载
   cancelCurrentDownloadIfNeeded();
   emit('update:modelValue', false)
+}
+
+async function downloadCurrentFile() {
+  viewerMenuOpen.value = false
+  
+  const file = currentFile.value
+  if (!file) return
+  
+  const path = file.path || file.filepath
+  if (!path) return
+  
+  try {
+    // 显示开始下载提示
+    emit('show-toast', `开始下载文件: ${file.name}`, 'info')
+    
+    // 调用fileApi的downloadFile方法
+    const success = await props.fileApi.downloadFile(path, fileInfo.value)
+    
+    if (success) {
+      console.log('文件下载成功:', file.name)
+      emit('show-toast', `文件下载成功: ${file.name}`, 'success')
+    } else {
+      console.error('文件下载失败:', file.name)
+      emit('show-toast', '文件下载失败', 'error')
+    }
+  } catch (error) {
+    console.error('下载文件时出错:', error)
+    emit('show-toast', `下载失败: ${error.message}`, 'error')
+  }
 }
 
 function toggleViewerMenu() {
@@ -891,8 +983,7 @@ async function initMap() {
     })
 
     // 获取坐标
-    const lat = getLatitude(fileInfo.value)
-    const lng = getLongitude(fileInfo.value)
+    const [lat, lng] = getLatitudeLongitude(fileInfo.value)
 
     console.log('initMap', lat, lng)
 
@@ -922,8 +1013,7 @@ async function updateMap(refresh) {
   try {
     if (!mapInstance.value || !fileInfo.value || !AMapGlobal.value) return
     
-    const lat = getLatitude(fileInfo.value)
-    const lng = getLongitude(fileInfo.value)
+    const [lat, lng] = getLatitudeLongitude(fileInfo.value)
 
     console.log('updateMap', lat, lng)
     
@@ -969,61 +1059,94 @@ async function updateMap(refresh) {
   }
 }
 
-// 获取纬度
-function getLatitude(fileInfoObj) {
-  if (!fileInfoObj) return null
-  let lat = fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude
-  if (fileInfoObj.exifData) {
-    lat = lat || getExifValue(fileInfoObj.exifData, 'GPSLatitude')
-  }
-  return lat
-}
-
-// 获取经度
-function getLongitude(fileInfoObj) {
-  if (!fileInfoObj) return null
-  let lon = fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude
-  if (fileInfoObj.exifData) {
-    lon = lon || getExifValue(fileInfoObj.exifData, 'GPSLongitude')
-  }
-  return lon
-}
-
-// 设置地图容器观察器
-function setupMapContainerObserver() {
-  if (mapObserver.value) return
+// 解析GPS坐标字符串（如 "30 deg 14' 57.48\" N"）为十进制坐标
+function parseGPSString(gpsStr) {
+  if (!gpsStr || typeof gpsStr !== 'string') return null
   
-  // 查找可能包含地图容器的父元素
-  const detailsPanel = document.querySelector('.details-panel')
-  if (!detailsPanel) return
+  const str = gpsStr.trim()
   
-  mapObserver.value = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type === 'childList') {
-        // 检查是否有新的地图容器被添加
-        const mapContainerEl = detailsPanel.querySelector('.location-map')
-        if (mapContainerEl && !mapInstance.value && hasLocation(fileInfo.value)) {
-          console.log('检测到地图容器出现，尝试初始化地图')
-          initMap().then(() => {
-            if (mapInstance.value) {
-              updateMap(false)
-            }
-          })
-          // 初始化成功后停止观察
-          cleanupMapContainerObserver()
-          break
-        }
-      }
+  // 如果已经是数字，直接返回
+  const num = parseFloat(str)
+  if (!isNaN(num) && str.match(/^-?\d+(\.\d+)?$/)) {
+    return num
+  }
+  
+  // 尝试解析格式：30 deg 14' 57.48" N
+  const regex = /^(\d+)\s*deg\s*(\d+)'\s*([\d.]+)"\s*([NSEW])$/i
+  const match = str.match(regex)
+  
+  if (match) {
+    const degrees = parseFloat(match[1])
+    const minutes = parseFloat(match[2])
+    const seconds = parseFloat(match[3])
+    const direction = match[4].toUpperCase()
+    
+    // 计算十进制坐标
+    let decimal = degrees + (minutes / 60) + (seconds / 3600)
+    
+    // 根据方向调整符号
+    if (direction === 'S' || direction === 'W') {
+      decimal = -decimal
     }
-  })
+    
+    return decimal
+  }
   
-  // 开始观察details-panel的子节点变化
-  mapObserver.value.observe(detailsPanel, {
-    childList: true,
-    subtree: true
-  })
+  // 尝试解析其他常见格式
+  // 格式：30°14'57.48"N
+  const regex2 = /^(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NSEW])$/i
+  const match2 = str.match(regex2)
   
-  console.log('已设置地图容器观察器')
+  if (match2) {
+    const degrees = parseFloat(match2[1])
+    const minutes = parseFloat(match2[2])
+    const seconds = parseFloat(match2[3])
+    const direction = match2[4].toUpperCase()
+    
+    let decimal = degrees + (minutes / 60) + (seconds / 3600)
+    
+    if (direction === 'S' || direction === 'W') {
+      decimal = -decimal
+    }
+    
+    return decimal
+  }
+  
+  // 如果无法解析，返回null
+  return null
+}
+
+// 获取纬度
+function getLatitudeLongitude(fileInfoObj) {
+  if (!fileInfoObj) return null
+  
+  let lat = fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude
+  let lon = fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude
+  
+  if (fileInfoObj.exifData) {
+    const exifLat = getExifValue(fileInfoObj.exifData, 'GPSLatitude')
+    const exifLon = getExifValue(fileInfoObj.exifData, 'GPSLongitude')
+    
+    lat = lat || exifLat
+    lon = lon || exifLon
+  }
+  
+  // 尝试解析字符串格式的坐标
+  if (typeof lat === 'string') {
+    const parsedLat = parseGPSString(lat)
+    if (parsedLat !== null) {
+      lat = parsedLat
+    }
+  }
+  
+  if (typeof lon === 'string') {
+    const parsedLon = parseGPSString(lon)
+    if (parsedLon !== null) {
+      lon = parsedLon
+    }
+  }
+  
+  return [lat, lon]
 }
 
 // 清理地图容器观察器

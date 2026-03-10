@@ -6,9 +6,12 @@ import (
 	"os"
 	"time"
 
+	exiftool "github.com/barasher/go-exiftool"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/goexif/mknote"
 	"github.com/rwcarlsen/goexif/tiff"
+
+	"github.com/aproton/neutron/pkg/utils/log"
 )
 
 type ExifData map[string]interface{}
@@ -85,7 +88,7 @@ func GetImageExifData(imagePath string) (map[string]interface{}, error) {
 
 	file, err := os.Open(imagePath)
 	if err != nil {
-		return result, fmt.Errorf("打开文件失败: %v", err)
+		return nil, fmt.Errorf("open file failed: %v", err)
 	}
 	defer file.Close()
 
@@ -93,14 +96,15 @@ func GetImageExifData(imagePath string) (map[string]interface{}, error) {
 
 	x, err := exif.Decode(file)
 	if err != nil {
-		result["Error"] = fmt.Sprintf("解码EXIF失败: %v", err)
-		return result, nil
+		//result["Error"] = fmt.Sprintf("解码EXIF失败: %v", err)
+		log.Warnf("decode exif info failed: %v", err)
+		return nil, err
 	}
 
 	err = x.Walk(result)
 
 	if err != nil {
-		result["WalkError"] = err.Error()
+		return nil, fmt.Errorf("exif walk failed: %v", err)
 	}
 
 	if lat, long, err := x.LatLong(); err == nil {
@@ -116,7 +120,8 @@ func GetImageExifData(imagePath string) (map[string]interface{}, error) {
 }
 
 func GetExifDataTime(exifData map[string]interface{}) (time.Time, error) {
-	timeKeys := []string{"ParsedDateTime", "DateTimeOriginal", "DateTimeDigitized", "DateTime"}
+	timeKeys := []string{"ParsedDateTime", "DateTimeOriginal", "DateTimeDigitized", "DateTime",
+		"CreationDate", "CreateDate"}
 	for _, key := range timeKeys {
 		if dateTimeStr, ok := exifData[key].(string); ok && dateTimeStr != "" {
 			if tm, err := time.Parse(time.RFC3339, dateTimeStr); err == nil {
@@ -126,4 +131,41 @@ func GetExifDataTime(exifData map[string]interface{}) (time.Time, error) {
 	}
 
 	return time.Time{}, fmt.Errorf("Not found valid time in EXIF data")
+}
+
+func GetVideoExifData(videoPath string) (map[string]interface{}, error) {
+	et, err := exiftool.NewExiftool()
+	if err != nil {
+		log.Warnf("init exif tool: %v", err)
+	}
+	defer et.Close()
+
+	fileInfos := et.ExtractMetadata(videoPath)
+
+	results := make(map[string]interface{})
+	for _, fileInfo := range fileInfos {
+		if fileInfo.Err != nil {
+			log.Warnf("process %s error: %v", fileInfo.File, fileInfo.Err)
+			continue
+		}
+		for k, v := range fileInfo.Fields {
+			results[k] = v
+		}
+	}
+
+	skipKeys := []string{"SourceFile", "Directory", "Warning"}
+	for _, key := range skipKeys {
+		delete(results, key)
+	}
+
+	return results, nil
+}
+
+func GetExifData(filePath string) (map[string]interface{}, error) {
+	info, err := GetImageExifData(filePath)
+	if err != nil {
+		info, err = GetVideoExifData(filePath)
+	}
+
+	return info, err
 }

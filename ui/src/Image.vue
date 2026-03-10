@@ -160,6 +160,10 @@
                 <path d="M8 5V19L19 12L8 5Z" fill="white" fill-opacity="0.8"/>
               </svg>
             </div>
+            <!-- 视频时长显示 -->
+            <div v-if="image.type === '视频' && image.duration" class="video-duration">
+              {{ image.duration }}
+            </div>
           </div>
         </div>
       </div>
@@ -205,7 +209,7 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
 import BatchFileApi from './lib/batch.js'
-import { FileTypeDetector, FileSizeFormatter } from './lib/helpers.js'
+import { FileTypeDetector, VideoDurationFormatter } from './lib/helpers.js'
 import Preview from './Preview.vue'
 
 // --- 简化后的实现，专注于：分页列表、IntersectionObserver 缩略图预加载、预览下滑关闭 ---
@@ -716,6 +720,27 @@ async function loadThumbnail(item, idx) {
   try {
     const url = await fileAPI.getFileThumbnailUrl(item.path, 200)
     if (url) images.value[idx].thumbnailUrl = url
+    
+    // 如果是视频文件，获取文件信息以提取时长
+    if (item.type === '视频' && !item.duration && !item.loadingFileInfo) {
+      // 标记正在获取文件信息，避免重复请求
+      images.value[idx].loadingFileInfo = true
+      try {
+        const fileInfo = await fileAPI.getFileInfo(item.path)
+        
+        if (fileInfo && fileInfo.exifData) {
+          const duration = VideoDurationFormatter.getDurationFromExif(fileInfo.exifData)
+          if (duration) {
+            images.value[idx].duration = duration
+          }
+        }
+      } catch (e) {
+        // 忽略获取文件信息失败的情况
+        console.warn('Failed to get file info for duration:', e)
+      } finally {
+        images.value[idx].loadingFileInfo = false
+      }
+    }
   } catch (e) {
     // ignore thumbnail load failures
   } finally {
@@ -1232,6 +1257,24 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   margin-left: 2px; /* 让播放三角形稍微向右偏移，看起来更居中 */
+}
+
+/* 视频时长显示样式 */
+.image-thumbnail .video-duration {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: transparent;
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 3px;
+  z-index: 10;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.3px;
+  min-width: 36px;
+  text-align: center;
 }
 
 .image-placeholder {

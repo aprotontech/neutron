@@ -322,7 +322,7 @@ func (scanner *LocalFileSystemScanner) processFile(localPath string,
 		return nil
 	}
 
-	exif, _ := media.GetImageExifData(localPath)
+	exif, _ := media.GetExifData(localPath)
 
 	exifTime, err := media.GetExifDataTime(exif)
 	if err == nil {

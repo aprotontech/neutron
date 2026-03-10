@@ -141,7 +141,7 @@ export default class FileAPI {
      */
     async cacheThumbnailUrl(cacheType, cacheKey, requestFn) {
         if (!this.cacheManager) {
-            console.log("try to get thumbnail of ", cacheKey)
+            // console.log("try to get thumbnail of ", cacheKey)
             const data = await requestFn();
             if (data) {
                 return URL.createObjectURL(data)

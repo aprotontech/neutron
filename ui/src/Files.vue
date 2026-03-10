@@ -217,6 +217,7 @@
         :fetch-nearby="fetchNearbyForPreview"
         :highlight-code="highlightCodeForPreview"
         :is-code="isCodeForPreview"
+        @show-toast="handlePreviewToast"
       />
     </div>
   </div>
@@ -846,6 +847,11 @@ function showToastMessage(message, type = 'info', duration = 3000) {
   toastTimer.value = setTimeout(() => {
     hideToast()
   }, duration)
+}
+
+// 处理Preview组件的toast事件
+function handlePreviewToast(message, type = 'info') {
+  showToastMessage(message, type)
 }
 
 // 隐藏提示
