@@ -174,8 +174,8 @@
         没有更多图片了
       </div>
 
-      <!-- spacer 用于根据 total 预填充滚动条 -->
-      <div :style="{ height: spacerHeight + 'px' }"></div>
+      <!-- spacer 用于根据 total 预填充滚动条（仅在全部图片模式下使用） -->
+      <div v-if="groupType === 'all'" :style="{ height: spacerHeight + 'px' }"></div>
     </div>
 
     <!-- 媒体预览组件（独立 Preview.vue） -->
@@ -331,6 +331,9 @@ async function setGroupType(type) {
   
   groupType.value = type;
   
+  // 根据分组类型重新初始化IntersectionObserver
+  initObserver();
+  
   if (type === 'all') {
     // 切换到全部显示模式
     if (images.value.length === 0) {
@@ -341,6 +344,8 @@ async function setGroupType(type) {
         if (scrollContainer.value) {
           scrollContainer.value.scrollTop = allImagesScrollTop.value;
         }
+        // 重新附加观察器
+        attachObservers();
       });
     }
   } else {
@@ -378,8 +383,8 @@ async function loadGroups(type) {
     // 准备批量获取的图片路径列表
     const filePathList = groups.value.map(group => ({
       filePath: group.file_path,
-      locals: ['raw', '800', '400', '200'], // 优先获取400px的缩略图，如果没有则获取200px
-      remote: '800' // 远程获取800px的缩略图
+      locals: ['raw', '800', '400', '200'],
+      remote: '800'
     }));
 
     // 批量获取图片URL（使用异步模式）
@@ -528,12 +533,15 @@ function updateColumns() {
 function initObserver() {
   if (intersectionObserver.value) intersectionObserver.value.disconnect()
 
-  // 扩大 rootMargin，快速滑动时提前加载，减少白屏
-  intersectionObserver.value = new IntersectionObserver(handleIntersection, {
-    root: scrollContainer.value,
-    rootMargin: '400px 0px',
-    threshold: 0.01
-  })
+  // 仅在全部图片模式下初始化IntersectionObserver
+  if (groupType.value === 'all') {
+    // 扩大 rootMargin，快速滑动时提前加载，减少白屏
+    intersectionObserver.value = new IntersectionObserver(handleIntersection, {
+      root: scrollContainer.value,
+      rootMargin: '400px 0px',
+      threshold: 0.01
+    })
+  }
 }
 
 // 初始化滚动事件监听
@@ -602,6 +610,9 @@ function handleToolbarMouseLeave() {
 }
 
 function handleIntersection(entries) {
+  // 仅在全部图片模式下处理IntersectionObserver
+  if (groupType.value !== 'all') return;
+  
   entries.forEach(entry => {
     const el = entry.target
     const idx = parseInt(el.dataset.index, 10)
@@ -627,7 +638,8 @@ function observeEl(el, idx) {
   el.dataset.index = String(idx)
   // always cache element; observer may be initialized later
   observedElements.set(idx, el)
-  if (intersectionObserver.value) {
+  // 仅在全部图片模式下使用IntersectionObserver
+  if (groupType.value === 'all' && intersectionObserver.value) {
     intersectionObserver.value.observe(el)
   }
 }
@@ -690,7 +702,10 @@ function attachObservers() {
   const nodes = container.querySelectorAll('.image-grid-item')
   nodes.forEach((n, i) => {
     n.dataset.index = String(i)
-    intersectionObserver.value.observe(n)
+    // 仅在全部图片模式下使用IntersectionObserver
+    if (groupType.value === 'all') {
+      intersectionObserver.value.observe(n)
+    }
     observedElements.set(i, n)
   })
 }
@@ -736,6 +751,9 @@ function refreshGallery() {
   if (scrollContainer.value) {
     scrollContainer.value.scrollTop = 0;
   }
+  
+  // 重新初始化IntersectionObserver
+  initObserver();
   
   loadImages(0)
 }
@@ -1010,6 +1028,16 @@ onUnmounted(() => {
   touch-action: pan-y;
 }
 
+/* Native模式下增加分组网格的底部padding，确保最后一张图片不被遮挡 */
+.image-gallery.android-native-app .group-grid {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Native模式下增加图片网格的底部padding，确保最后一张图片不被遮挡 */
+.image-gallery.android-native-app .image-grid {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+}
+
 /* 紫色状态栏已移至App.vue中统一管理 */
 
 .gallery-tools {
@@ -1136,8 +1164,8 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 4px; /* 稍微增大间隙以符合 iOS 风格 */
-  /* 保留底部空间，避免被底部 Tab 遮挡（Tab 高度 65px） */
-  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  /* 保留底部空间，避免被底部 Tab 遮挡（增加padding确保不被遮挡） */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
 
 .image-grid-item {
@@ -1593,7 +1621,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* 增加底部padding，避免被tab按钮遮挡 */
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%); /* 渐变背景色 */
   /* 移除min-height，让高度由内容决定 */
   box-sizing: border-box;
@@ -1647,24 +1675,29 @@ onUnmounted(() => {
 
 .group-overlay {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  background: linear-gradient(rgba(0, 0, 0, 0.7), transparent);
   color: white;
   padding: 16px;
-  backdrop-filter: blur(5px);
+  border-radius: 12px 12px 0 0; /* 与group-thumbnail的圆角匹配 */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px; /* 时间和张数之间的间距 */
 }
 
 .group-time {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 20px; /* 调大字体 */
+  font-weight: 700; /* 增加字体重量 */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); /* 添加文字阴影提高可读性 */
 }
 
 .group-count {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px; /* 保持原字体大小 */
+  color: rgba(255, 255, 255, 0.9); /* 稍微提高对比度 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); /* 添加文字阴影提高可读性 */
 }
 
 /* 移动端适配 */
@@ -1736,14 +1769,24 @@ onUnmounted(() => {
   
   .group-overlay {
     padding: 12px;
+    top: 0; /* 确保在移动端也在顶部 */
+    background: linear-gradient(rgba(0, 0, 0, 0.7), transparent); /* 保持一致的渐变 */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px; /* 移动端间距稍小 */
   }
   
   .group-time {
-    font-size: 15px;
+    font-size: 18px; /* 移动端也调大字体，但比桌面端稍小 */
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
   
   .group-count {
     font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -1776,22 +1819,24 @@ onUnmounted(() => {
   
   .group-overlay {
     padding: 10px;
+    top: 0; /* 确保在小屏幕设备也在顶部 */
+    background: linear-gradient(rgba(0, 0, 0, 0.7), transparent); /* 保持一致的渐变 */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px; /* 小屏幕设备间距更小 */
   }
   
   .group-time {
-    font-size: 14px;
+    font-size: 16px; /* 小屏幕设备也调大字体 */
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
   
   .group-count {
     font-size: 11px;
-  }
-  
-  .group-overlay {
-    padding: 8px;
-  }
-  
-  .group-time {
-    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   }
 }
 
