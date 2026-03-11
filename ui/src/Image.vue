@@ -132,12 +132,16 @@
       
       <!-- 图片网格（全部显示） -->
       <div v-else class="image-grid">
+        <!-- 顶部占位符 -->
+        <div :style="{ height: topSpacerHeight + 'px' }"></div>
+        
+        <!-- 可见区域图片 -->
         <div 
-          v-for="(image, index) in images" 
+          v-for="(image, index) in visibleImages" 
           :key="image.id" 
           class="image-grid-item"
-          :data-index="index"
-          :ref="el => observeEl(el, index)"
+          :data-index="image.originalIndex"
+          :ref="el => observeEl(el, image.originalIndex)"
           @click="handleImageClick(image)"
           v-show="matchesFilter(image)"
         >
@@ -146,10 +150,12 @@
               v-if="image.thumbnailUrl" 
               :src="image.thumbnailUrl" 
               :alt="image.name"
-              loading="eager"
+              loading="lazy"
               decoding="async"
               fetchpriority="low"
-              @load="image.loaded = true"
+              :class="{ loaded: image.loaded }"
+              @load="(event) => handleImageLoad(event, image)"
+              @error="handleImageError(image)"
             />
             <div v-else class="image-placeholder">
               <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
@@ -166,6 +172,9 @@
             </div>
           </div>
         </div>
+        
+        <!-- 底部占位符 -->
+        <div :style="{ height: bottomSpacerHeight + 'px' }"></div>
       </div>
       
       <!-- 加载更多指示器 -->
@@ -177,9 +186,6 @@
       <div v-if="!hasMore && images.length > 0" class="no-more">
         没有更多图片了
       </div>
-
-      <!-- spacer 用于根据 total 预填充滚动条（仅在全部图片模式下使用） -->
-      <div v-if="groupType === 'all'" :style="{ height: spacerHeight + 'px' }"></div>
     </div>
 
     <!-- 媒体预览组件（独立 Preview.vue） -->
@@ -252,6 +258,16 @@ const toolbarHideDelay = 2000 // 工具栏自动隐藏延迟（毫秒）
 // 保存全部图像列表的滚动位置
 const allImagesScrollTop = ref(0)
 
+// 虚拟滚动相关变量
+const viewportStart = ref(0) // 可见区域起始索引
+const viewportEnd = ref(0) // 可见区域结束索引
+const viewportBuffer = 10 // 缓冲区大小（前后多渲染的项数）
+const itemHeight = 104 // 每个图片项的高度（100px + 4px间隙）
+const scrollDebounceTimer = ref(null) // 滚动防抖定时器
+const scrollThrottleTimer = ref(null) // 滚动节流定时器
+const pendingThumbnailLoads = new Set() // 待加载的缩略图集合
+const maxConcurrentThumbnails = 5 // 最大并发缩略图加载数
+
 // 同步状态对话框
 const showSyncDialog = ref(false) // 是否显示同步对话框
 const syncProgress = ref(0) // 同步进度百分比
@@ -284,11 +300,68 @@ function matchesFilter(image) {
   return true
 }
 
+// 图片加载成功处理
+function handleImageLoad(event, image) {
+  image.loaded = true
+  // 添加loaded类以触发淡入效果
+  if (event.target) {
+    event.target.classList.add('loaded')
+  }
+  // 可以在这里添加加载成功后的处理，比如淡入效果
+}
+
+// 图片加载错误处理
+function handleImageError(image) {
+  console.warn(`图片加载失败: ${image.name}`)
+  // 可以在这里设置默认图片或重试逻辑
+  image.loadError = true
+}
+
 // Preview state（预览由 Preview.vue 负责，此处仅保留打开时传给 Preview 的数据）
 const isViewingMedia = ref(false)
 const imageFiles = ref([])
 const currentMediaIndex = ref(-1)
 const lastTouchHandledAt = ref(0)
+
+// 虚拟滚动计算属性
+const visibleImages = computed(() => {
+  if (groupType.value !== 'all') return images.value
+  
+  const start = Math.max(0, viewportStart.value - viewportBuffer)
+  const end = Math.min(images.value.length, viewportEnd.value + viewportBuffer)
+  
+  return images.value.slice(start, end).map((image, index) => ({
+    ...image,
+    originalIndex: start + index
+  }))
+})
+
+const spacerHeight = computed(() => {
+  if (groupType.value !== 'all') return 0
+  
+  const remaining = Math.max(0, (totalImages.value || 0) - images.value.length)
+  const cols = Math.max(1, columns.value)
+  const rows = Math.ceil(remaining / cols)
+  return rows * itemHeight
+})
+
+const topSpacerHeight = computed(() => {
+  if (groupType.value !== 'all') return 0
+  
+  const start = Math.max(0, viewportStart.value - viewportBuffer)
+  const cols = Math.max(1, columns.value)
+  const rows = Math.floor(start / cols)
+  return rows * itemHeight
+})
+
+const bottomSpacerHeight = computed(() => {
+  if (groupType.value !== 'all') return 0
+  
+  const end = Math.min(images.value.length, viewportEnd.value + viewportBuffer)
+  const cols = Math.max(1, columns.value)
+  const rows = Math.ceil((images.value.length - end) / cols)
+  return rows * itemHeight
+})
 
 // 传给 Preview 的初始列表（offset + filepath, thumbnailUrl, name, type）
 const previewInitialItems = computed(() => {
@@ -319,7 +392,6 @@ function fetchNearbyForPreview(offset, count) {
 }
 
 // layout estimation for scrollbar prefill
-const itemHeight = 100 // 与样式中一致（调整为更紧凑的 iOS 风格）
 const columns = ref(1)
 
 // 设置分组类型
@@ -507,13 +579,6 @@ function handleGroupClick(group) {
   }
 }
 
-const spacerHeight = computed(() => {
-  const remaining = Math.max(0, (totalImages.value || 0) - images.value.length)
-  const cols = Math.max(1, columns.value)
-  const rows = Math.ceil(remaining / cols)
-  return rows * itemHeight
-})
-
 // 分组列表的spacer高度
 const groupSpacerHeight = computed(() => {
   // 分组项高度（包括间距）
@@ -540,11 +605,17 @@ function initObserver() {
 
   // 仅在全部图片模式下初始化IntersectionObserver
   if (groupType.value === 'all') {
-    // 扩大 rootMargin，快速滑动时提前加载，减少白屏
+    // 优化IntersectionObserver配置
+    // 1. 增大rootMargin以提前加载更多图片
+    // 2. 降低threshold以减少计算开销
+    // 3. 使用更高效的配置
+    const viewportHeight = scrollContainer.value ? scrollContainer.value.clientHeight : window.innerHeight
+    const preloadMargin = Math.min(viewportHeight * 2, 1000) // 预加载2倍视口高度，最多1000px
+    
     intersectionObserver.value = new IntersectionObserver(handleIntersection, {
       root: scrollContainer.value,
-      rootMargin: '400px 0px',
-      threshold: 0.01
+      rootMargin: `${preloadMargin}px 0px ${preloadMargin}px 0px`,
+      threshold: 0.001 // 极小的阈值，只要有一点点可见就触发
     })
   }
 }
@@ -576,6 +647,139 @@ function handleScroll() {
     showGroupToolbar.value = false
     clearToolbarHideTimer()
   }
+  
+  // 仅在全部图片模式下计算可见区域
+  if (groupType.value === 'all') {
+    // 使用防抖避免频繁计算
+    if (scrollDebounceTimer.value) {
+      clearTimeout(scrollDebounceTimer.value)
+    }
+    
+    scrollDebounceTimer.value = setTimeout(() => {
+      calculateVisibleRange()
+    }, 16) // 约60fps
+  }
+}
+
+// 计算可见区域
+function calculateVisibleRange() {
+  if (!scrollContainer.value || groupType.value !== 'all') return
+  
+  const scrollTop = scrollContainer.value.scrollTop
+  const clientHeight = scrollContainer.value.clientHeight
+  
+  // 计算可见区域的起始和结束行
+  const cols = Math.max(1, columns.value)
+  const startRow = Math.floor(scrollTop / itemHeight)
+  const endRow = Math.ceil((scrollTop + clientHeight) / itemHeight)
+  
+  // 转换为索引范围
+  const newStart = Math.max(0, startRow * cols - viewportBuffer * cols)
+  const newEnd = Math.min(images.value.length, endRow * cols + viewportBuffer * cols)
+  
+  // 只有当范围变化较大时才更新，避免频繁触发响应式更新
+  if (Math.abs(newStart - viewportStart.value) > cols * 2 || 
+      Math.abs(newEnd - viewportEnd.value) > cols * 2) {
+    viewportStart.value = newStart
+    viewportEnd.value = newEnd
+    
+    // 预加载可见区域的缩略图
+    preloadVisibleThumbnails()
+  }
+}
+
+// 预加载可见区域的缩略图
+function preloadVisibleThumbnails() {
+  if (groupType.value !== 'all') return
+  
+  const start = Math.max(0, viewportStart.value - viewportBuffer)
+  const end = Math.min(images.value.length, viewportEnd.value + viewportBuffer)
+  
+  // 先清理远离可见区域的图片资源
+  cleanupFarImages(start, end)
+  
+  // 限制并发加载数量
+  let loadingCount = 0
+  
+  for (let i = start; i < end; i++) {
+    const image = images.value[i]
+    if (image && !image.thumbnailUrl && !image.loadingThumbnail && !pendingThumbnailLoads.has(i)) {
+      // 如果已达到最大并发数，等待
+      if (loadingCount >= maxConcurrentThumbnails) {
+        break
+      }
+      
+      pendingThumbnailLoads.add(i)
+      loadingCount++
+      
+      // 延迟加载以避免阻塞主线程
+      setTimeout(() => {
+        loadThumbnail(image, i).finally(() => {
+          pendingThumbnailLoads.delete(i)
+        })
+      }, Math.min(100, (i - start) * 10)) // 稍微错开加载时间
+    }
+  }
+}
+
+// 清理远离可见区域的图片资源
+function cleanupFarImages(visibleStart, visibleEnd) {
+  const cleanupDistance = viewportBuffer * 3 // 清理距离可见区域3倍缓冲区以外的图片
+  const cleanupStart = visibleStart - cleanupDistance
+  const cleanupEnd = visibleEnd + cleanupDistance
+  
+  for (let i = 0; i < images.value.length; i++) {
+    const image = images.value[i]
+    if (image && image.thumbnailUrl) {
+      // 如果图片在清理区域之外，释放资源
+      if (i < cleanupStart || i > cleanupEnd) {
+        // 标记为需要重新加载
+        image.thumbnailUrl = null
+        image.loaded = false
+        image.loadError = false
+        
+        // 如果浏览器支持，强制释放图片内存
+        if (typeof Image !== 'undefined') {
+          // 创建一个虚拟的Image对象来替换src，帮助GC
+          const img = new Image()
+          img.src = ''
+          // 不直接操作DOM，只是帮助GC
+        }
+      }
+    }
+  }
+}
+
+// 组件卸载时清理所有资源
+function cleanupAllResources() {
+  // 清理所有图片资源
+  images.value.forEach(image => {
+    if (image) {
+      image.thumbnailUrl = null
+      image.loaded = false
+    }
+  })
+  
+  // 清理观察者
+  if (intersectionObserver.value) {
+    intersectionObserver.value.disconnect()
+    intersectionObserver.value = null
+  }
+  
+  // 清理定时器
+  if (scrollDebounceTimer.value) {
+    clearTimeout(scrollDebounceTimer.value)
+    scrollDebounceTimer.value = null
+  }
+  
+  if (scrollThrottleTimer.value) {
+    clearTimeout(scrollThrottleTimer.value)
+    scrollThrottleTimer.value = null
+  }
+  
+  // 清理集合
+  pendingThumbnailLoads.clear()
+  observedElements.clear()
 }
 
 // 处理鼠标/触摸移动事件
@@ -715,35 +919,73 @@ function attachObservers() {
   })
 }
 
-async function loadThumbnail(item, idx) {
+async function loadThumbnail(item, idx, retryCount = 0) {
   if (!item || item.loadingThumbnail || item.thumbnailUrl) return
+  
+  // 如果已经重试过3次，不再尝试
+  if (retryCount >= 3) {
+    console.warn(`缩略图加载失败，已达到最大重试次数: ${item.name}`)
+    return
+  }
+  
   images.value[idx].loadingThumbnail = true
+  
   try {
-    const url = await fileAPI.getFileThumbnailUrl(item.path, 200)
-    if (url) images.value[idx].thumbnailUrl = url
+    // 添加超时控制
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('缩略图加载超时')), 10000)
+    })
     
-    // 如果是视频文件，获取文件信息以提取时长
+    // 并发控制：如果已经有太多并发加载，延迟执行
+    if (pendingThumbnailLoads.size >= maxConcurrentThumbnails * 2) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    const urlPromise = fileAPI.getFileThumbnailUrl(item.path, 200)
+    const url = await Promise.race([urlPromise, timeoutPromise])
+    
+    if (url) {
+      images.value[idx].thumbnailUrl = url
+      images.value[idx].loadError = false
+      images.value[idx].retryCount = 0
+    }
+    
+    // 如果是视频文件，获取文件信息以提取时长（延迟加载，避免阻塞缩略图）
     if (item.type === '视频' && !item.duration && !item.loadingFileInfo) {
-      // 标记正在获取文件信息，避免重复请求
-      images.value[idx].loadingFileInfo = true
-      try {
-        const fileInfo = await fileAPI.getFileInfo(item.path)
-        
-        if (fileInfo && fileInfo.exifData) {
-          const duration = ExifFormatter.getDurationFromExif(fileInfo.exifData)
-          if (duration) {
-            images.value[idx].duration = duration
+      // 延迟加载文件信息，避免影响缩略图加载性能
+      setTimeout(async () => {
+        if (images.value[idx] && !images.value[idx].duration && !images.value[idx].loadingFileInfo) {
+          images.value[idx].loadingFileInfo = true
+          try {
+            const fileInfo = await fileAPI.getFileInfo(item.path)
+            
+            if (fileInfo && fileInfo.exifData) {
+              const duration = ExifFormatter.getDurationFromExif(fileInfo.exifData)
+              if (duration) {
+                images.value[idx].duration = duration
+              }
+            }
+          } catch (e) {
+            // 忽略获取文件信息失败的情况
+            console.warn('Failed to get file info for duration:', e)
+          } finally {
+            images.value[idx].loadingFileInfo = false
           }
         }
-      } catch (e) {
-        // 忽略获取文件信息失败的情况
-        console.warn('Failed to get file info for duration:', e)
-      } finally {
-        images.value[idx].loadingFileInfo = false
-      }
+      }, 1000) // 延迟1秒加载
     }
   } catch (e) {
-    // ignore thumbnail load failures
+    console.warn(`缩略图加载失败 (重试 ${retryCount + 1}/3): ${item.name}`, e)
+    images.value[idx].loadError = true
+    images.value[idx].retryCount = (images.value[idx].retryCount || 0) + 1
+    
+    // 指数退避重试
+    const delay = Math.min(1000 * Math.pow(2, retryCount), 5000)
+    setTimeout(() => {
+      if (images.value[idx] && !images.value[idx].thumbnailUrl) {
+        loadThumbnail(item, idx, retryCount + 1)
+      }
+    }, delay)
   } finally {
     images.value[idx].loadingThumbnail = false
   }
@@ -931,6 +1173,15 @@ onMounted(() => {
   nextTick(async () => {
     initObserver()
     initScrollListener() // 初始化滚动事件监听
+    // 初始化虚拟滚动
+    if (scrollContainer.value) {
+      // 初始计算可见区域
+      calculateVisibleRange()
+      // 添加resize事件监听以重新计算可见区域
+      window.addEventListener('resize', () => {
+        calculateVisibleRange()
+      })
+    }
     // if any elements were collected earlier, observe them now
     observedElements.forEach((el, idx) => {
       try {
@@ -957,10 +1208,8 @@ onMounted(() => {
     // 清理定时器
     clearToolbarHideTimer()
     
-    // 清理IntersectionObserver
-    if (intersectionObserver.value) {
-      intersectionObserver.value.disconnect()
-    }
+    // 清理所有资源
+    cleanupAllResources()
   })
 })
 
@@ -1020,12 +1269,6 @@ function applyAndroidNativeFix() {
     document.documentElement.style.height = '100%'
   })
 }
-
-
-onUnmounted(() => {
-  if (intersectionObserver.value) intersectionObserver.value.disconnect()
-  window.removeEventListener('resize', updateColumns)
-})
 </script>
 
 <style scoped>
@@ -1192,6 +1435,14 @@ onUnmounted(() => {
   gap: 4px; /* 稍微增大间隙以符合 iOS 风格 */
   /* 保留底部空间，避免被底部 Tab 遮挡（增加padding确保不被遮挡） */
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  /* 性能优化：启用GPU加速和优化渲染 */
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000;
+  -webkit-perspective: 1000;
 }
 
 .image-grid-item {
@@ -1201,12 +1452,19 @@ onUnmounted(() => {
   cursor: pointer;
   pointer-events: auto;
   touch-action: pan-y;
+  /* 性能优化：启用GPU加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   /* 简化过渡效果，提高性能 */
   transition: opacity 0.2s;
   -webkit-tap-highlight-color: transparent;
   user-select: none; /* 防止文本选择干扰触摸 */
   -webkit-user-drag: none; /* 防止拖动干扰 */
-  /* 移除transform和backface-visibility，简化渲染 */
+  /* 优化渲染性能 */
+  contain: content;
+  will-change: transform;
 }
 
 .image-grid-item:hover,
@@ -1219,9 +1477,15 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100px; /* 调整为更紧凑的行高，匹配 itemHeight */
-  /* 优化渲染性能 */
-  contain: content;
-  will-change: transform; /* 仅在有动画时使用，这里移除 */
+  /* 性能优化：启用GPU加速和优化渲染 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: strict; /* 严格限制渲染边界 */
+  will-change: transform;
+  /* 优化图片加载 */
+  background-color: #f8f8f8; /* 加载前的背景色 */
 }
 
 /* ensure image thumbnails fill the container and keep aspect ratio */
@@ -1232,6 +1496,19 @@ onUnmounted(() => {
   display: block;
   pointer-events: auto;
   touch-action: pan-y;
+  /* 性能优化：平滑加载和渲染 */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  /* 启用GPU加速 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* 图片加载完成后的样式 */
+.image-thumbnail img.loaded {
+  opacity: 1;
 }
 
 /* 视频播放按钮样式 */
