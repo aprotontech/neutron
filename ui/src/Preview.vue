@@ -247,7 +247,8 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import { FileSizeFormatter, DateFormatter, VideoDurationFormatter } from './lib/helpers.js'
+import { FileSizeFormatter, DateFormatter } from './lib/helpers.js'
+import { ExifFormatter } from './lib/exif.js'
 import { createPreviewMap } from './lib/preview.js'
 import AMapLoader from '@amap/amap-jsapi-loader'
 
@@ -370,16 +371,8 @@ const formattedMediaTime = computed(() => {
   return currentFile.value?.name || ''
 })
 
-function getExifValue(exifData, key) {
-  if (!exifData || !exifData[key]) return null
-  const valueObj = exifData[key]
-  if (valueObj.numberValue !== undefined && valueObj.numberValue !== null) return valueObj.numberValue
-  if (valueObj.stringValue !== undefined && valueObj.stringValue !== null) {
-    const str = valueObj.stringValue
-    return str.replace(/^["']|["']$/g, '')
-  }
-  return null
-}
+// getExifValue函数已迁移到ExifFormatter类中
+// 使用 ExifFormatter.getExifValue(exifData, key) 或 new ExifFormatter(exifData).getValue(key)
 
 function formatDateTime(dateStr) {
   if (dateStr === undefined || dateStr === null) return '未知时间'
@@ -413,11 +406,8 @@ function formatDateTime(dateStr) {
 function getCaptureTime(fileInfoObj) {
   if (!fileInfoObj) return null
   if (fileInfoObj.exifData) {
-    const dateTimeOriginal = getExifValue(fileInfoObj.exifData, 'DateTimeOriginal')
-    const createDate = getExifValue(fileInfoObj.exifData, 'CreateDate')
-    const modifyDate = getExifValue(fileInfoObj.exifData, 'ModifyDate')
-    const parsedDateTime = getExifValue(fileInfoObj.exifData, 'ParsedDateTime')
-    return parsedDateTime || dateTimeOriginal || createDate || modifyDate
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getCaptureTime()
   }
   return fileInfoObj.mtime || fileInfoObj.lastModified
 }
@@ -425,48 +415,53 @@ function getCaptureTime(fileInfoObj) {
 function getExifModel(fileInfoObj) {
   if (!fileInfoObj) return null
   if (fileInfoObj.exifData) {
-    return getExifValue(fileInfoObj.exifData, 'Model') || getExifValue(fileInfoObj.exifData, 'Make')
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getModel()
   }
   return fileInfoObj.Model || fileInfoObj.Make
 }
 
 function getExifFocalLength(fileInfoObj) {
   if (!fileInfoObj) return null
-  if (fileInfoObj.exifData) return getExifValue(fileInfoObj.exifData, 'FocalLength')
+  if (fileInfoObj.exifData) {
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getFocalLength()
+  }
   return fileInfoObj.FocalLength
 }
 
 function getExifFNumber(fileInfoObj) {
   if (!fileInfoObj) return null
-  if (fileInfoObj.exifData) return getExifValue(fileInfoObj.exifData, 'FNumber')
+  if (fileInfoObj.exifData) {
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getFNumber()
+  }
   return fileInfoObj.FNumber
 }
 
 function getExifISO(fileInfoObj) {
   if (!fileInfoObj) return null
   if (fileInfoObj.exifData) {
-    return getExifValue(fileInfoObj.exifData, 'ISOSpeedRatings') || getExifValue(fileInfoObj.exifData, 'ISO')
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getISO()
   }
   return fileInfoObj.ISO || fileInfoObj.ISOSpeedRatings
 }
 
 function getExifExposureTime(fileInfoObj) {
   if (!fileInfoObj) return null
-  if (fileInfoObj.exifData) return getExifValue(fileInfoObj.exifData, 'ExposureTime')
+  if (fileInfoObj.exifData) {
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getExposureTime()
+  }
   return fileInfoObj.ExposureTime
 }
 
 function getVideoFrameRate(fileInfoObj) {
   if (!fileInfoObj) return null
   if (fileInfoObj.exifData) {
-    // 尝试从不同的字段获取帧率
-    const frameRateKeys = ['VideoFrameRate', 'FrameRate', 'AvgFrameRate', 'VideoFrameRate#'];
-    for (const key of frameRateKeys) {
-      const value = getExifValue(fileInfoObj.exifData, key);
-      if (value !== null && value !== undefined) {
-        return value;
-      }
-    }
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getVideoFrameRate()
   }
   return fileInfoObj.VideoFrameRate || fileInfoObj.FrameRate;
 }
@@ -474,8 +469,8 @@ function getVideoFrameRate(fileInfoObj) {
 function getImageFormat(fileInfoObj) {
   if (!fileInfoObj) return '未知格式'
   if (fileInfoObj.exifData) {
-    const mimeType = getExifValue(fileInfoObj.exifData, 'MIMEType')
-    if (mimeType) return mimeType.split('/')[1]?.toUpperCase() || '未知格式'
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.getImageFormat()
   }
   if (fileInfoObj.MIMEType) return fileInfoObj.MIMEType.split('/')[1]?.toUpperCase() || '未知格式'
   if (currentFile.value?.name) {
@@ -507,8 +502,10 @@ function formatImageDimensions(fileInfoObj) {
   if (!fileInfoObj) return '--'
   let width, height
   if (fileInfoObj.exifData) {
-    width = getExifValue(fileInfoObj.exifData, 'ImageWidth') || getExifValue(fileInfoObj.exifData, 'PixelXDimension')
-    height = getExifValue(fileInfoObj.exifData, 'ImageHeight') || getExifValue(fileInfoObj.exifData, 'PixelYDimension')
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    const dimensions = formatter.getImageDimensions()
+    width = dimensions.width
+    height = dimensions.height
   }
   if (!width) width = fileInfoObj.ImageWidth || fileInfoObj.PixelXDimension
   if (!height) height = fileInfoObj.ImageHeight || fileInfoObj.PixelYDimension
@@ -560,9 +557,8 @@ function formatFrameRate(frameRate) {
 function hasLocation(fileInfoObj) {
   if (!fileInfoObj) return false
   if (fileInfoObj.exifData) {
-    const lat = getExifValue(fileInfoObj.exifData, 'GPSLatitude')
-    const lon = getExifValue(fileInfoObj.exifData, 'GPSLongitude')
-    if (lat && lon) return true
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    return formatter.hasLocation()
   }
   return !!(fileInfoObj.GPSLatitude || fileInfoObj.gpsLatitude || fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude)
 }
@@ -1059,62 +1055,8 @@ async function updateMap(refresh) {
   }
 }
 
-// 解析GPS坐标字符串（如 "30 deg 14' 57.48\" N"）为十进制坐标
-function parseGPSString(gpsStr) {
-  if (!gpsStr || typeof gpsStr !== 'string') return null
-  
-  const str = gpsStr.trim()
-  
-  // 如果已经是数字，直接返回
-  const num = parseFloat(str)
-  if (!isNaN(num) && str.match(/^-?\d+(\.\d+)?$/)) {
-    return num
-  }
-  
-  // 尝试解析格式：30 deg 14' 57.48" N
-  const regex = /^(\d+)\s*deg\s*(\d+)'\s*([\d.]+)"\s*([NSEW])$/i
-  const match = str.match(regex)
-  
-  if (match) {
-    const degrees = parseFloat(match[1])
-    const minutes = parseFloat(match[2])
-    const seconds = parseFloat(match[3])
-    const direction = match[4].toUpperCase()
-    
-    // 计算十进制坐标
-    let decimal = degrees + (minutes / 60) + (seconds / 3600)
-    
-    // 根据方向调整符号
-    if (direction === 'S' || direction === 'W') {
-      decimal = -decimal
-    }
-    
-    return decimal
-  }
-  
-  // 尝试解析其他常见格式
-  // 格式：30°14'57.48"N
-  const regex2 = /^(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NSEW])$/i
-  const match2 = str.match(regex2)
-  
-  if (match2) {
-    const degrees = parseFloat(match2[1])
-    const minutes = parseFloat(match2[2])
-    const seconds = parseFloat(match2[3])
-    const direction = match2[4].toUpperCase()
-    
-    let decimal = degrees + (minutes / 60) + (seconds / 3600)
-    
-    if (direction === 'S' || direction === 'W') {
-      decimal = -decimal
-    }
-    
-    return decimal
-  }
-  
-  // 如果无法解析，返回null
-  return null
-}
+// parseGPSString函数已迁移到ExifFormatter类中
+// 使用 ExifFormatter.parseGPSString(gpsStr)
 
 // 获取纬度
 function getLatitudeLongitude(fileInfoObj) {
@@ -1124,23 +1066,24 @@ function getLatitudeLongitude(fileInfoObj) {
   let lon = fileInfoObj.GPSLongitude || fileInfoObj.gpsLongitude
   
   if (fileInfoObj.exifData) {
-    const exifLat = getExifValue(fileInfoObj.exifData, 'GPSLatitude')
-    const exifLon = getExifValue(fileInfoObj.exifData, 'GPSLongitude')
-    
-    lat = lat || exifLat
-    lon = lon || exifLon
+    const formatter = new ExifFormatter(fileInfoObj.exifData)
+    const gps = formatter.getGPSLatitudeLongitude()
+    if (gps) {
+      lat = lat || gps.latitude
+      lon = lon || gps.longitude
+    }
   }
   
   // 尝试解析字符串格式的坐标
   if (typeof lat === 'string') {
-    const parsedLat = parseGPSString(lat)
+    const parsedLat = ExifFormatter.parseGPSString(lat)
     if (parsedLat !== null) {
       lat = parsedLat
     }
   }
   
   if (typeof lon === 'string') {
-    const parsedLon = parseGPSString(lon)
+    const parsedLon = ExifFormatter.parseGPSString(lon)
     if (parsedLon !== null) {
       lon = parsedLon
     }

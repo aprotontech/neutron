@@ -209,7 +209,8 @@ import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import FileAPI from './lib/file-api.js'
 import BatchFileApi from './lib/batch.js'
-import { FileTypeDetector, VideoDurationFormatter } from './lib/helpers.js'
+import { FileTypeDetector } from './lib/helpers.js'
+import { ExifFormatter } from './lib/exif.js'
 import Preview from './Preview.vue'
 
 // --- 简化后的实现，专注于：分页列表、IntersectionObserver 缩略图预加载、预览下滑关闭 ---
@@ -729,7 +730,7 @@ async function loadThumbnail(item, idx) {
         const fileInfo = await fileAPI.getFileInfo(item.path)
         
         if (fileInfo && fileInfo.exifData) {
-          const duration = VideoDurationFormatter.getDurationFromExif(fileInfo.exifData)
+          const duration = ExifFormatter.getDurationFromExif(fileInfo.exifData)
           if (duration) {
             images.value[idx].duration = duration
           }
