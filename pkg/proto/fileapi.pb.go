@@ -183,13 +183,13 @@ func (x *ImageRepoHistoryRequest) GetVersion() string {
 }
 
 type ImageRepoHistoryItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Type          int32                  `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`                        // 1:创建, 2:删除, 3:修改
-	Etime         int64                  `protobuf:"varint,4,opt,name=etime,proto3" json:"etime,omitempty"`                      // 图片拍摄时间 (Unix 时间戳，毫秒)
-	Mtime         int64                  `protobuf:"varint,5,opt,name=mtime,proto3" json:"mtime,omitempty"`                      // 文件修改时间 (Unix 时间戳，毫秒)
-	FilePath      string                 `protobuf:"bytes,6,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"` // 文件路径（兼容旧字段）
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Id            int64                     `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Path          string                    `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Type          int32                     `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`   // 1:创建, 2:删除, 3:修改
+	Etime         int64                     `protobuf:"varint,4,opt,name=etime,proto3" json:"etime,omitempty"` // 图片拍摄时间 (Unix 时间戳，毫秒)
+	Mtime         int64                     `protobuf:"varint,5,opt,name=mtime,proto3" json:"mtime,omitempty"` // 文件修改时间 (Unix 时间戳，毫秒)
+	ExifData      map[string]*_struct.Value `protobuf:"bytes,7,rep,name=exif_data,json=exifData,proto3" json:"exif_data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -259,11 +259,11 @@ func (x *ImageRepoHistoryItem) GetMtime() int64 {
 	return 0
 }
 
-func (x *ImageRepoHistoryItem) GetFilePath() string {
+func (x *ImageRepoHistoryItem) GetExifData() map[string]*_struct.Value {
 	if x != nil {
-		return x.FilePath
+		return x.ExifData
 	}
-	return ""
+	return nil
 }
 
 type ImageRepoHistoryResponse struct {
@@ -1009,14 +1009,17 @@ const file_fileapi_proto_rawDesc = "" +
 	"\alast_id\x18\x02 \x01(\x03R\x06lastId\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\x05R\x05order\x12\x18\n" +
-	"\aversion\x18\x05 \x01(\tR\aversion\"\x97\x01\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\"\x99\x02\n" +
 	"\x14ImageRepoHistoryItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\x05R\x04type\x12\x14\n" +
 	"\x05etime\x18\x04 \x01(\x03R\x05etime\x12\x14\n" +
-	"\x05mtime\x18\x05 \x01(\x03R\x05mtime\x12\x1b\n" +
-	"\tfile_path\x18\x06 \x01(\tR\bfilePath\"\x96\x01\n" +
+	"\x05mtime\x18\x05 \x01(\x03R\x05mtime\x12H\n" +
+	"\texif_data\x18\a \x03(\v2+.neutron.ImageRepoHistoryItem.ExifDataEntryR\bexifData\x1aS\n" +
+	"\rExifDataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"\x96\x01\n" +
 	"\x18ImageRepoHistoryResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x15\n" +
 	"\x06max_id\x18\x02 \x01(\x03R\x05maxId\x12\x18\n" +
@@ -1074,7 +1077,7 @@ func file_fileapi_proto_rawDescGZIP() []byte {
 	return file_fileapi_proto_rawDescData
 }
 
-var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_fileapi_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_fileapi_proto_goTypes = []any{
 	(*FileInformation)(nil),              // 0: neutron.FileInformation
 	(*ImageRepoHistoryRequest)(nil),      // 1: neutron.ImageRepoHistoryRequest
@@ -1094,22 +1097,25 @@ var file_fileapi_proto_goTypes = []any{
 	(*PlayVideoRequest)(nil),             // 15: neutron.PlayVideoRequest
 	(*PlayVideoResponse)(nil),            // 16: neutron.PlayVideoResponse
 	nil,                                  // 17: neutron.FileInformation.ExifDataEntry
-	nil,                                  // 18: neutron.PlayVideoResponse.VideoInfoEntry
-	(*_struct.Value)(nil),                // 19: google.protobuf.Value
+	nil,                                  // 18: neutron.ImageRepoHistoryItem.ExifDataEntry
+	nil,                                  // 19: neutron.PlayVideoResponse.VideoInfoEntry
+	(*_struct.Value)(nil),                // 20: google.protobuf.Value
 }
 var file_fileapi_proto_depIdxs = []int32{
 	17, // 0: neutron.FileInformation.exif_data:type_name -> neutron.FileInformation.ExifDataEntry
-	2,  // 1: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
-	2,  // 2: neutron.ImageRepoPageResponse.items:type_name -> neutron.ImageRepoHistoryItem
-	0,  // 3: neutron.ListFilesResponse.files:type_name -> neutron.FileInformation
-	18, // 4: neutron.PlayVideoResponse.video_info:type_name -> neutron.PlayVideoResponse.VideoInfoEntry
-	19, // 5: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
-	19, // 6: neutron.PlayVideoResponse.VideoInfoEntry.value:type_name -> google.protobuf.Value
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	18, // 1: neutron.ImageRepoHistoryItem.exif_data:type_name -> neutron.ImageRepoHistoryItem.ExifDataEntry
+	2,  // 2: neutron.ImageRepoHistoryResponse.items:type_name -> neutron.ImageRepoHistoryItem
+	2,  // 3: neutron.ImageRepoPageResponse.items:type_name -> neutron.ImageRepoHistoryItem
+	0,  // 4: neutron.ListFilesResponse.files:type_name -> neutron.FileInformation
+	19, // 5: neutron.PlayVideoResponse.video_info:type_name -> neutron.PlayVideoResponse.VideoInfoEntry
+	20, // 6: neutron.FileInformation.ExifDataEntry.value:type_name -> google.protobuf.Value
+	20, // 7: neutron.ImageRepoHistoryItem.ExifDataEntry.value:type_name -> google.protobuf.Value
+	20, // 8: neutron.PlayVideoResponse.VideoInfoEntry.value:type_name -> google.protobuf.Value
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_fileapi_proto_init() }
@@ -1123,7 +1129,7 @@ func file_fileapi_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fileapi_proto_rawDesc), len(file_fileapi_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

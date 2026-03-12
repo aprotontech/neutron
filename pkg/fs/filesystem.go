@@ -8,3 +8,7 @@ type FileSystem interface {
 	Open(path string) (FileOperator, error)
 	Stat(path string) (*NodeAttr, error)
 }
+
+type FileSystemBatchOperator interface {
+	BatchStat(path []string) ([]*NodeAttr, error)
+}

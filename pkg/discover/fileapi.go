@@ -356,16 +356,31 @@ func getImageRepoPage(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, 
 		return nil, err
 	}
 
+	// 收集所有文件路径用于批量获取 EXIF 数据
+	filePaths := make([]string, 0, len(imgs))
+	for _, img := range imgs {
+		filePaths = append(filePaths, img.FilePath)
+	}
+
+	// 批量获取 EXIF 数据
+	exifDataMap, err := batchGetExifData(c, filePaths)
+	if err != nil {
+		log.Warnf("Failed to batch get exif data: %v", err)
+	}
+
 	// 转换 ImageRepoHistoryItem
 	items := make([]*neutronproto.ImageRepoHistoryItem, 0, len(imgs))
 	for _, img := range imgs {
 		item := &neutronproto.ImageRepoHistoryItem{
-			Id:       img.ID,
-			Path:     img.FilePath, // 使用 FilePath 作为 Path
-			Type:     int32(img.Type),
-			Etime:    img.ExifTime, // ExifTime 是 int64 时间戳
-			Mtime:    img.ModTime,  // ModTime 是 int64 时间戳
-			FilePath: img.FilePath,
+			Id:    img.ID,
+			Path:  img.FilePath, // 使用 FilePath 作为 Path
+			Type:  int32(img.Type),
+			Etime: img.ExifTime, // ExifTime 是 int64 时间戳
+			Mtime: img.ModTime,  // ModTime 是 int64 时间戳
+		}
+		// 添加 EXIF 数据
+		if exifData, ok := exifDataMap[img.FilePath]; ok {
+			item.ExifData = exifData
 		}
 		items = append(items, item)
 	}
@@ -400,16 +415,31 @@ func getImageRepoHistory(c *RPCHandles, client *WebRTCRemoteClient, req any) (an
 		return nil, err
 	}
 
+	// 收集所有文件路径用于批量获取 EXIF 数据
+	filePaths := make([]string, 0, len(imgs))
+	for _, img := range imgs {
+		filePaths = append(filePaths, img.FilePath)
+	}
+
+	// 批量获取 EXIF 数据
+	exifDataMap, err := batchGetExifData(c, filePaths)
+	if err != nil {
+		log.Warnf("Failed to batch get exif data: %v", err)
+	}
+
 	// 转换 ImageRepoHistoryItem
 	items := make([]*neutronproto.ImageRepoHistoryItem, 0, len(imgs))
 	for _, img := range imgs {
 		item := &neutronproto.ImageRepoHistoryItem{
-			Id:       img.ID,
-			Path:     img.FilePath, // 使用 FilePath 作为 Path
-			Type:     int32(img.Type),
-			Etime:    img.ExifTime, // ExifTime 是 int64 时间戳
-			Mtime:    img.ModTime,  // ModTime 是 int64 时间戳
-			FilePath: img.FilePath,
+			Id:    img.ID,
+			Path:  img.FilePath, // 使用 FilePath 作为 Path
+			Type:  int32(img.Type),
+			Etime: img.ExifTime, // ExifTime 是 int64 时间戳
+			Mtime: img.ModTime,  // ModTime 是 int64 时间戳
+		}
+		// 添加 EXIF 数据
+		if exifData, ok := exifDataMap[img.FilePath]; ok {
+			item.ExifData = exifData
 		}
 		items = append(items, item)
 	}
@@ -422,6 +452,40 @@ func getImageRepoHistory(c *RPCHandles, client *WebRTCRemoteClient, req any) (an
 			Items:   items,
 		},
 	}, nil
+}
+
+func batchGetExifData(c *RPCHandles, filePaths []string) (map[string]map[string]*structpb.Value, error) {
+	exifDataMap := make(map[string]map[string]*structpb.Value)
+
+	for _, filePath := range filePaths {
+		info, err := c.filesystem.Stat(filePath)
+		if err != nil {
+			log.Warnf("Failed to stat file %s: %v", filePath, err)
+			continue
+		}
+
+		extraInfo, err := info.GetSystemExtraInfo()
+		if err != nil || extraInfo == nil {
+			extraInfo = &fs.FileSystemExtraInfo{}
+		}
+
+		exifData := make(map[string]*structpb.Value)
+		if extraInfo.Exif != nil {
+			for k, v := range extraInfo.Exif {
+				if strVal, ok := v.(string); ok {
+					exifData[k], _ = structpb.NewValue(strVal)
+				} else if numVal, ok := v.(float64); ok {
+					exifData[k], _ = structpb.NewValue(numVal)
+				} else if boolVal, ok := v.(bool); ok {
+					exifData[k], _ = structpb.NewValue(boolVal)
+				}
+			}
+		}
+
+		exifDataMap[filePath] = exifData
+	}
+
+	return exifDataMap, nil
 }
 
 func playVideo(c *RPCHandles, client *WebRTCRemoteClient, req any) (any, error) {

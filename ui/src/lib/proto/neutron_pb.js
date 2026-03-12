@@ -748,7 +748,7 @@ export const neutron = $root.neutron = (() => {
          * @property {number|null} [type] ImageRepoHistoryItem type
          * @property {number|Long|null} [etime] ImageRepoHistoryItem etime
          * @property {number|Long|null} [mtime] ImageRepoHistoryItem mtime
-         * @property {string|null} [filePath] ImageRepoHistoryItem filePath
+         * @property {Object.<string,google.protobuf.IValue>|null} [exifData] ImageRepoHistoryItem exifData
          */
 
         /**
@@ -760,6 +760,7 @@ export const neutron = $root.neutron = (() => {
          * @param {neutron.IImageRepoHistoryItem=} [properties] Properties to set
          */
         function ImageRepoHistoryItem(properties) {
+            this.exifData = {};
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -807,12 +808,12 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryItem.prototype.mtime = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
 
         /**
-         * ImageRepoHistoryItem filePath.
-         * @member {string} filePath
+         * ImageRepoHistoryItem exifData.
+         * @member {Object.<string,google.protobuf.IValue>} exifData
          * @memberof neutron.ImageRepoHistoryItem
          * @instance
          */
-        ImageRepoHistoryItem.prototype.filePath = "";
+        ImageRepoHistoryItem.prototype.exifData = $util.emptyObject;
 
         /**
          * Creates a new ImageRepoHistoryItem instance using the specified properties.
@@ -848,8 +849,11 @@ export const neutron = $root.neutron = (() => {
                 writer.uint32(/* id 4, wireType 0 =*/32).int64(message.etime);
             if (message.mtime != null && Object.hasOwnProperty.call(message, "mtime"))
                 writer.uint32(/* id 5, wireType 0 =*/40).int64(message.mtime);
-            if (message.filePath != null && Object.hasOwnProperty.call(message, "filePath"))
-                writer.uint32(/* id 6, wireType 2 =*/50).string(message.filePath);
+            if (message.exifData != null && Object.hasOwnProperty.call(message, "exifData"))
+                for (let keys = Object.keys(message.exifData), i = 0; i < keys.length; ++i) {
+                    writer.uint32(/* id 7, wireType 2 =*/58).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
+                    $root.google.protobuf.Value.encode(message.exifData[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
+                }
             return writer;
         };
 
@@ -880,7 +884,7 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryItem.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.ImageRepoHistoryItem();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.neutron.ImageRepoHistoryItem(), key, value;
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -906,8 +910,27 @@ export const neutron = $root.neutron = (() => {
                         message.mtime = reader.int64();
                         break;
                     }
-                case 6: {
-                        message.filePath = reader.string();
+                case 7: {
+                        if (message.exifData === $util.emptyObject)
+                            message.exifData = {};
+                        let end2 = reader.uint32() + reader.pos;
+                        key = "";
+                        value = null;
+                        while (reader.pos < end2) {
+                            let tag2 = reader.uint32();
+                            switch (tag2 >>> 3) {
+                            case 1:
+                                key = reader.string();
+                                break;
+                            case 2:
+                                value = $root.google.protobuf.Value.decode(reader, reader.uint32());
+                                break;
+                            default:
+                                reader.skipType(tag2 & 7);
+                                break;
+                            }
+                        }
+                        message.exifData[key] = value;
                         break;
                     }
                 default:
@@ -960,9 +983,16 @@ export const neutron = $root.neutron = (() => {
             if (message.mtime != null && message.hasOwnProperty("mtime"))
                 if (!$util.isInteger(message.mtime) && !(message.mtime && $util.isInteger(message.mtime.low) && $util.isInteger(message.mtime.high)))
                     return "mtime: integer|Long expected";
-            if (message.filePath != null && message.hasOwnProperty("filePath"))
-                if (!$util.isString(message.filePath))
-                    return "filePath: string expected";
+            if (message.exifData != null && message.hasOwnProperty("exifData")) {
+                if (!$util.isObject(message.exifData))
+                    return "exifData: object expected";
+                let key = Object.keys(message.exifData);
+                for (let i = 0; i < key.length; ++i) {
+                    let error = $root.google.protobuf.Value.verify(message.exifData[key[i]]);
+                    if (error)
+                        return "exifData." + error;
+                }
+            }
             return null;
         };
 
@@ -1009,8 +1039,16 @@ export const neutron = $root.neutron = (() => {
                     message.mtime = object.mtime;
                 else if (typeof object.mtime === "object")
                     message.mtime = new $util.LongBits(object.mtime.low >>> 0, object.mtime.high >>> 0).toNumber();
-            if (object.filePath != null)
-                message.filePath = String(object.filePath);
+            if (object.exifData) {
+                if (typeof object.exifData !== "object")
+                    throw TypeError(".neutron.ImageRepoHistoryItem.exifData: object expected");
+                message.exifData = {};
+                for (let keys = Object.keys(object.exifData), i = 0; i < keys.length; ++i) {
+                    if (typeof object.exifData[keys[i]] !== "object")
+                        throw TypeError(".neutron.ImageRepoHistoryItem.exifData: object expected");
+                    message.exifData[keys[i]] = $root.google.protobuf.Value.fromObject(object.exifData[keys[i]]);
+                }
+            }
             return message;
         };
 
@@ -1027,6 +1065,8 @@ export const neutron = $root.neutron = (() => {
             if (!options)
                 options = {};
             let object = {};
+            if (options.objects || options.defaults)
+                object.exifData = {};
             if (options.defaults) {
                 if ($util.Long) {
                     let long = new $util.Long(0, 0, false);
@@ -1045,7 +1085,6 @@ export const neutron = $root.neutron = (() => {
                     object.mtime = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                 } else
                     object.mtime = options.longs === String ? "0" : 0;
-                object.filePath = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
                 if (typeof message.id === "number")
@@ -1066,8 +1105,12 @@ export const neutron = $root.neutron = (() => {
                     object.mtime = options.longs === String ? String(message.mtime) : message.mtime;
                 else
                     object.mtime = options.longs === String ? $util.Long.prototype.toString.call(message.mtime) : options.longs === Number ? new $util.LongBits(message.mtime.low >>> 0, message.mtime.high >>> 0).toNumber() : message.mtime;
-            if (message.filePath != null && message.hasOwnProperty("filePath"))
-                object.filePath = message.filePath;
+            let keys2;
+            if (message.exifData && (keys2 = Object.keys(message.exifData)).length) {
+                object.exifData = {};
+                for (let j = 0; j < keys2.length; ++j)
+                    object.exifData[keys2[j]] = $root.google.protobuf.Value.toObject(message.exifData[keys2[j]], options);
+            }
             return object;
         };
 
