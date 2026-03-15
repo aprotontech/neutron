@@ -3,6 +3,9 @@
  * 用于管理预览窗口所需的文件数据
  */
 
+import platform from 'platform';
+import { Hash } from './helpers.js'
+
 export class PreviewDataManager {
     constructor() {
         // 使用Map存储文件数据，key为offset，value为文件信息
@@ -13,6 +16,7 @@ export class PreviewDataManager {
         this.fileAPI = null
         // 存储数据加载回调函数
         this.dataLoader = null
+        this.heicCacheKey = 'preview_heic_conversions'
     }
 
     /**
@@ -187,7 +191,22 @@ export class PreviewDataManager {
             throw new Error('FileAPI not initialized')
         }
 
-        return this.fileAPI.getFileUrl(filePath, null, progressCallback)
+        const url = await this.fileAPI.getFileUrl(filePath, null, progressCallback)
+
+        // 检查是否为HEIC文件，如果是则转换为JPG
+        if (this.isHeicFile(filePath) && platform.os.family !== 'iOS') {
+            try {
+                console.log(`HEIC file detected: ${filePath}, converting to JPG...`)
+                const jpgUrl = await this.convertHeicToJpg(filePath, url)
+                return jpgUrl
+            } catch (error) {
+                console.warn(`Failed to convert HEIC to JPG for ${filePath}, falling back to original:`, error)
+                // 转换失败，回退到原始文件
+                return this.fileAPI.getFileUrl(filePath, null, progressCallback)
+            }
+        }
+
+        return url
     }
 
     /**
@@ -268,6 +287,104 @@ export class PreviewDataManager {
             }
         }
         return null
+    }
+
+    /**
+     * 检查文件是否为HEIC格式
+     * @param {string} filePath - 文件路径
+     * @returns {boolean} 是否为HEIC文件
+     */
+    isHeicFile(filePath) {
+        if (!filePath) return false
+
+        const lowerPath = filePath.toLowerCase()
+        return lowerPath.endsWith('.heic') ||
+            lowerPath.endsWith('.heif') ||
+            lowerPath.includes('.heic?') ||
+            lowerPath.includes('.heif?')
+    }
+
+
+    /**
+     * 将HEIC文件转换为JPG格式
+     * @param {string} filePath - HEIC文件路径
+     * @returns {Promise<string>} 转换后的JPG文件URL
+     */
+    async convertHeicToJpg(filePath, localFileUrl) {
+        const cacheKey = 'heic_' + Hash.md5sum({ 'path': filePath, 'type': 'heic' })
+        // 首先检查缓存
+        if (Capacitor.isNativePlatform()) {
+            const localPathUrl = localStorage.getItem(cacheKey)
+            if (localPathUrl) {
+                return localPathUrl;
+            }
+        }
+
+        try {
+            // 2. 使用fetch获取HEIC文件数据
+            const response = await fetch(localFileUrl)
+            if (!response.ok) {
+                throw new Error(`Failed to fetch HEIC file: ${response.status}`)
+            }
+
+            const heicBlob = await response.blob()
+
+            // 3. 动态导入heic2any库
+            const heic2any = (await import('heic2any')).default
+
+            // 4. 转换为JPG格式
+            const jpgBlob = await heic2any({
+                blob: heicBlob,
+                toType: 'image/jpeg',
+                quality: 0.9 // 90%质量
+            })
+
+            // 5. 创建Object URL
+            let jpgUrl = null;
+            if (Capacitor.isNativePlatform()) {
+                // In native environment, save to filesystem
+                const cachePath = `caches/heic/${cacheKey}.jpg`
+
+                // Ensure cacheType directory exists
+                try {
+                    await Filesystem.mkdir({
+                        path: `caches/heic`,
+                        directory: Directory.Data,
+                        recursive: true
+                    });
+                } catch (err) {
+                    // Directory might already exist
+                }
+
+                // Save cache data
+                const base64Data = await Base64Encoder.encodeBlob(jpgBlob);
+                await Filesystem.writeFile({
+                    path: cachePath,
+                    data: base64Data,
+                    directory: Directory.Data,
+                    encoding: Encoding.Base64,
+                });
+
+                const result = await Filesystem.stat({
+                    path: cachePath,
+                    directory: Directory.Data,
+                });
+
+                jpgUrl = Capacitor.convertFileSrc(result.url)
+
+                // 6. 缓存结果
+                localStorage.setItem(cacheKey, jpgUrl)
+            } else {
+                jpgUrl = URL.createObjectURL(jpgBlob)
+            }
+
+            console.log(`HEIC to JPG conversion successful: ${filePath}`)
+            return jpgUrl
+
+        } catch (error) {
+            console.error(`Failed to convert HEIC to JPG: ${filePath}`, error)
+            throw error
+        }
     }
 }
 
