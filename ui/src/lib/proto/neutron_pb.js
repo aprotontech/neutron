@@ -748,6 +748,7 @@ export const neutron = $root.neutron = (() => {
          * @property {number|null} [type] ImageRepoHistoryItem type
          * @property {number|Long|null} [etime] ImageRepoHistoryItem etime
          * @property {number|Long|null} [mtime] ImageRepoHistoryItem mtime
+         * @property {number|Long|null} [size] ImageRepoHistoryItem size
          * @property {Object.<string,google.protobuf.IValue>|null} [exifData] ImageRepoHistoryItem exifData
          */
 
@@ -808,6 +809,14 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryItem.prototype.mtime = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
 
         /**
+         * ImageRepoHistoryItem size.
+         * @member {number|Long} size
+         * @memberof neutron.ImageRepoHistoryItem
+         * @instance
+         */
+        ImageRepoHistoryItem.prototype.size = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+
+        /**
          * ImageRepoHistoryItem exifData.
          * @member {Object.<string,google.protobuf.IValue>} exifData
          * @memberof neutron.ImageRepoHistoryItem
@@ -849,6 +858,8 @@ export const neutron = $root.neutron = (() => {
                 writer.uint32(/* id 4, wireType 0 =*/32).int64(message.etime);
             if (message.mtime != null && Object.hasOwnProperty.call(message, "mtime"))
                 writer.uint32(/* id 5, wireType 0 =*/40).int64(message.mtime);
+            if (message.size != null && Object.hasOwnProperty.call(message, "size"))
+                writer.uint32(/* id 6, wireType 0 =*/48).int64(message.size);
             if (message.exifData != null && Object.hasOwnProperty.call(message, "exifData"))
                 for (let keys = Object.keys(message.exifData), i = 0; i < keys.length; ++i) {
                     writer.uint32(/* id 7, wireType 2 =*/58).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
@@ -908,6 +919,10 @@ export const neutron = $root.neutron = (() => {
                     }
                 case 5: {
                         message.mtime = reader.int64();
+                        break;
+                    }
+                case 6: {
+                        message.size = reader.int64();
                         break;
                     }
                 case 7: {
@@ -983,6 +998,9 @@ export const neutron = $root.neutron = (() => {
             if (message.mtime != null && message.hasOwnProperty("mtime"))
                 if (!$util.isInteger(message.mtime) && !(message.mtime && $util.isInteger(message.mtime.low) && $util.isInteger(message.mtime.high)))
                     return "mtime: integer|Long expected";
+            if (message.size != null && message.hasOwnProperty("size"))
+                if (!$util.isInteger(message.size) && !(message.size && $util.isInteger(message.size.low) && $util.isInteger(message.size.high)))
+                    return "size: integer|Long expected";
             if (message.exifData != null && message.hasOwnProperty("exifData")) {
                 if (!$util.isObject(message.exifData))
                     return "exifData: object expected";
@@ -1039,6 +1057,15 @@ export const neutron = $root.neutron = (() => {
                     message.mtime = object.mtime;
                 else if (typeof object.mtime === "object")
                     message.mtime = new $util.LongBits(object.mtime.low >>> 0, object.mtime.high >>> 0).toNumber();
+            if (object.size != null)
+                if ($util.Long)
+                    (message.size = $util.Long.fromValue(object.size)).unsigned = false;
+                else if (typeof object.size === "string")
+                    message.size = parseInt(object.size, 10);
+                else if (typeof object.size === "number")
+                    message.size = object.size;
+                else if (typeof object.size === "object")
+                    message.size = new $util.LongBits(object.size.low >>> 0, object.size.high >>> 0).toNumber();
             if (object.exifData) {
                 if (typeof object.exifData !== "object")
                     throw TypeError(".neutron.ImageRepoHistoryItem.exifData: object expected");
@@ -1085,6 +1112,11 @@ export const neutron = $root.neutron = (() => {
                     object.mtime = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                 } else
                     object.mtime = options.longs === String ? "0" : 0;
+                if ($util.Long) {
+                    let long = new $util.Long(0, 0, false);
+                    object.size = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                } else
+                    object.size = options.longs === String ? "0" : 0;
             }
             if (message.id != null && message.hasOwnProperty("id"))
                 if (typeof message.id === "number")
@@ -1105,6 +1137,11 @@ export const neutron = $root.neutron = (() => {
                     object.mtime = options.longs === String ? String(message.mtime) : message.mtime;
                 else
                     object.mtime = options.longs === String ? $util.Long.prototype.toString.call(message.mtime) : options.longs === Number ? new $util.LongBits(message.mtime.low >>> 0, message.mtime.high >>> 0).toNumber() : message.mtime;
+            if (message.size != null && message.hasOwnProperty("size"))
+                if (typeof message.size === "number")
+                    object.size = options.longs === String ? String(message.size) : message.size;
+                else
+                    object.size = options.longs === String ? $util.Long.prototype.toString.call(message.size) : options.longs === Number ? new $util.LongBits(message.size.low >>> 0, message.size.high >>> 0).toNumber() : message.size;
             let keys2;
             if (message.exifData && (keys2 = Object.keys(message.exifData)).length) {
                 object.exifData = {};

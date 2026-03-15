@@ -1,7 +1,8 @@
 
 import TransferClient from './transfer.js';
 import { FileTypeDetector, Hash } from './helpers.js';
-import CacheManager from './thumbnail-manager.js';
+import ThumbnailManager from './thumbnail-manager.js';
+import { MemoryCache } from './memory-cache.js';
 import { Capacitor } from '@capacitor/core';
 import { getLocalFileManager } from './local-file-manager.js';
 import { Config } from './config.js';
@@ -20,7 +21,7 @@ export default class FileAPI {
         this.cacheManager = null
         this.localFileManager = null
         if (Capacitor.isNativePlatform()) {
-            this.cacheManager = CacheManager.getInstance();
+            this.cacheManager = ThumbnailManager.getInstance();
             this.localFileManager = getLocalFileManager();
 
             // Ensure cache is ready
@@ -28,6 +29,21 @@ export default class FileAPI {
             // cached file info helper
             this._cachedFileInfo = new CachedFileInformation();
         }
+
+        // Initialize memory cache
+        this.memoryCache = new MemoryCache();
+        // Register cache types
+        // thumbnail 类型：默认清理函数用于清理 ObjectURL
+        this.memoryCache.regist('thumbnail', 100, 7 * 24 * 60 * 60 * 1000, (cachedValue) => {
+            if (cachedValue && cachedValue.objectUrl) {
+                try {
+                    URL.revokeObjectURL(cachedValue.objectUrl);
+                } catch (e) {
+                    // 忽略错误
+                }
+            }
+        }); // 7 days
+        this.memoryCache.regist('fileinfo', 500, 24 * 60 * 60 * 1000); // 24 hour
 
         // Image repository for managing image history
         this.imageRepo = new ImageRepo();
@@ -47,6 +63,47 @@ export default class FileAPI {
 
         // Sync status monitoring
         this._syncStatusCallback = null;
+    }
+
+    /**
+     * 从ImageRepoHistoryItem构造FileInformation并缓存
+     * @private
+     */
+    async _cacheFileInfoFromImageItem(imageItem) {
+        if (!imageItem || !imageItem.path) {
+            console.warn('Invalid image item for caching:', imageItem);
+            return;
+        }
+
+        const filePath = imageItem.path;
+        const cacheKey = Hash.md5sum('fileinfo', filePath);
+
+        // 构造FileInformation对象
+        const fileInfo = {
+            name: filePath.split('/').pop(),
+            is_dir: false,
+            size: imageItem.size || 0,
+            mtime: imageItem.mtime || 0,
+            mime_type: FileTypeDetector.getMIMEType(filePath),
+            exif_data: imageItem.exif_data || {}
+        };
+
+        console.log(`Caching file info for ${filePath}: size=${fileInfo.size}, mtime=${fileInfo.mtime}`);
+
+        // 更新内存缓存
+        this.memoryCache.set('fileinfo', cacheKey, fileInfo, 24 * 60 * 60 * 1000);
+
+        // 如果是native模式，同时更新到SQLite
+        if (Capacitor.isNativePlatform() && this._cachedFileInfo) {
+            try {
+                await this._cachedFileInfo.saveFileInfo(filePath, fileInfo);
+                console.log(`File info saved to SQLite for: ${filePath}`);
+            } catch (error) {
+                console.warn(`Failed to save file info to SQLite for ${filePath}:`, error);
+            }
+        }
+
+        return fileInfo;
     }
 
     /**
@@ -134,51 +191,92 @@ export default class FileAPI {
 
     /**
      * Generic cache wrapper function
-     * @param {string} cacheType - Cache type (e.g., 'thumbnail', 'content')
+     * @param {string} cacheType - Cache type (e.g., 'thumbnail')
      * @param {string} cacheKey - Cache key
      * @param {Function} requestFn - Function to execute if cache miss
      * @returns {Promise<any>} Cached or fresh data
      */
     async cacheThumbnailUrl(cacheType, cacheKey, requestFn) {
-        if (!this.cacheManager) {
-            // console.log("try to get thumbnail of ", cacheKey)
-            const data = await requestFn();
-            if (data) {
-                return URL.createObjectURL(data)
-            }
-            return null
-        }
-        try {
-            // Check if we have valid cache
-            const cacheLocalUri = await this.cacheManager.getCacheUri(cacheKey);
+        // 使用新的 MemoryCache get 方法，不传入 cleanFn，使用默认的清理函数
+        const cachedResult = await this.memoryCache.get(
+            cacheType,
+            cacheKey,
+            async () => {
+                // 缓存未命中，执行请求
+                console.log(`Cache miss for ${cacheType}: ${cacheKey}, fetching...`);
 
-            if (cacheLocalUri) {
-                console.log(`Cache hit for ${cacheType}: ${cacheKey}`);
+                if (!this.cacheManager) {
+                    // 如果没有缓存管理器，直接执行请求
+                    const data = await requestFn();
+                    if (data) {
+                        const objectUrl = URL.createObjectURL(data);
+                        return {
+                            data: data,
+                            objectUrl: objectUrl
+                        };
+                    }
+                    return null;
+                }
 
-                return cacheLocalUri;
-            }
+                try {
+                    // Check if we have valid cache in filesystem
+                    const cacheLocalUri = await this.cacheManager.getCacheUri(cacheKey);
 
-            // Cache miss, execute request function
-            console.log(`Cache miss for ${cacheType}: ${cacheKey}, fetching...`);
-            const freshData = await requestFn();
+                    if (cacheLocalUri) {
+                        console.log(`Filesystem cache hit for ${cacheType}: ${cacheKey}`);
+                        return {
+                            data: null, // 文件系统缓存，不需要 Blob 数据
+                            objectUrl: cacheLocalUri,
+                            fromFilesystem: true
+                        };
+                    }
 
-            // Save to cache
-            if (freshData) {
-                const extraMetadata = {
-                    mimeType: freshData.type || 'image/jpeg'
-                };
+                    // 从网络获取数据
+                    const freshData = await requestFn();
 
-                await this.cacheManager.saveCache(cacheKey, cacheType, freshData, extraMetadata);
-                console.log(`Saved to cache: ${cacheType}: ${cacheKey}`);
-                return URL.createObjectURL(freshData)
-            }
+                    if (freshData) {
+                        const extraMetadata = {
+                            mimeType: freshData.type || 'image/jpeg'
+                        };
 
-            return null;
-        } catch (error) {
-            console.error(`Cache error for ${cacheType}: ${cacheKey}:`, error);
-            // Fallback to direct request
-            return await requestFn();
-        }
+                        // 保存到文件系统缓存
+                        await this.cacheManager.saveCache(cacheKey, cacheType, freshData, extraMetadata);
+
+                        // 创建 ObjectURL
+                        const objectUrl = URL.createObjectURL(freshData);
+                        console.log(`Saved to cache: ${cacheType}: ${cacheKey}`);
+
+                        return {
+                            data: freshData,
+                            objectUrl: objectUrl
+                        };
+                    }
+
+                    return null;
+                } catch (error) {
+                    console.error(`Cache error for ${cacheType}: ${cacheKey}:`, error);
+                    // Fallback to direct request
+                    try {
+                        const data = await requestFn();
+                        if (data) {
+                            const objectUrl = URL.createObjectURL(data);
+                            return {
+                                data: data,
+                                objectUrl: objectUrl
+                            };
+                        }
+                    } catch (fallbackError) {
+                        console.error(`Fallback request error for ${cacheType}: ${cacheKey}:`, fallbackError);
+                    }
+                    return null;
+                }
+            },
+            null, // 使用默认超时时间
+            null  // 不传入 cleanFn，使用默认的清理函数
+        );
+
+        // 返回 ObjectURL
+        return cachedResult ? cachedResult.objectUrl : null;
     }
 
     async cacheFileContent(filePath, fileInfo, progressCallback = null) {
@@ -505,32 +603,46 @@ export default class FileAPI {
      * @returns {Promise<Object>} - File info object
      */
     async getFileInfo(filePath) {
-        if (!this._cachedFileInfo) {
-            return await TransferClient.get().getFileInfo(filePath);
-        }
+        const cacheKey = Hash.md5sum('fileinfo', filePath);
 
-        // Try to read from local sqlite cache first
-        try {
-            const cached = await this._cachedFileInfo.getFileInfo(filePath);
-            if (cached) {
-                return cached;
-            }
-        } catch (e) {
-            // ignore cache errors and fall back to network
-            console.warn('CachedFileInformation.getFileInfo failed:', e);
-        }
+        // 使用新的 MemoryCache get 方法，文件信息不需要清理函数
+        return await this.memoryCache.get(
+            'fileinfo',
+            cacheKey,
+            async () => {
+                console.log(`File info cache miss for: ${filePath}`);
 
-        // Fallback to network and cache the result when possible
-        const fresh = await TransferClient.get().getFileInfo(filePath);
-        console.log("fileinfo: ", JSON.stringify(fresh))
-        try {
-            if (fresh) {
-                await this._cachedFileInfo.saveFileInfo(filePath, fresh);
-            }
-        } catch (e) {
-            console.warn('CachedFileInformation.saveFileInfo failed:', e);
-        }
-        return fresh;
+                if (!this._cachedFileInfo) {
+                    return await TransferClient.get().getFileInfo(filePath);
+                }
+
+                // Try to read from local sqlite cache first
+                try {
+                    const cached = await this._cachedFileInfo.getFileInfo(filePath);
+                    if (cached) {
+                        return cached;
+                    }
+                } catch (e) {
+                    // ignore cache errors and fall back to network
+                    console.warn('CachedFileInformation.getFileInfo failed:', e);
+                }
+
+                // Fallback to network and cache the result when possible
+                const fresh = await TransferClient.get().getFileInfo(filePath);
+                console.log("fileinfo: ", JSON.stringify(fresh));
+
+                try {
+                    if (fresh) {
+                        await this._cachedFileInfo.saveFileInfo(filePath, fresh);
+                    }
+                } catch (e) {
+                    console.warn('CachedFileInformation.saveFileInfo failed:', e);
+                }
+                return fresh;
+            },
+            5 * 60 * 1000, // 5分钟超时
+            null // 文件信息不需要清理函数
+        );
     }
 
     /**
@@ -688,6 +800,15 @@ export default class FileAPI {
 
             console.log(`Native mode: retrieved ${items.length} items from local cache (total: ${totalCount})`);
 
+            // 缓存每个item的fileinfo
+            for (const item of items) {
+                try {
+                    await this._cacheFileInfoFromImageItem(item);
+                } catch (error) {
+                    console.warn(`Failed to cache file info for ${item.path} from local cache:`, error);
+                }
+            }
+
             // 启动后台同步以继续同步剩余数据（非阻塞）
             // this._startBackgroundSync();
 
@@ -830,9 +951,17 @@ export default class FileAPI {
 
             console.log(`retrieved ${items.length} items from TransferClient (total: ${totalCount})`);
 
-            items.map(item => {
-                item.file_path = item.path
-            })
+            // 处理每个item，缓存fileinfo
+            for (const item of items) {
+                item.file_path = item.path;
+                
+                // 缓存fileinfo到内存和SQLite
+                try {
+                    await this._cacheFileInfoFromImageItem(item);
+                } catch (error) {
+                    console.warn(`Failed to cache file info for ${item.path}:`, error);
+                }
+            }
 
             return {
                 success: true,
@@ -973,6 +1102,15 @@ export default class FileAPI {
                     await this.imageRepo.updateHistory(response.total, items);
                     totalSynced += items.length;
 
+                    // 缓存每个item的fileinfo
+                    for (const item of items) {
+                        try {
+                            await this._cacheFileInfoFromImageItem(item);
+                        } catch (error) {
+                            console.warn(`Failed to cache file info for ${item.path} during sync:`, error);
+                        }
+                    }
+
                     this._callbackCurrentSyncStatus();
 
                     // 如果返回的数量小于请求的数量，说明没有更多数据了
@@ -1040,6 +1178,24 @@ export default class FileAPI {
 
     async getCacheSize() {
         let totalSize = 0;
+
+        // 估算内存缓存大小（粗略估算）
+        if (this.memoryCache) {
+            // 这里我们只能粗略估算，因为 JavaScript 对象的大小很难精确计算
+            // 假设每个缓存条目平均占用 10KB
+            let memoryCacheEntries = 0;
+            // 获取所有缓存类型的统计信息
+            const cacheTypes = ['thumbnail', 'fileinfo'];
+            for (const type of cacheTypes) {
+                const stats = this.memoryCache.getStats(type);
+                if (stats) {
+                    memoryCacheEntries += stats.size;
+                }
+            }
+            // 粗略估算：每个条目 10KB
+            totalSize += memoryCacheEntries * 10 * 1024;
+        }
+
         if (this.cacheManager) {
             totalSize += await this.cacheManager.getCacheSize();
         }
@@ -1073,6 +1229,11 @@ export default class FileAPI {
     }
 
     async cleanAllCaches() {
+        // 清理内存缓存
+        if (this.memoryCache) {
+            this.memoryCache.clearAll();
+        }
+
         if (this.cacheManager) {
             this.cacheManager.deleteEntireCache()
         }

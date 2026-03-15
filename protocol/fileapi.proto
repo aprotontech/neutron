@@ -29,6 +29,7 @@ message ImageRepoHistoryItem {
     int32 type = 3; // 1:创建, 2:删除, 3:修改
     int64 etime = 4; // 图片拍摄时间 (Unix 时间戳，毫秒)
     int64 mtime = 5; // 文件修改时间 (Unix 时间戳，毫秒)
+    int64 size = 6;
     map<string, google.protobuf.Value> exif_data = 7;
 }
 

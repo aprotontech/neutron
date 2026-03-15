@@ -8,7 +8,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Base64Encoder } from './helpers.js';
 import SQLiteManager from './sqlite.js';
 
-export default class CacheManager {
+export default class ThumbnailManager {
     static instance = null;
 
     constructor() {
@@ -16,17 +16,15 @@ export default class CacheManager {
         this.cacheDir = 'caches';
         this.maxCacheSize = 50 * 1024 * 1024; // 50MB max cache size
         this.cacheExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-        this.memoryCache = new Map(); // 内存缓存，提高性能
-        this.memoryCacheLimit = 100; // 内存缓存最大条目数
 
         this.initPromise = this.initCache();
     }
 
     static getInstance() {
-        if (!CacheManager.instance) {
-            CacheManager.instance = new CacheManager();
+        if (!ThumbnailManager.instance) {
+            ThumbnailManager.instance = new ThumbnailManager();
         }
-        return CacheManager.instance;
+        return ThumbnailManager.instance;
     }
 
     /**
@@ -48,13 +46,13 @@ export default class CacheManager {
                     directory: Directory.Data,
                 });
                 if (!result) {
-                    console.log('CacheManager: Cache directory already exists or error:', err.message);
+                    console.log('ThumbnailManager: Cache directory already exists or error:', err.message);
                 }
             }
 
-            console.log('CacheManager: Cache initialized successfully');
+            console.log('ThumbnailManager: Cache initialized successfully');
         } catch (error) {
-            console.error('CacheManager: Failed to initialize cache:', error);
+            console.error('ThumbnailManager: Failed to initialize cache:', error);
         }
     }
 
@@ -82,10 +80,10 @@ export default class CacheManager {
                 VALUES(?, ?, ?, ?, ?, ?, ?)
             `, [cacheKey, filePath, cacheType, cacheFile, mimeType, fileSize, now]);
 
-            console.log(`CacheManager: Cache record saved to database: ${cacheKey}`);
+            console.log(`ThumbnailManager: Cache record saved to database: ${cacheKey}`);
             return true;
         } catch (error) {
-            console.error('CacheManager: Error saving cache record:', error);
+            console.error('ThumbnailManager: Error saving cache record:', error);
             return false;
         }
     }
@@ -108,7 +106,7 @@ export default class CacheManager {
 
             return result.values && result.values.length > 0 ? result.values[0] : null;
         } catch (error) {
-            console.error('CacheManager: Error getting cache record:', error);
+            console.error('ThumbnailManager: Error getting cache record:', error);
             return null;
         }
     }
@@ -117,7 +115,7 @@ export default class CacheManager {
      * Batch get cache records from database
      * @private
      */
-    async _batchGetCacheRecords(cacheKeys) {
+    async batchGetCacheRecords(cacheKeys) {
         try {
             const db = await this._getDatabase();
             if (!db || !cacheKeys || cacheKeys.length === 0) {
@@ -141,7 +139,7 @@ export default class CacheManager {
 
             return resultMap;
         } catch (error) {
-            console.error('CacheManager: Error batch getting cache records:', error);
+            console.error('ThumbnailManager: Error batch getting cache records:', error);
             return new Map();
         }
     }
@@ -160,10 +158,10 @@ export default class CacheManager {
                 [cacheKey]
             );
 
-            console.log(`CacheManager: Cache record removed from database: ${cacheKey}`);
+            console.log(`ThumbnailManager: Cache record removed from database: ${cacheKey}`);
             return true;
         } catch (error) {
-            console.error('CacheManager: Error removing cache record:', error);
+            console.error('ThumbnailManager: Error removing cache record:', error);
             return false;
         }
     }
@@ -191,7 +189,7 @@ export default class CacheManager {
             const result = await db.query('SELECT SUM(filesize) as total_size FROM cache_files');
             return result.values?.[0]?.total_size || 0;
         } catch (error) {
-            console.error('CacheManager: Error getting cache size:', error);
+            console.error('ThumbnailManager: Error getting cache size:', error);
             return 0;
         }
     }
@@ -221,7 +219,7 @@ export default class CacheManager {
                 }
             }
         } catch (error) {
-            console.error('CacheManager: Error getting cache:', error);
+            console.error('ThumbnailManager: Error getting cache:', error);
         }
 
         return null;
@@ -230,10 +228,7 @@ export default class CacheManager {
     async getCacheMetadata(cacheKey) {
         try {
             // 首先检查内存缓存
-            const memoryCache = this._getFromMemoryCache(cacheKey);
-            if (memoryCache !== null) {
-                return memoryCache
-            }
+            // 内存缓存已迁移到 MemoryCache 类中
 
             // In native environment, get from database and filesystem
             try {
@@ -262,7 +257,7 @@ export default class CacheManager {
                 return null;
             }
         } catch (error) {
-            console.error('CacheManager: Error getting cache:', error);
+            console.error('ThumbnailManager: Error getting cache:', error);
             return null;
         }
 
@@ -298,8 +293,7 @@ export default class CacheManager {
                 // 忽略错误
             }
 
-            // 保存到内存缓存
-            this._saveToMemoryCache(cacheKey, data, metadata);
+            // 内存缓存已迁移到 MemoryCache 类中
 
             // In native environment, save to filesystem
             const cachePath = this.getCacheFilePath(cacheKey, cacheType);
@@ -345,7 +339,7 @@ export default class CacheManager {
 
             return true;
         } catch (error) {
-            console.error('CacheManager: Error saving cache:', error);
+            console.error('ThumbnailManager: Error saving cache:', error);
             return false;
         }
     }
@@ -369,8 +363,7 @@ export default class CacheManager {
                 // 缓存可能不存在
             }
 
-            // 从内存缓存中移除
-            this.memoryCache.delete(cacheKey);
+            // 内存缓存已迁移到 MemoryCache 类中
 
             // In native environment, remove from filesystem
             try {
@@ -391,7 +384,7 @@ export default class CacheManager {
 
             return true;
         } catch (error) {
-            console.error('CacheManager: Error removing cache:', error);
+            console.error('ThumbnailManager: Error removing cache:', error);
             return false;
         }
     }
@@ -406,11 +399,11 @@ export default class CacheManager {
 
             // If total size exceeds limit, delete entire cache directory and clear database
             if (totalSize > this.maxCacheSize) {
-                console.log('CacheManager: Cache size exceeds limit, deleting entire cache');
+                console.log('ThumbnailManager: Cache size exceeds limit, deleting entire cache');
                 await this.deleteEntireCache();
             }
         } catch (error) {
-            console.error('CacheManager: Error cleaning up cache:', error);
+            console.error('ThumbnailManager: Error cleaning up cache:', error);
         }
     }
 
@@ -425,9 +418,9 @@ export default class CacheManager {
             if (db) {
                 try {
                     await db.run(`DELETE FROM cache_files`);
-                    console.log('CacheManager: All cache records deleted from database');
+                    console.log('ThumbnailManager: All cache records deleted from database');
                 } catch (err) {
-                    console.error('CacheManager: Error deleting cache records from database:', err);
+                    console.error('ThumbnailManager: Error deleting cache records from database:', err);
                 }
             }
 
@@ -438,78 +431,25 @@ export default class CacheManager {
                     directory: Directory.Data,
                     recursive: true
                 });
-                console.log('CacheManager: Entire cache directory deleted');
+                console.log('ThumbnailManager: Entire cache directory deleted');
             } catch (err) {
                 // Directory might not exist
-                console.log('CacheManager: Cache directory might not exist:', err.message);
+                console.log('ThumbnailManager: Cache directory might not exist:', err.message);
             }
 
-            // Clear memory cache
-            this.memoryCache.clear();
+            // 内存缓存已迁移到 MemoryCache 类中
 
             // Recreate cache directory structure
             await this.initCache();
 
             return true;
         } catch (error) {
-            console.error('CacheManager: Error deleting entire cache:', error);
+            console.error('ThumbnailManager: Error deleting entire cache:', error);
             return false;
         }
     }
 
-    /**
-     * Get from memory cache
-     * @private
-     */
-    _getFromMemoryCache(cacheKey) {
-        const cached = this.memoryCache.get(cacheKey);
-        if (cached) {
-            const age = Date.now() - cached.timestamp;
-            if (age < this.cacheExpiry) {
-                return cached;
-            } else {
-                // 内存缓存已过期
-                this.memoryCache.delete(cacheKey);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Save to memory cache
-     * @private
-     */
-    _saveToMemoryCache(cacheKey, data, metadata) {
-        // 清理旧的内存缓存如果超过限制
-        if (this.memoryCache.size >= this.memoryCacheLimit) {
-            // 删除最旧的条目
-            let oldestKey = null;
-            let oldestTime = Date.now();
-
-            for (const [key, value] of this.memoryCache.entries()) {
-                if (value.timestamp < oldestTime) {
-                    oldestTime = value.timestamp;
-                    oldestKey = key;
-                }
-            }
-
-            if (oldestKey) {
-                // 清理 ObjectURL 如果存在
-                const oldestValue = this.memoryCache.get(oldestKey);
-                if (oldestValue && oldestValue.uri) {
-                    URL.revokeObjectURL(oldestValue.uri);
-                }
-                this.memoryCache.delete(oldestKey);
-            }
-        }
-
-        this.memoryCache.set(cacheKey, {
-            data,
-            timestamp: Date.now(),
-            metadata,
-            uri: null // 默认 uri 为空，只有需要的时候才会创建
-        });
-    }
+    // 内存缓存功能已迁移到 MemoryCache 类中
 
     /**
      * Wait for cache initialization

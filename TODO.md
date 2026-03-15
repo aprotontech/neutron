@@ -133,7 +133,8 @@ TODO:
   - 支持应用在线更新
   - 将Image.vue中的预览窗口抽取出来作为独立的文件，供Files.vue和Image.vue共同使用 [DONE]
   - 将所有的js替换为ts代码，增强类型安全
-  - 将Exif信息相关的解析等全部抽取到exif.js中 [DOING]
+  - 将Exif信息相关的解析等全部抽取到exif.js中 [DONE]
+  - 独立的MemoryCache类用于缓存Thumbnail和FileInfo
 
 - 安全问题
   - storageserver和discover之间使用公私钥

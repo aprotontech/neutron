@@ -88,8 +88,8 @@ export default class BatchFileApi {
             }
         }
 
-        // 第三步：批量查询缩略图缓存（从 CacheManager）
-        const thumbnailCacheResults = await this._batchQueryCache(thumbnailCacheKeys);
+        // 第三步：批量查询缩略图缓存（从 ThumbnailManager
+        const thumbnailCacheResults = await this.batchQueryCache(thumbnailCacheKeys);
 
         // 第四步：处理缩略图缓存结果，按照 locals 顺序选择第一个可用的缓存
         const needRemoteFiles = [];
