@@ -40,7 +40,7 @@ func ImageThumbnail(inputImage string, outputThumbnail string, size int) error {
 }
 
 func HeicThumbnail(inputImage string, outputThumbnail string, size int) error {
-	input, err := os.Open("input.heic")
+	input, err := os.Open(inputImage)
 	if err != nil {
 		return err
 	}
@@ -114,9 +114,12 @@ func Thumbnail(intputFile string, outputThumbnail string, size int) error {
 		return VideoThumbnail(intputFile, outputThumbnail, size)
 	}
 
-	// if ext == ".heic" {
-	// 	return HeicThumbnail(intputFile, outputThumbnail, size)
-	// }
+	if err := ImageThumbnail(intputFile, outputThumbnail, size); err != nil {
+		if ext == ".heic" {
+			return HeicThumbnail(intputFile, outputThumbnail, size)
+		}
+		return err
+	}
 
-	return ImageThumbnail(intputFile, outputThumbnail, size)
+	return nil
 }

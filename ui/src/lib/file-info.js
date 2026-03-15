@@ -42,6 +42,96 @@ export default class CachedFileInformation {
     }
 
     /**
+     * 批量保存文件信息到数据库
+     * @param {Array<{filePath: string, fileInfo: Object}>} items - 文件信息数组
+     * @returns {Promise<boolean>} - 是否成功
+     */
+    async batchSaveFileInfo(items) {
+        if (!items || items.length === 0) {
+            return true;
+        }
+
+        try {
+            const db = await this.sqlite.getDatabase();
+            if (!db) {
+                return false;
+            }
+
+            const tables = this.sqlite.getTables();
+            const BATCH_SIZE = 50; // 每批处理50条记录
+
+            // 分批次处理
+            for (let i = 0; i < items.length; i += BATCH_SIZE) {
+                const batch = items.slice(i, i + BATCH_SIZE);
+                await this._executeBatchSave(db, tables.CACHED_FILE_INFOS, batch);
+            }
+
+            console.log(`[CachedFileInformation] Batch saved ${items.length} file info records to database in ${Math.ceil(items.length / BATCH_SIZE)} batches`);
+            return true;
+        } catch (error) {
+            console.error('[CachedFileInformation] batchSaveFileInfo error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 执行单批保存操作
+     * @private
+     * @param {Object} db - 数据库连接
+     * @param {string} tableName - 表名
+     * @param {Array<{filePath: string, fileInfo: Object}>} batch - 单批数据
+     * @returns {Promise<void>}
+     */
+    async _executeBatchSave(db, tableName, batch) {
+        if (!batch || batch.length === 0) {
+            return;
+        }
+
+        try {
+            // 构建批量删除的 SQL 语句（使用 IN 子句）
+            const deleteFilePaths = batch.map(item => item.filePath);
+            const deletePlaceholders = deleteFilePaths.map(() => '?').join(',');
+            const deleteSql = `DELETE FROM ${tableName} WHERE file_path IN (${deletePlaceholders})`;
+
+            // 执行批量删除
+            await db.run(deleteSql, deleteFilePaths);
+
+            // 构建批量插入的 SQL 语句
+            const insertPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+            const insertSql = `INSERT INTO ${tableName} (file_path, is_dir, size, mtime, mime_type, exif) VALUES ${insertPlaceholders}`;
+
+            // 构建参数数组
+            const params = [];
+            for (const item of batch) {
+                const fileInfo = item.fileInfo;
+                const is_dir = fileInfo.isDir ? 1 : 0;
+                const size = typeof fileInfo.size === 'number' ? fileInfo.size : null;
+                const mtime = fileInfo.mtime || null;
+                const mime_type = fileInfo.mimeType || fileInfo.mime_type || null;
+                const exifObj = fileInfo.exifData || fileInfo.exif;
+                const exif = exifObj ? JSON.stringify(exifObj) : null;
+
+                params.push(
+                    item.filePath,
+                    is_dir,
+                    size,
+                    mtime,
+                    mime_type,
+                    exif
+                );
+            }
+
+            // 执行批量插入
+            await db.run(insertSql, params);
+
+            console.log(`[CachedFileInformation] Executed batch save for ${batch.length} records`);
+        } catch (error) {
+            console.error('[CachedFileInformation] _executeBatchSave error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get cached file info from sqlite. Returns null when not found.
      * @param {string} filePath
      * @returns {Object|null}

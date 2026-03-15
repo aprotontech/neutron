@@ -88,7 +88,7 @@ export default class FileAPI {
             exif_data: imageItem.exif_data || {}
         };
 
-        console.log(`Caching file info for ${filePath}: size=${fileInfo.size}, mtime=${fileInfo.mtime}`);
+        // console.log(`Caching file info for ${filePath}: size=${fileInfo.size}, mtime=${fileInfo.mtime}`);
 
         // 更新内存缓存
         this.memoryCache.set('fileinfo', cacheKey, fileInfo, 24 * 60 * 60 * 1000);
@@ -104,6 +104,67 @@ export default class FileAPI {
         }
 
         return fileInfo;
+    }
+
+    /**
+     * 批量缓存ImageRepoHistoryItem到内存和SQLite
+     * @private
+     * @param {Array} imageItems - ImageRepoHistoryItem数组
+     * @returns {Promise<void>}
+     */
+    async _batchCacheFileInfoFromImageItems(imageItems) {
+        if (!imageItems || imageItems.length === 0) {
+            return;
+        }
+
+        // 过滤无效的item
+        const validItems = imageItems.filter(item => item && item.path);
+        if (validItems.length === 0) {
+            return;
+        }
+
+        // 批量更新内存缓存
+        for (const imageItem of validItems) {
+            const filePath = imageItem.path;
+            const cacheKey = Hash.md5sum('fileinfo', filePath);
+
+            // 构造FileInformation对象
+            const fileInfo = {
+                name: filePath.split('/').pop(),
+                is_dir: false,
+                size: imageItem.size || 0,
+                mtime: imageItem.mtime || 0,
+                mime_type: FileTypeDetector.getMIMEType(filePath),
+                exif_data: imageItem.exif_data || {}
+            };
+
+            // 更新内存缓存
+            this.memoryCache.set('fileinfo', cacheKey, fileInfo, 24 * 60 * 60 * 1000);
+        }
+
+        // 如果是native模式，批量更新到SQLite
+        if (Capacitor.isNativePlatform() && this._cachedFileInfo) {
+            try {
+                // 准备批量保存的数据
+                const batchData = validItems.map(imageItem => ({
+                    filePath: imageItem.path,
+                    fileInfo: {
+                        name: imageItem.path.split('/').pop(),
+                        isDir: false,
+                        size: imageItem.size || 0,
+                        mtime: imageItem.mtime || 0,
+                        mimeType: FileTypeDetector.getMIMEType(imageItem.path),
+                        exifData: imageItem.exif_data || {}
+                    }
+                }));
+
+                // 批量保存到SQLite
+                await this._cachedFileInfo.batchSaveFileInfo(batchData);
+                console.log(`Batch cached ${validItems.length} file info records to SQLite`);
+            } catch (error) {
+                console.warn(`Failed to batch cache file info to SQLite:`, error);
+            }
+        }
     }
 
     /**
@@ -800,15 +861,6 @@ export default class FileAPI {
 
             console.log(`Native mode: retrieved ${items.length} items from local cache (total: ${totalCount})`);
 
-            // 缓存每个item的fileinfo
-            for (const item of items) {
-                try {
-                    await this._cacheFileInfoFromImageItem(item);
-                } catch (error) {
-                    console.warn(`Failed to cache file info for ${item.path} from local cache:`, error);
-                }
-            }
-
             // 启动后台同步以继续同步剩余数据（非阻塞）
             // this._startBackgroundSync();
 
@@ -951,15 +1003,24 @@ export default class FileAPI {
 
             console.log(`retrieved ${items.length} items from TransferClient (total: ${totalCount})`);
 
-            // 处理每个item，缓存fileinfo
+            // 处理每个item，设置file_path字段
             for (const item of items) {
                 item.file_path = item.path;
+            }
 
-                // 缓存fileinfo到内存和SQLite
-                try {
-                    await this._cacheFileInfoFromImageItem(item);
-                } catch (error) {
-                    console.warn(`Failed to cache file info for ${item.path}:`, error);
+            // 批量缓存fileinfo（使用批量操作提升性能）
+            try {
+                await this._batchCacheFileInfoFromImageItems(items);
+                console.log(`Batch cached ${items.length} file info records from TransferClient`);
+            } catch (error) {
+                console.warn(`Failed to batch cache file info from TransferClient:`, error);
+                // 如果批量缓存失败，回退到逐个缓存
+                for (const item of items) {
+                    try {
+                        await this._cacheFileInfoFromImageItem(item);
+                    } catch (innerError) {
+                        console.warn(`Failed to cache file info for ${item.path}:`, innerError);
+                    }
                 }
             }
 
@@ -1102,12 +1163,19 @@ export default class FileAPI {
                     await this.imageRepo.updateHistory(response.total, items);
                     totalSynced += items.length;
 
-                    // 缓存每个item的fileinfo
-                    for (const item of items) {
-                        try {
-                            await this._cacheFileInfoFromImageItem(item);
-                        } catch (error) {
-                            console.warn(`Failed to cache file info for ${item.path} during sync:`, error);
+                    // 批量缓存fileinfo（使用批量操作提升性能）
+                    try {
+                        await this._batchCacheFileInfoFromImageItems(items);
+                        console.log(`Batch cached ${items.length} file info records during sync`);
+                    } catch (error) {
+                        console.warn(`Failed to batch cache file info during sync:`, error);
+                        // 如果批量缓存失败，回退到逐个缓存
+                        for (const item of items) {
+                            try {
+                                await this._cacheFileInfoFromImageItem(item);
+                            } catch (innerError) {
+                                console.warn(`Failed to cache file info for ${item.path} during sync:`, innerError);
+                            }
                         }
                     }
 

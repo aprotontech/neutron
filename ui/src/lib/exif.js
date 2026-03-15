@@ -45,12 +45,12 @@ export class ExifFormatter {
      */
     getCaptureTime() {
         if (!this.exifData) return null;
-        
+
         const dateTimeOriginal = this.getValue('DateTimeOriginal');
         const createDate = this.getValue('CreateDate');
         const modifyDate = this.getValue('ModifyDate');
         const parsedDateTime = this.getValue('ParsedDateTime');
-        
+
         return parsedDateTime || dateTimeOriginal || createDate || modifyDate;
     }
 
@@ -105,7 +105,7 @@ export class ExifFormatter {
      */
     getVideoFrameRate() {
         if (!this.exifData) return null;
-        
+
         // 尝试从不同的字段获取帧率
         const frameRateKeys = ['VideoFrameRate', 'FrameRate', 'AvgFrameRate', 'VideoFrameRate#'];
         for (const key of frameRateKeys) {
@@ -123,7 +123,7 @@ export class ExifFormatter {
      */
     getImageFormat() {
         if (!this.exifData) return '未知格式';
-        
+
         const mimeType = this.getValue('MIMEType');
         if (mimeType) return mimeType.split('/')[1]?.toUpperCase() || '未知格式';
         return '未知格式';
@@ -135,10 +135,10 @@ export class ExifFormatter {
      */
     getImageDimensions() {
         if (!this.exifData) return { width: null, height: null };
-        
+
         const width = this.getValue('ImageWidth') || this.getValue('PixelXDimension');
         const height = this.getValue('ImageHeight') || this.getValue('PixelYDimension');
-        
+
         return { width, height };
     }
 
@@ -148,7 +148,7 @@ export class ExifFormatter {
      */
     hasLocation() {
         if (!this.exifData) return false;
-        
+
         const lat = this.getValue('GPSLatitude');
         const lon = this.getValue('GPSLongitude');
         return !!(lat && lon);
@@ -160,23 +160,30 @@ export class ExifFormatter {
      */
     getGPSLatitudeLongitude() {
         if (!this.exifData) return null;
-        
+
         const lat = this.getValue('GPSLatitude');
         const lon = this.getValue('GPSLongitude');
-        
+
         if (!lat || !lon) return null;
-        
+
+        if (typeof lat == 'number' && typeof lon == 'number') {
+            return {
+                latitude: lat,
+                longitude: lon
+            };
+        }
+
         // 解析GPS坐标字符串
         const parsedLat = ExifFormatter.parseGPSString(lat);
         const parsedLon = ExifFormatter.parseGPSString(lon);
-        
+
         if (parsedLat !== null && parsedLon !== null) {
             return {
                 latitude: parsedLat,
                 longitude: parsedLon
             };
         }
-        
+
         return null;
     }
 
@@ -186,7 +193,7 @@ export class ExifFormatter {
      */
     getDuration() {
         if (!this.exifData) return '';
-        
+
         // 尝试从不同的字段获取时长
         const durationKeys = ['Duration', 'MediaDuration', 'TrackDuration', 'VideoDuration', 'Duration#'];
         for (const key of durationKeys) {
@@ -319,51 +326,51 @@ export class ExifFormatter {
      */
     static parseGPSString(gpsStr) {
         if (!gpsStr || typeof gpsStr !== 'string') return null;
-        
+
         const str = gpsStr.trim();
-        
+
         // 如果已经是数字，直接返回
         const num = parseFloat(str);
         if (!isNaN(num) && str.match(/^-?\d+(\.\d+)?$/)) {
             return num;
         }
-        
+
         // 尝试解析格式：30 deg 14' 57.48" N
         const pattern = /^(\d+)\s*deg\s*(\d+)'\s*([\d.]+)"\s*([NSEW])$/i;
         const match = str.match(pattern);
-        
+
         if (match) {
             const degrees = parseFloat(match[1]);
             const minutes = parseFloat(match[2]);
             const seconds = parseFloat(match[3]);
             const direction = match[4].toUpperCase();
-            
+
             // 计算十进制坐标
             let decimal = degrees + (minutes / 60) + (seconds / 3600);
-            
+
             // 根据方向调整正负
             if (direction === 'S' || direction === 'W') {
                 decimal = -decimal;
             }
-            
+
             return decimal;
         }
-        
+
         // 尝试其他格式
         const altPattern = /^([\d.]+)\s*([NSEW])$/i;
         const altMatch = str.match(altPattern);
-        
+
         if (altMatch) {
             let decimal = parseFloat(altMatch[1]);
             const direction = altMatch[2].toUpperCase();
-            
+
             if (direction === 'S' || direction === 'W') {
                 decimal = -decimal;
             }
-            
+
             return decimal;
         }
-        
+
         return null;
     }
 
@@ -373,7 +380,7 @@ export class ExifFormatter {
      */
     getAllInfo() {
         if (!this.exifData) return {};
-        
+
         return {
             captureTime: this.getCaptureTime(),
             model: this.getModel(),

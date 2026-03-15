@@ -470,7 +470,10 @@ function getImageFormat(fileInfoObj) {
   if (!fileInfoObj) return '未知格式'
   if (fileInfoObj.exifData) {
     const formatter = new ExifFormatter(fileInfoObj.exifData)
-    return formatter.getImageFormat()
+    const t = formatter.getImageFormat()
+    if (t && t != '未知格式') {
+      return t
+    }
   }
   if (fileInfoObj.MIMEType) return fileInfoObj.MIMEType.split('/')[1]?.toUpperCase() || '未知格式'
   if (currentFile.value?.name) {
@@ -481,6 +484,7 @@ function getImageFormat(fileInfoObj) {
     if (ext === 'heic') return 'HEIC'
     if (ext === 'webp') return 'WebP'
   }
+
   return '未知格式'
 }
 

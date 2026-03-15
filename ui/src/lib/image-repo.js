@@ -13,6 +13,12 @@ const HistoryItemType = {
     MODIFY: 3    // 修改
 };
 
+const RepoFileType = {
+    IMAGE: 1,
+    VIDEO: 2,
+    LIVE: 3
+};
+
 // 排序方式常量
 const SortOrder = {
     ETIME: 'etime',  // 按照图片拍摄时间排序
@@ -24,7 +30,8 @@ const SortOrder = {
  * @typedef {Object} HistoryItem
  * @property {string} id - 项目唯一标识
  * @property {string} path - 文件路径
- * @property {number} type - 操作类型 (1:创建, 2:删除, 3:修改)
+ * @property {number} history_type - 操作类型 (1:创建, 2:删除, 3:修改)
+ * @property {number} file_type - 文件类型 (1:图片, 2:视频, 3:LIVE)
  * @property {number} etime - 图片拍摄时间 (Unix 时间戳，毫秒)
  * @property {number} mtime - 文件修改时间 (Unix 时间戳，毫秒)
  */
@@ -249,7 +256,7 @@ class ImageRepo {
      * @param {number} index - 项目在数组中的索引
      */
     _validateHistoryItem(item, index) {
-        const requiredFields = ['id', 'file_path', 'type', 'etime', 'mtime'];
+        const requiredFields = ['id', 'file_path', 'history_type', 'etime', 'mtime'];
 
         // 检查必需字段
         requiredFields.forEach(field => {
@@ -260,7 +267,7 @@ class ImageRepo {
 
         // 验证类型
         if (![HistoryItemType.CREATE, HistoryItemType.DELETE, HistoryItemType.MODIFY].includes(item.history_type)) {
-            throw new Error(`第 ${index} 个项目的 type 字段无效: ${item.history_type}。必须是 1, 2, 或 3`);
+            throw new Error(`第 ${index} 个项目的 history_type 字段无效: ${item.history_type}。必须是 1, 2, 或 3`);
         }
 
         // 验证时间戳
@@ -318,7 +325,9 @@ class ImageRepo {
                 id: item.id,
                 // 优先使用file_path，如果没有则使用path
                 file_path: item.file_path || item.path || '',
-                type: item.history_type || HistoryItemType.CREATE,
+                history_type: item.historyType || HistoryItemType.CREATE,
+                file_type: item.fileType || RepoFileType.IMAGE,
+                size: item.size || 0,
                 etime: item.etime || 0,
                 mtime: item.mtime || 0
             };
@@ -328,7 +337,9 @@ class ImageRepo {
         return {
             id: item.id,
             file_path: item.file_path || item.path || '',
-            type: item.history_type || HistoryItemType.CREATE,
+            history_type: item.historyType || HistoryItemType.CREATE,
+            file_type: item.fileType || RepoFileType.IMAGE,
+            size: item.size || 0,
             etime: item.etime || 0,
             mtime: item.mtime || 0
         };
@@ -396,8 +407,6 @@ class ImageRepo {
             return;
         }
 
-        let failedItem = null;
-
         try {
             const db = await this.sqliteManager.getDatabase();
             if (!db) {
@@ -405,32 +414,125 @@ class ImageRepo {
                 return;
             }
 
-            // 批量处理数据库操作
+            // 分离 DELETE 和 INSERT/UPDATE 操作
+            const deleteItems = [];
+            const upsertItems = [];
+
             for (const item of items) {
                 if (item.history_type === HistoryItemType.DELETE) {
-                    // 删除操作：从数据库删除对应的记录
-                    await db.run(
-                        `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path = ?`,
-                        [item.file_path]
-                    );
+                    deleteItems.push(item.file_path);
                 } else {
-                    // 创建或修改操作：插入或更新记录
-                    // 使用 INSERT OR REPLACE 来确保唯一性
-                    const file_path = item.file_path;
-                    failedItem = item;
-                    await db.run(
-                        `INSERT OR REPLACE INTO ${this.CACHED_IMAGE_REPO_TABLE} 
-                         (id, file_path, mtime, etime, size) 
-                         VALUES (?, ?, ?, ?, ?)`,
-                        [item.id, file_path, item.mtime, item.etime, 0] // size 暂时设为0，后续可以根据需要调整
-                    );
+                    upsertItems.push(item);
                 }
             }
 
-            console.log(`[ImageRepo] Successfully synced ${items.length} items to database`);
+            // 批量执行 DELETE 操作
+            if (deleteItems.length > 0) {
+                await this._batchDeleteFromDatabase(db, deleteItems);
+            }
+
+            // 批量执行 INSERT/UPDATE 操作
+            if (upsertItems.length > 0) {
+                await this._batchUpsertToDatabase(db, upsertItems);
+            }
+
+            console.log(`[ImageRepo] Successfully synced ${items.length} items to database (${deleteItems.length} deletes, ${upsertItems.length} upserts)`);
         } catch (error) {
-            console.error('[ImageRepo] Error syncing item ', JSON.stringify(failedItem), 'to database:', error);
+            console.error('[ImageRepo] Error syncing to database:', error);
             // 不抛出错误，避免影响主流程
+        }
+    }
+
+    /**
+     * 批量删除数据库记录
+     * @private
+     * @param {Object} db - 数据库连接
+     * @param {string[]} filePaths - 要删除的文件路径数组
+     * @returns {Promise<void>}
+     */
+    async _batchDeleteFromDatabase(db, filePaths) {
+        if (!filePaths || filePaths.length === 0) {
+            return;
+        }
+
+        try {
+            // 使用 IN 子句批量删除
+            const placeholders = filePaths.map(() => '?').join(',');
+            const sql = `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path IN (${placeholders})`;
+
+            await db.run(sql, filePaths);
+            console.log(`[ImageRepo] Batch deleted ${filePaths.length} records from database`);
+        } catch (error) {
+            console.error('[ImageRepo] Error batch deleting from database:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 批量插入或更新数据库记录
+     * @private
+     * @param {Object} db - 数据库连接
+     * @param {HistoryItem[]} items - 要插入或更新的项目数组
+     * @returns {Promise<void>}
+     */
+    async _batchUpsertToDatabase(db, items) {
+        if (!items || items.length === 0) {
+            return;
+        }
+
+        try {
+            // 为了性能，将批量操作分成较小的批次（避免 SQL 语句过长）
+            const BATCH_SIZE = 50; // 每批处理50条记录
+
+            for (let i = 0; i < items.length; i += BATCH_SIZE) {
+                const batch = items.slice(i, i + BATCH_SIZE);
+                await this._executeBatchUpsert(db, batch);
+            }
+
+            console.log(`[ImageRepo] Batch upserted ${items.length} records to database in ${Math.ceil(items.length / BATCH_SIZE)} batches`);
+        } catch (error) {
+            console.error('[ImageRepo] Error batch upserting to database:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 执行单批插入或更新操作
+     * @private
+     * @param {Object} db - 数据库连接
+     * @param {HistoryItem[]} batch - 单批项目数组
+     * @returns {Promise<void>}
+     */
+    async _executeBatchUpsert(db, batch) {
+        if (!batch || batch.length === 0) {
+            return;
+        }
+
+        try {
+            // 构建批量插入的 SQL 语句
+            // SQLite 支持多值插入语法：VALUES (?,?,?), (?,?,?), ...
+            const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+            const sql = `INSERT OR REPLACE INTO ${this.CACHED_IMAGE_REPO_TABLE} 
+                         (id, file_path, file_type, mtime, etime, size) 
+                         VALUES ${placeholders}`;
+
+            // 构建参数数组
+            const params = [];
+            for (const item of batch) {
+                params.push(
+                    item.id,
+                    item.file_path || item.path || '',
+                    item.file_type || RepoFileType.IMAGE,
+                    item.mtime || 0,
+                    item.etime || 0,
+                    0 // size 暂时设为0，后续可以根据需要调整
+                );
+            }
+
+            await db.run(sql, params);
+        } catch (error) {
+            console.error('[ImageRepo] Error executing batch upsert:', error);
+            throw error;
         }
     }
 
@@ -467,7 +569,8 @@ class ImageRepo {
                 const items = result.values.map(row => ({
                     id: row.id, // 使用数据库的id作为历史记录id
                     file_path: row.file_path,
-                    type: HistoryItemType.CREATE, // 数据库中的记录都视为创建类型
+                    history_type: HistoryItemType.CREATE, // 数据库中的记录都视为创建类型
+                    file_type: row.file_type,
                     etime: row.etime || 0,
                     mtime: row.mtime || 0
                 }));

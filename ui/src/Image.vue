@@ -833,7 +833,7 @@ async function checkSyncStatus() {
 
 // 同步状态变更回调函数
 function handleSyncStatusChange(newStatus) {
-  console.log('同步状态变更:', newStatus);
+  console.log('同步状态变更:', JSON.stringify(newStatus));
   
   // 更新本地状态
   if (newStatus.isNative) {

@@ -13,7 +13,7 @@ export default class SQLiteManager {
         this.dbName = 'neutron.db';
         this.db = null;
         this.initPromise = null;
-        this.dbSchemaVersion = 'v1.1'
+        this.dbSchemaVersion = 'v1.2'
 
         // Table names
         this.TABLES = {
@@ -142,6 +142,7 @@ export default class SQLiteManager {
                         CREATE TABLE IF NOT EXISTS ${this.TABLES.CACHED_IMAGE_REPO} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             file_path TEXT NOT NULL,
+                            file_type INTEGER,
                             etime INTEGER,
                             mtime INTEGER,
                             size INTEGER
