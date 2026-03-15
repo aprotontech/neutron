@@ -745,7 +745,8 @@ export const neutron = $root.neutron = (() => {
          * @interface IImageRepoHistoryItem
          * @property {number|Long|null} [id] ImageRepoHistoryItem id
          * @property {string|null} [path] ImageRepoHistoryItem path
-         * @property {number|null} [type] ImageRepoHistoryItem type
+         * @property {number|null} [fileType] ImageRepoHistoryItem fileType
+         * @property {number|null} [historyType] ImageRepoHistoryItem historyType
          * @property {number|Long|null} [etime] ImageRepoHistoryItem etime
          * @property {number|Long|null} [mtime] ImageRepoHistoryItem mtime
          * @property {number|Long|null} [size] ImageRepoHistoryItem size
@@ -785,12 +786,20 @@ export const neutron = $root.neutron = (() => {
         ImageRepoHistoryItem.prototype.path = "";
 
         /**
-         * ImageRepoHistoryItem type.
-         * @member {number} type
+         * ImageRepoHistoryItem fileType.
+         * @member {number} fileType
          * @memberof neutron.ImageRepoHistoryItem
          * @instance
          */
-        ImageRepoHistoryItem.prototype.type = 0;
+        ImageRepoHistoryItem.prototype.fileType = 0;
+
+        /**
+         * ImageRepoHistoryItem historyType.
+         * @member {number} historyType
+         * @memberof neutron.ImageRepoHistoryItem
+         * @instance
+         */
+        ImageRepoHistoryItem.prototype.historyType = 0;
 
         /**
          * ImageRepoHistoryItem etime.
@@ -852,17 +861,19 @@ export const neutron = $root.neutron = (() => {
                 writer.uint32(/* id 1, wireType 0 =*/8).int64(message.id);
             if (message.path != null && Object.hasOwnProperty.call(message, "path"))
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.path);
-            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
-                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.type);
+            if (message.fileType != null && Object.hasOwnProperty.call(message, "fileType"))
+                writer.uint32(/* id 3, wireType 0 =*/24).int32(message.fileType);
+            if (message.historyType != null && Object.hasOwnProperty.call(message, "historyType"))
+                writer.uint32(/* id 4, wireType 0 =*/32).int32(message.historyType);
             if (message.etime != null && Object.hasOwnProperty.call(message, "etime"))
-                writer.uint32(/* id 4, wireType 0 =*/32).int64(message.etime);
+                writer.uint32(/* id 5, wireType 0 =*/40).int64(message.etime);
             if (message.mtime != null && Object.hasOwnProperty.call(message, "mtime"))
-                writer.uint32(/* id 5, wireType 0 =*/40).int64(message.mtime);
+                writer.uint32(/* id 6, wireType 0 =*/48).int64(message.mtime);
             if (message.size != null && Object.hasOwnProperty.call(message, "size"))
-                writer.uint32(/* id 6, wireType 0 =*/48).int64(message.size);
+                writer.uint32(/* id 7, wireType 0 =*/56).int64(message.size);
             if (message.exifData != null && Object.hasOwnProperty.call(message, "exifData"))
                 for (let keys = Object.keys(message.exifData), i = 0; i < keys.length; ++i) {
-                    writer.uint32(/* id 7, wireType 2 =*/58).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
+                    writer.uint32(/* id 8, wireType 2 =*/66).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]);
                     $root.google.protobuf.Value.encode(message.exifData[keys[i]], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim().ldelim();
                 }
             return writer;
@@ -910,22 +921,26 @@ export const neutron = $root.neutron = (() => {
                         break;
                     }
                 case 3: {
-                        message.type = reader.int32();
+                        message.fileType = reader.int32();
                         break;
                     }
                 case 4: {
-                        message.etime = reader.int64();
+                        message.historyType = reader.int32();
                         break;
                     }
                 case 5: {
-                        message.mtime = reader.int64();
+                        message.etime = reader.int64();
                         break;
                     }
                 case 6: {
-                        message.size = reader.int64();
+                        message.mtime = reader.int64();
                         break;
                     }
                 case 7: {
+                        message.size = reader.int64();
+                        break;
+                    }
+                case 8: {
                         if (message.exifData === $util.emptyObject)
                             message.exifData = {};
                         let end2 = reader.uint32() + reader.pos;
@@ -989,9 +1004,12 @@ export const neutron = $root.neutron = (() => {
             if (message.path != null && message.hasOwnProperty("path"))
                 if (!$util.isString(message.path))
                     return "path: string expected";
-            if (message.type != null && message.hasOwnProperty("type"))
-                if (!$util.isInteger(message.type))
-                    return "type: integer expected";
+            if (message.fileType != null && message.hasOwnProperty("fileType"))
+                if (!$util.isInteger(message.fileType))
+                    return "fileType: integer expected";
+            if (message.historyType != null && message.hasOwnProperty("historyType"))
+                if (!$util.isInteger(message.historyType))
+                    return "historyType: integer expected";
             if (message.etime != null && message.hasOwnProperty("etime"))
                 if (!$util.isInteger(message.etime) && !(message.etime && $util.isInteger(message.etime.low) && $util.isInteger(message.etime.high)))
                     return "etime: integer|Long expected";
@@ -1037,8 +1055,10 @@ export const neutron = $root.neutron = (() => {
                     message.id = new $util.LongBits(object.id.low >>> 0, object.id.high >>> 0).toNumber();
             if (object.path != null)
                 message.path = String(object.path);
-            if (object.type != null)
-                message.type = object.type | 0;
+            if (object.fileType != null)
+                message.fileType = object.fileType | 0;
+            if (object.historyType != null)
+                message.historyType = object.historyType | 0;
             if (object.etime != null)
                 if ($util.Long)
                     (message.etime = $util.Long.fromValue(object.etime)).unsigned = false;
@@ -1101,7 +1121,8 @@ export const neutron = $root.neutron = (() => {
                 } else
                     object.id = options.longs === String ? "0" : 0;
                 object.path = "";
-                object.type = 0;
+                object.fileType = 0;
+                object.historyType = 0;
                 if ($util.Long) {
                     let long = new $util.Long(0, 0, false);
                     object.etime = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
@@ -1125,8 +1146,10 @@ export const neutron = $root.neutron = (() => {
                     object.id = options.longs === String ? $util.Long.prototype.toString.call(message.id) : options.longs === Number ? new $util.LongBits(message.id.low >>> 0, message.id.high >>> 0).toNumber() : message.id;
             if (message.path != null && message.hasOwnProperty("path"))
                 object.path = message.path;
-            if (message.type != null && message.hasOwnProperty("type"))
-                object.type = message.type;
+            if (message.fileType != null && message.hasOwnProperty("fileType"))
+                object.fileType = message.fileType;
+            if (message.historyType != null && message.hasOwnProperty("historyType"))
+                object.historyType = message.historyType;
             if (message.etime != null && message.hasOwnProperty("etime"))
                 if (typeof message.etime === "number")
                     object.etime = options.longs === String ? String(message.etime) : message.etime;

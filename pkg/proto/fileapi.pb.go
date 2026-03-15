@@ -186,11 +186,12 @@ type ImageRepoHistoryItem struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
 	Id            int64                     `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Path          string                    `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Type          int32                     `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`   // 1:创建, 2:删除, 3:修改
-	Etime         int64                     `protobuf:"varint,4,opt,name=etime,proto3" json:"etime,omitempty"` // 图片拍摄时间 (Unix 时间戳，毫秒)
-	Mtime         int64                     `protobuf:"varint,5,opt,name=mtime,proto3" json:"mtime,omitempty"` // 文件修改时间 (Unix 时间戳，毫秒)
-	Size          int64                     `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
-	ExifData      map[string]*_struct.Value `protobuf:"bytes,7,rep,name=exif_data,json=exifData,proto3" json:"exif_data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	FileType      int32                     `protobuf:"varint,3,opt,name=file_type,json=fileType,proto3" json:"file_type,omitempty"`          // 1: Image, 2-Video, 3-Live Photo
+	HistoryType   int32                     `protobuf:"varint,4,opt,name=history_type,json=historyType,proto3" json:"history_type,omitempty"` // 1:创建, 2:删除, 3:修改
+	Etime         int64                     `protobuf:"varint,5,opt,name=etime,proto3" json:"etime,omitempty"`                                // 图片拍摄时间 (Unix 时间戳，毫秒)
+	Mtime         int64                     `protobuf:"varint,6,opt,name=mtime,proto3" json:"mtime,omitempty"`                                // 文件修改时间 (Unix 时间戳，毫秒)
+	Size          int64                     `protobuf:"varint,7,opt,name=size,proto3" json:"size,omitempty"`
+	ExifData      map[string]*_struct.Value `protobuf:"bytes,8,rep,name=exif_data,json=exifData,proto3" json:"exif_data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -239,9 +240,16 @@ func (x *ImageRepoHistoryItem) GetPath() string {
 	return ""
 }
 
-func (x *ImageRepoHistoryItem) GetType() int32 {
+func (x *ImageRepoHistoryItem) GetFileType() int32 {
 	if x != nil {
-		return x.Type
+		return x.FileType
+	}
+	return 0
+}
+
+func (x *ImageRepoHistoryItem) GetHistoryType() int32 {
+	if x != nil {
+		return x.HistoryType
 	}
 	return 0
 }
@@ -1017,15 +1025,16 @@ const file_fileapi_proto_rawDesc = "" +
 	"\alast_id\x18\x02 \x01(\x03R\x06lastId\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\x05R\x05order\x12\x18\n" +
-	"\aversion\x18\x05 \x01(\tR\aversion\"\xad\x02\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\"\xd9\x02\n" +
 	"\x14ImageRepoHistoryItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04path\x18\x02 \x01(\tR\x04path\x12\x12\n" +
-	"\x04type\x18\x03 \x01(\x05R\x04type\x12\x14\n" +
-	"\x05etime\x18\x04 \x01(\x03R\x05etime\x12\x14\n" +
-	"\x05mtime\x18\x05 \x01(\x03R\x05mtime\x12\x12\n" +
-	"\x04size\x18\x06 \x01(\x03R\x04size\x12H\n" +
-	"\texif_data\x18\a \x03(\v2+.neutron.ImageRepoHistoryItem.ExifDataEntryR\bexifData\x1aS\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x1b\n" +
+	"\tfile_type\x18\x03 \x01(\x05R\bfileType\x12!\n" +
+	"\fhistory_type\x18\x04 \x01(\x05R\vhistoryType\x12\x14\n" +
+	"\x05etime\x18\x05 \x01(\x03R\x05etime\x12\x14\n" +
+	"\x05mtime\x18\x06 \x01(\x03R\x05mtime\x12\x12\n" +
+	"\x04size\x18\a \x01(\x03R\x04size\x12H\n" +
+	"\texif_data\x18\b \x03(\v2+.neutron.ImageRepoHistoryItem.ExifDataEntryR\bexifData\x1aS\n" +
 	"\rExifDataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"\x96\x01\n" +

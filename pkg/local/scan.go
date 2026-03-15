@@ -61,7 +61,7 @@ func NewLocalFileSystemScanner(config *config.Config, db *gorm.DB) *LocalFileSys
 		config:             config.FileSystem.Local,
 		db:                 db,
 		folderNodeIDs:      map[string]uint64{"/": 0},
-		programVersion:     "v0.2",
+		programVersion:     "v0.4",
 		nextNodeID:         1000,
 		thumbnailCachePath: config.Cache.CacheDir,
 
@@ -198,6 +198,10 @@ func (scanner *LocalFileSystemScanner) scanFiles(ctx context.Context) error {
 				repoBatch = repoBatch[:0]
 			}
 		}
+	}
+
+	if err := scanner.processLivePhotos(); err != nil {
+		log.Warnf("process live photes failed %v", err)
 	}
 
 	if err := scanner.markScanCompleted(); err != nil {
@@ -347,11 +351,14 @@ func (scanner *LocalFileSystemScanner) processFile(localPath string,
 				log.Warnf("mkdir cache dir %s failed %s", cacheDir, err.Error())
 			} else {
 				cachePath := filepath.Join(cacheDir, name+".jpg")
-				if err := media.Thumbnail(localPath, cachePath, defaultThumbnailSize); err != nil {
-					log.Warnf("thumbnail %s faild %s", localPath, err.Error())
-				} else {
-					thumbnails = map[int]string{
-						defaultThumbnailSize: filepath.Join(folder, name+".jpg"),
+				thumbnails = map[int]string{
+					defaultThumbnailSize: filepath.Join(folder, name+".jpg"),
+				}
+
+				if _, err := os.Stat(cachePath); err != nil {
+					if err := media.Thumbnail(localPath, cachePath, defaultThumbnailSize); err != nil {
+						thumbnails = nil
+						log.Warnf("thumbnail %s faild %s", localPath, err.Error())
 					}
 				}
 			}
@@ -369,12 +376,19 @@ func (scanner *LocalFileSystemScanner) processFile(localPath string,
 		node.SystemExtra = string(extraJSON)
 	}
 
+	fType := meta.IMAGE_FILE
+	if fileType == "video" {
+		fType = meta.VIDEO_FILE
+	}
+
 	repoItem := &meta.RepoHistoryItem{
-		ModTime:    node.Mtime.Unix(),
-		ExifTime:   exifTime.Unix(),
-		Type:       meta.CREATE_FILE,
-		FilePath:   relativePath,
-		IsValidate: true,
+		ModTime:     node.Mtime.Unix(),
+		ExifTime:    exifTime.Unix(),
+		HistoryType: meta.CREATE_FILE,
+		FileType:    fType,
+		FilePath:    relativePath,
+		INode:       node.Inode,
+		IsValidate:  true,
 	}
 
 	return repoItem
@@ -421,5 +435,60 @@ func (scanner *LocalFileSystemScanner) insertBatch(
 		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
+	return nil
+}
+
+func (scanner *LocalFileSystemScanner) processLivePhotos() error {
+	log.Info("Processing live photos...")
+
+	var heicFiles []meta.RepoHistoryItem
+	if err := scanner.db.Where("LOWER(file_path) LIKE ?", "%.heic").
+		Where("is_valid = ?", true).
+		Find(&heicFiles).Error; err != nil {
+		return fmt.Errorf("failed to query HEIC files: %v", err)
+	}
+
+	log.Infof("Found %d HEIC files to process", len(heicFiles))
+
+	processedCount := 0
+
+	for _, heicFile := range heicFiles {
+		heicPath := heicFile.FilePath
+		dir := filepath.Dir(heicPath)
+
+		baseName := filepath.Base(heicPath)
+		ext := filepath.Ext(baseName)
+		baseNameWithoutExt := strings.TrimSuffix(baseName, ext)
+
+		movPath := filepath.Join(dir, baseNameWithoutExt+".MOV")
+		movPathLower := filepath.Join(dir, baseNameWithoutExt+".mov")
+
+		var movFile meta.RepoHistoryItem
+		if err := scanner.db.Where("(file_path = ? OR LOWER(file_path) = ?)", movPath, movPathLower).
+			Where("is_valid = ?", true).
+			First(&movFile).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
+
+			return fmt.Errorf("failed to query MOV file for %s: %v", heicPath, err)
+		}
+
+		if err := scanner.db.Model(&meta.RepoHistoryItem{}).
+			Where("id = ?", heicFile.ID).
+			Update("file_type", meta.LIVE_FILE).Error; err != nil {
+			return fmt.Errorf("failed to update HEIC file type for %s: %v", heicPath, err)
+		}
+
+		if err := scanner.db.Model(&meta.RepoHistoryItem{}).
+			Where("id = ?", movFile.ID).
+			Update("is_valid", false).Error; err != nil {
+			return fmt.Errorf("failed to delete MOV file record for %s: %v", movPath, err)
+		}
+
+		processedCount++
+	}
+
+	log.Infof("Live photos processing completed: %d HEIC files updated to LIVE_FILE", processedCount)
 	return nil
 }

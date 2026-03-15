@@ -223,7 +223,7 @@
                     </div>
                     <div class="exif-item">
                       <div class="exif-label">时长</div>
-                      <div class="exif-value">{{ VideoDurationFormatter.getDurationFromExif(fileInfo?.exifData) || '--' }}</div>
+                      <div class="exif-value">{{ ExifFormatter.getDurationFromExif(fileInfo?.exifData) || '--' }}</div>
                     </div>
                   </div>
                 </template>

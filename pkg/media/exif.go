@@ -1,11 +1,13 @@
 package media
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"os"
 	"time"
 
+	"github.com/adrium/goheif"
 	exiftool "github.com/barasher/go-exiftool"
 	"github.com/rwcarlsen/goexif/exif"
 	"github.com/rwcarlsen/goexif/mknote"
@@ -96,8 +98,51 @@ func GetImageExifData(imagePath string) (map[string]interface{}, error) {
 
 	x, err := exif.Decode(file)
 	if err != nil {
-		//result["Error"] = fmt.Sprintf("解码EXIF失败: %v", err)
-		log.Warnf("decode exif info failed: %v", err)
+		return nil, err
+	}
+
+	err = x.Walk(result)
+
+	if err != nil {
+		return nil, fmt.Errorf("exif walk failed: %v", err)
+	}
+
+	if lat, long, err := x.LatLong(); err == nil {
+		result["GPSLatitude"] = lat
+		result["GPSLongitude"] = long
+	}
+
+	if tm, err := x.DateTime(); err == nil {
+		result["ParsedDateTime"] = tm.Format(time.RFC3339)
+	}
+
+	return result, nil
+}
+
+func GetHEICExifData(heicPath string) (map[string]interface{}, error) {
+	result := make(ExifData)
+
+	fileInfo, err := os.Stat(heicPath)
+	if err == nil {
+		result["FileName"] = fileInfo.Name()
+		result["FileSize"] = fileInfo.Size()
+		result["FileModTime"] = fileInfo.ModTime().Format(time.RFC3339)
+	}
+
+	input, err := os.Open(heicPath)
+	if err != nil {
+		return nil, err
+	}
+	defer input.Close()
+
+	exifData, err := goheif.ExtractExif(input)
+	if err != nil {
+		return nil, err
+	}
+
+	exifReader := bytes.NewReader(exifData)
+	x, err := exif.Decode(exifReader)
+	if err != nil {
 		return nil, err
 	}
 
@@ -162,9 +207,30 @@ func GetVideoExifData(videoPath string) (map[string]interface{}, error) {
 }
 
 func GetExifData(filePath string) (map[string]interface{}, error) {
-	info, err := GetImageExifData(filePath)
+	type ExifGetter func(string) (map[string]interface{}, error)
+	getters := []ExifGetter{GetImageExifData, GetHEICExifData, GetVideoExifData}
+
+	var info map[string]interface{}
+	var err error
+
+	if GetFileMimeType(filePath) == "video" {
+		for i := len(getters) - 1; i >= 0; i-- {
+			info, err = getters[i](filePath)
+			if err == nil {
+				break
+			}
+		}
+	} else {
+		for i := 0; i < len(getters); i++ {
+			info, err = getters[i](filePath)
+			if err == nil {
+				break
+			}
+		}
+	}
+
 	if err != nil {
-		info, err = GetVideoExifData(filePath)
+		log.Warnf("get exif data of %s failed with %v", filePath, err)
 	}
 
 	return info, err

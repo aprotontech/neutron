@@ -954,7 +954,7 @@ export default class FileAPI {
             // 处理每个item，缓存fileinfo
             for (const item of items) {
                 item.file_path = item.path;
-                
+
                 // 缓存fileinfo到内存和SQLite
                 try {
                     await this._cacheFileInfoFromImageItem(item);

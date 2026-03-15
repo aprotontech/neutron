@@ -14,7 +14,7 @@ TODO:
 
 - 增加APP的图标 [DONE]
 
-- 支持 HEIC + MOV的苹果动态效果
+- 支持 HEIC + MOV的苹果动态效果 [DOING]
 - 默认进入的是图库页面 [DONE]
   - 增加同步等待对话框 [DONE]
 - 取消预览的时候自动停止下载 [DONE]
@@ -134,7 +134,7 @@ TODO:
   - 将Image.vue中的预览窗口抽取出来作为独立的文件，供Files.vue和Image.vue共同使用 [DONE]
   - 将所有的js替换为ts代码，增强类型安全
   - 将Exif信息相关的解析等全部抽取到exif.js中 [DONE]
-  - 独立的MemoryCache类用于缓存Thumbnail和FileInfo
+  - 独立的MemoryCache类用于缓存Thumbnail和FileInfo [DONE]
 
 - 安全问题
   - storageserver和discover之间使用公私钥

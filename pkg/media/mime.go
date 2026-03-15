@@ -9,7 +9,7 @@ func GetFileMimeType(filePath string) string {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	// 图片文件扩展名
-	imageExts := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif"}
+	imageExts := []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".heic"}
 	for _, imgExt := range imageExts {
 		if ext == imgExt {
 			return "image"

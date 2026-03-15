@@ -21,7 +21,7 @@
         </div>
         <div class="sync-dialog-actions">
           <button class="sync-btn sync-btn-cancel" @click="handleCancelSync">
-            取消
+            立即体验
           </button>
           <button class="sync-btn sync-btn-wait" @click="handleWaitForSync">
             等待同步完成

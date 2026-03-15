@@ -2,12 +2,16 @@ package media
 
 import (
 	"fmt"
+	"image"
+	"image/jpeg"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/adrium/goheif"
 	"github.com/disintegration/imaging"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"golang.org/x/image/draw"
 
 	"github.com/aproton/neutron/pkg/utils/log"
 )
@@ -33,6 +37,31 @@ func ImageThumbnail(inputImage string, outputThumbnail string, size int) error {
 	}
 
 	return nil
+}
+
+func HeicThumbnail(inputImage string, outputThumbnail string, size int) error {
+	input, err := os.Open("input.heic")
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+
+	img, err := goheif.Decode(input)
+	if err != nil {
+		return err
+	}
+
+	thumbnail := image.NewRGBA(image.Rect(0, 0, size, size))
+	draw.BiLinear.Scale(thumbnail, thumbnail.Bounds(), img, img.Bounds(), draw.Over, nil)
+
+	// 保存为 JPEG
+	output, err := os.Create(outputThumbnail)
+	if err != nil {
+		return err
+	}
+	defer output.Close()
+
+	return jpeg.Encode(output, thumbnail, &jpeg.Options{Quality: 85})
 }
 
 func VideoThumbnail(inputVideo string, outputThumbnail string, size int) error {
@@ -84,6 +113,10 @@ func Thumbnail(intputFile string, outputThumbnail string, size int) error {
 	if isVideoFile {
 		return VideoThumbnail(intputFile, outputThumbnail, size)
 	}
+
+	// if ext == ".heic" {
+	// 	return HeicThumbnail(intputFile, outputThumbnail, size)
+	// }
 
 	return ImageThumbnail(intputFile, outputThumbnail, size)
 }

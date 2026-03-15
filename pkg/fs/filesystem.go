@@ -10,5 +10,5 @@ type FileSystem interface {
 }
 
 type FileSystemBatchOperator interface {
-	BatchStat(path []string) ([]*NodeAttr, error)
+	BatchStat(inodes []uint64) ([]*NodeAttr, error)
 }

@@ -90,7 +90,7 @@ class ImageRepo {
             }
 
             // 处理 DELETE 类型
-            if (normalizedItem.type === HistoryItemType.DELETE) {
+            if (normalizedItem.history_type === HistoryItemType.DELETE) {
                 // 使用 Map 的 delete 方法，O(1) 时间复杂度
                 this.historyMap.delete(normalizedItem.file_path);
                 // 不添加 DELETE 记录到 historyMap
@@ -259,8 +259,8 @@ class ImageRepo {
         });
 
         // 验证类型
-        if (![HistoryItemType.CREATE, HistoryItemType.DELETE, HistoryItemType.MODIFY].includes(item.type)) {
-            throw new Error(`第 ${index} 个项目的 type 字段无效: ${item.type}。必须是 1, 2, 或 3`);
+        if (![HistoryItemType.CREATE, HistoryItemType.DELETE, HistoryItemType.MODIFY].includes(item.history_type)) {
+            throw new Error(`第 ${index} 个项目的 type 字段无效: ${item.history_type}。必须是 1, 2, 或 3`);
         }
 
         // 验证时间戳
@@ -318,7 +318,7 @@ class ImageRepo {
                 id: item.id,
                 // 优先使用file_path，如果没有则使用path
                 file_path: item.file_path || item.path || '',
-                type: item.type || HistoryItemType.CREATE,
+                type: item.history_type || HistoryItemType.CREATE,
                 etime: item.etime || 0,
                 mtime: item.mtime || 0
             };
@@ -328,7 +328,7 @@ class ImageRepo {
         return {
             id: item.id,
             file_path: item.file_path || item.path || '',
-            type: item.type || HistoryItemType.CREATE,
+            type: item.history_type || HistoryItemType.CREATE,
             etime: item.etime || 0,
             mtime: item.mtime || 0
         };
@@ -347,8 +347,8 @@ class ImageRepo {
 
         // 遍历 Map 的值
         for (const item of this.historyMap.values()) {
-            if (stats[item.type] !== undefined) {
-                stats[item.type]++;
+            if (stats[item.history_type] !== undefined) {
+                stats[item.history_type]++;
             }
         }
 
@@ -407,7 +407,7 @@ class ImageRepo {
 
             // 批量处理数据库操作
             for (const item of items) {
-                if (item.type === HistoryItemType.DELETE) {
+                if (item.history_type === HistoryItemType.DELETE) {
                     // 删除操作：从数据库删除对应的记录
                     await db.run(
                         `DELETE FROM ${this.CACHED_IMAGE_REPO_TABLE} WHERE file_path = ?`,

@@ -14,17 +14,30 @@ type Repository struct {
 	totalCount int64
 }
 
-const CREATE_FILE = 1
-const DELETE_FILE = 2
-const MODIFY_FILE = 3
+type HistoryType int
+type RepoFileType int
+
+const (
+	CREATE_FILE HistoryType = 1
+	DELETE_FILE
+	MODIFY_FILE
+)
+
+const (
+	IMAGE_FILE RepoFileType = 1
+	VIDEO_FILE
+	LIVE_FILE // ios live photo
+)
 
 type RepoHistoryItem struct {
-	ID         int64  `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
-	IsValidate bool   `gorm:"column:is_valid" json:"is_valid"`
-	ExifTime   int64  `gorm:"column:etime;index" json:"etime"`
-	ModTime    int64  `gorm:"column:mtime;index" json:"mtime"`
-	Type       uint8  `gorm:"column:type" json:"type"`
-	FilePath   string `gorm:"column:file_path;index" json:"file_path"`
+	ID          int64        `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	IsValidate  bool         `gorm:"column:is_valid" json:"is_valid"`
+	ExifTime    int64        `gorm:"column:etime;index" json:"etime"`
+	ModTime     int64        `gorm:"column:mtime;index" json:"mtime"`
+	HistoryType HistoryType  `gorm:"column:history_type" json:"history_type"`
+	INode       uint64       `gorm:"column:inode" json:"inode"`
+	FileType    RepoFileType `gorm:"column:file_type" json:"file_type"`
+	FilePath    string       `gorm:"column:file_path;index" json:"file_path"`
 }
 
 func (RepoHistoryItem) TableName() string {

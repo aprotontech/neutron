@@ -77,7 +77,7 @@ func NewRemoteStorageServer(config *config.Config) *RemoteStorageServer {
 		remoteClients: map[string]*WebRTCRemoteClient{},
 		api:           nil,
 		db:            gdb,
-		rpc:           NewRPCHandles(filesystem, imgRepo),
+		rpc:           NewRPCHandles(filesystem, filesystem, imgRepo),
 		filesystem:    filesystem,
 		repo:          imgRepo,
 	}

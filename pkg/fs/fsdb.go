@@ -145,68 +145,30 @@ func (fsdb *FileSystemDatabase) getRootNode() (*NodeAttr, error) {
 	return fsdb.rootNode, nil
 }
 
-func (fsdb *FileSystemDatabase) BatchStat(paths []string) ([]*NodeAttr, error) {
-	if len(paths) == 0 {
+func (fsdb *FileSystemDatabase) BatchStat(inodes []uint64) ([]*NodeAttr, error) {
+	if len(inodes) == 0 {
 		return []*NodeAttr{}, nil
 	}
 
-	// 获取根节点
-	rootNode, err := fsdb.getRootNode()
-	if err != nil {
+	var rows []NodeAttr
+	if err := fsdb.db.Where("id IN ?", inodes).Find(&rows).Error; err != nil {
+		log.Warnf("batch stat inodes %v failed: %v", inodes, err)
 		return nil, err
 	}
 
-	// 结果切片
-	results := make([]*NodeAttr, len(paths))
+	resultMap := make(map[uint64]*NodeAttr, len(rows))
+	for i := range rows {
+		resultMap[rows[i].Inode] = &rows[i]
+	}
 
-	// 用于跟踪已经查询过的路径，避免重复查询
-	queriedPaths := make(map[string]*NodeAttr)
-
-	for i, path := range paths {
-		if !strings.HasPrefix(path, "/") {
-			return nil, fmt.Errorf("invalid path: %s", path)
-		}
-
-		cleanPath := filepath.Clean(path)
-
-		// 检查根路径
-		if cleanPath == "/" {
-			results[i] = rootNode
-			queriedPaths[cleanPath] = rootNode
-			continue
-		}
-
-		// 检查缓存
-		cacheKey := strings.TrimSuffix(cleanPath, "/")
-		if cached, found := fsdb.cachedNodes.Get(cacheKey); found {
-			results[i] = cached.(*NodeAttr)
-			queriedPaths[cleanPath] = cached.(*NodeAttr)
-			continue
-		}
-
-		// 检查是否已经查询过这个路径
-		if node, exists := queriedPaths[cleanPath]; exists {
-			results[i] = node
-			continue
-		}
-
-		// 需要查询这个路径
-		node, err := fsdb.Stat(cleanPath)
-		if err != nil {
-			if err == os.ErrNotExist {
-				results[i] = nil
-				queriedPaths[cleanPath] = nil
-			} else {
-				// 其他错误，返回错误
-				return nil, err
-			}
+	var result []*NodeAttr
+	for _, inode := range inodes {
+		if node, found := resultMap[inode]; found {
+			result = append(result, node)
 		} else {
-			results[i] = node
-			queriedPaths[cleanPath] = node
-			// 更新缓存
-			fsdb.cachedNodes.Set(cacheKey, node, cache.DefaultExpiration)
+			result = append(result, nil)
 		}
 	}
 
-	return results, nil
+	return result, nil
 }
