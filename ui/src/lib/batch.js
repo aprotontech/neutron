@@ -209,7 +209,7 @@ export default class BatchFileApi {
      * 批量查询缓存
      * @private
      */
-    async _batchQueryCache(cacheKeys) {
+    async batchQueryCache(cacheKeys) {
         const resultMap = new Map();
 
         // 如果没有缓存管理器，直接返回空结果

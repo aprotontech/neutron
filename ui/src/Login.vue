@@ -11,7 +11,9 @@
     <div class="login-content">
       <!-- 顶部品牌区域 -->
       <div class="brand-section">
-        <div class="app-icon">📱</div>
+        <div class="app-icon">
+          <img src="/icon.png" alt="年轮应用图标" class="app-icon-img">
+        </div>
         <h1 class="app-title">年轮</h1>
         <p class="app-subtitle">家庭相册管理与同步</p>
       </div>
@@ -341,9 +343,29 @@ onMounted(async () => {
 }
 
 .app-icon {
-  font-size: 64px;
   margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app-icon-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   animation: float 3s ease-in-out infinite;
+  object-fit: contain;
+  background: white;
+  padding: 8px;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+/* 原生模式下的图标样式 */
+.login-container.native-app .app-icon-img {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(102, 126, 234, 0.1);
+  animation: none; /* 原生模式下禁用浮动动画 */
 }
 
 @keyframes float {
