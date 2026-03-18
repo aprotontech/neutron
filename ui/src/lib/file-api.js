@@ -1313,5 +1313,7 @@ export default class FileAPI {
         if (this.imageRepo) {
             this.imageRepo.clear()
         }
+
+        localStorage.clear()
     }
 }

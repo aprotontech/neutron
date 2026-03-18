@@ -4,7 +4,8 @@
  */
 
 import platform from 'platform';
-import { Hash } from './helpers.js'
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Hash, Base64Encoder } from './helpers.js'
 
 export class PreviewDataManager {
     constructor() {
@@ -364,13 +365,17 @@ export class PreviewDataManager {
                     directory: Directory.Data,
                     encoding: Encoding.Base64,
                 });
+                console.log("write file success", cachePath)
 
                 const result = await Filesystem.stat({
                     path: cachePath,
                     directory: Directory.Data,
                 });
 
-                jpgUrl = Capacitor.convertFileSrc(result.url)
+                console.log("stat ", JSON.stringify(result))
+
+                jpgUrl = Capacitor.convertFileSrc(result.uri)
+                console.log("jpgUrl", jpgUrl)
 
                 // 6. 缓存结果
                 localStorage.setItem(cacheKey, jpgUrl)

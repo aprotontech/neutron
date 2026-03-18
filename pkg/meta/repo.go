@@ -38,6 +38,7 @@ type RepoHistoryItem struct {
 	INode       uint64       `gorm:"column:inode" json:"inode"`
 	FileType    RepoFileType `gorm:"column:file_type" json:"file_type"`
 	FilePath    string       `gorm:"column:file_path;index" json:"file_path"`
+	//Extra       string       `gorm:"column:extra;index" json:"extra"`
 }
 
 func (RepoHistoryItem) TableName() string {

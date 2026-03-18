@@ -36,13 +36,13 @@ netsh advfirewall firewall add rule name="开放端口" dir=in action=allow prot
 #
 ```shell
 adb pair 192.168.1.77:42415
-adb connect 192.168.1.77:42415
+adb connect 192.168.1.75:38751
 adb install -r -d /workspaces/neutron/ui/android/app/build/outputs/apk/debug/app-debug.apk
 
 adb logcat | grep -i Capacitor | grep 192.168
 ```
 
 ```shell
-DEBUG_WEBSITE_URL=http://192.168.1.111:5173 INSTALL=1 make android
+DEBUG_WEBSITE_URL=http://192.168.1.117:5173 INSTALL=1 make android
 DEBUG_WEBSITE_URL=https://www.huxiaolong.cn INSTALL=1 make android
 ```
