@@ -417,7 +417,4 @@ export function createPreviewMap() {
     }
 }
 
-// 创建单例实例
-const previewDataManager = new PreviewDataManager()
 
-export default previewDataManager

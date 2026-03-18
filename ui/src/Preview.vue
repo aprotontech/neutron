@@ -249,7 +249,7 @@
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { FileSizeFormatter, DateFormatter } from './lib/helpers.js'
 import { ExifFormatter } from './lib/exif.js'
-import { createPreviewMap } from './lib/preview.js'
+import { PreviewDataManager } from './lib/preview.js'
 import AMapLoader from '@amap/amap-jsapi-loader'
 
 const props = defineProps({
@@ -276,18 +276,20 @@ const emit = defineEmits(['update:modelValue', 'show-toast'])
 
 const isOpen = computed(() => props.modelValue)
 
-const previewMap = createPreviewMap()
-const mapVersion = ref(0)
+// 创建PreviewDataManager实例
+const previewDataManager = new PreviewDataManager()
 
-function mapSet(offset, item) {
-  previewMap.set(offset, item)
-  mapVersion.value++
+// 初始化数据管理器
+function initDataManager() {
+  previewDataManager.init(
+    props.fileApi,
+    props.fetchNearby,
+    props.totalCount
+  )
 }
 
-function mapClear() {
-  previewMap.clear()
-  mapVersion.value++
-}
+
+
 
 const thumbsContainer = ref(null)
 const currentOffset = ref(0)
@@ -328,17 +330,15 @@ function formatSize(b) {
 }
 
 const currentFile = computed(() => {
-  mapVersion.value
-  return previewMap.get(props.totalCount, currentOffset.value)
+  return previewDataManager.getFileData(currentOffset.value)
 })
 
 const thumbList = computed(() => {
-  mapVersion.value
   const start = Math.max(0, currentOffset.value - THUMB_RANGE)
   const end = Math.min(props.totalCount - 1, currentOffset.value + THUMB_RANGE)
   const list = []
   for (let o = start; o <= end; o++) {
-    const item = previewMap.get(props.totalCount, o)
+    const item = previewDataManager.getFileData(o)
     if (item) list.push({ ...item, offset: o })
   }
   return list
@@ -663,26 +663,46 @@ function clearCurrentDownloadCanceller() {
 }
 
 async function ensureItemsAround(offset) {
-  const start = Math.max(0, offset - THUMB_RANGE)
-  const count = Math.min(props.totalCount - start, THUMB_RANGE * 2 + 1)
-  if (count <= 0) return
-  const existing = previewMap.hasRange(start, count)
-  if (existing.every(Boolean)) return
   try {
-    const items = await props.fetchNearby(start, count)
-    if (Array.isArray(items)) {
-      items.forEach((item, i) => {
-        const o = start + i
-        if (o < props.totalCount) {
-          mapSet(o, normalizeItem(item))
-        }
-      })
-      for (let o = start; o < start + (items?.length ?? 0); o++) {
+    // 使用previewDataManager获取数据范围，它会自动加载缺失的数据
+    const items = await previewDataManager.getFileDataRange(offset, THUMB_RANGE)
+    
+    // 确保所有项目都有缩略图
+    items.forEach((item, i) => {
+      const o = offset - THUMB_RANGE + i
+      if (o >= 0 && o < props.totalCount && item) {
         loadThumbnailForOffset(o)
       }
-    }
+    })
   } catch (e) {
-    console.error('Preview fetchNearby error', e)
+    console.error('Preview ensureItemsAround error', e)
+  }
+}
+
+/**
+ * 预加载相邻文件的数据
+ * @param {number} currentOffset - 当前偏移量
+ * @param {number} prefetchRange - 预加载范围
+ */
+async function prefetchNearbyFiles(currentOffset, prefetchRange = 3) {
+  try {
+    const start = Math.max(0, currentOffset - prefetchRange)
+    const end = Math.min(props.totalCount - 1, currentOffset + prefetchRange)
+    const count = end - start + 1
+    
+    if (count > 0) {
+      // 使用previewDataManager预加载数据
+      await previewDataManager.prefetchFileData(start, count)
+      
+      // 预加载缩略图
+      for (let offset = start; offset <= end; offset++) {
+        if (offset !== currentOffset) {
+          loadThumbnailForOffset(offset)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to prefetch nearby files:', error)
   }
 }
 
@@ -697,16 +717,17 @@ function normalizeItem(item) {
   }
 }
 
-/** 当项为图片/视频且无缩略图时，用 fileApi 加载缩略图并更新 map（供 Files 列表视图等未预加载 thumb 的场景） */
+/** 当项为图片/视频且无缩略图时，用 previewDataManager 加载缩略图并更新数据 */
 function loadThumbnailForOffset(offset) {
-  const item = previewMap.get(props.totalCount, offset)
+  const item = previewDataManager.getFileData(offset)
   if (!item || item.thumbnailUrl) return
   if (item.type !== '图片' && item.type !== '视频') return
   const path = item.path || item.filepath
   if (!path) return
-  props.fileApi.getFileThumbnailUrl(path).then((url) => {
+  
+  previewDataManager.getThumbnailUrl(path).then((url) => {
     if (url) {
-      mapSet(offset, { ...item, thumbnailUrl: url })
+      previewDataManager.setFileData(offset, { ...item, thumbnailUrl: url })
     }
   }).catch(() => {})
 }
@@ -716,7 +737,7 @@ async function loadMediaAtOffset(offset) {
   cancelCurrentDownloadIfNeeded();
   
   await ensureItemsAround(offset)
-  const file = previewMap.get(props.totalCount, offset)
+  const file = previewDataManager.getFileData(offset)
   if (!file) return
   const path = file.path || file.filepath
   if (!path) return
@@ -775,7 +796,7 @@ async function loadMediaAtOffset(offset) {
     });
 
     if (file.type === '文本') {
-      const url = await props.fileApi.getFileUrl(path, null, progressCallback)
+      const url = await previewDataManager.getFileUrl(path, progressCallback)
       const response = await fetch(url)
       if (response.ok) {
         const text = await response.text()
@@ -796,7 +817,7 @@ async function loadMediaAtOffset(offset) {
       }
       isMediaLoading.value = false
     } else {
-      const url = await props.fileApi.getFileUrl(path, null, progressCallback)
+      const url = await previewDataManager.getFileUrl(path, progressCallback)
       currentMediaUrl.value = url
 
       if (file.type === '图片') {
@@ -813,6 +834,12 @@ async function loadMediaAtOffset(offset) {
 
     await nextTick()
     centerThumbOnOffset(offset)
+    
+    // 异步预加载相邻文件，不阻塞当前文件显示
+    setTimeout(() => {
+      prefetchNearbyFiles(offset, 2)
+    }, 100)
+    
   } catch (e) {
     console.error('loadMediaAtOffset error', e)
     isMediaLoading.value = false
@@ -894,14 +921,18 @@ watch(
   async (visible) => {
     console.log('props.modelValue', props.modelValue, visible)
     if (visible) {
-      mapClear()
+      // 初始化数据管理器
+      initDataManager()
+      
+      // 加载初始数据
       const items = props.initialItems || []
       items.forEach((item, i) => {
         const offset = item.offset ?? props.initialOffset - Math.floor(items.length / 2) + i
         if (offset >= 0 && offset < props.totalCount) {
-          mapSet(offset, normalizeItem(item))
+          previewDataManager.setFileData(offset, normalizeItem(item))
         }
       })
+      
       currentOffset.value = props.initialOffset
       slideOffset.value = 0
       slideOpacity.value = 1
@@ -914,6 +945,16 @@ watch(
         loadThumbnailForOffset(o)
       }
     } else {
+      // 关闭预览时，停止当前文件的下载
+      cancelCurrentDownloadIfNeeded();
+      previewDataManager.clear()
+      currentMediaUrl.value = ''
+      currentTextContent.value = ''
+      highlightedCode.value = ''
+      fileInfo.value = null
+      downloadProgress.value = null
+      downloadProgressVisible.value = false
+      
       // 关闭预览时销毁地图实例
       if (mapInstance.value) {
         mapInstance.value.destroy()
