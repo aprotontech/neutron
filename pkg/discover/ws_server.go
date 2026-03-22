@@ -149,7 +149,7 @@ func (s *DiscoverServer) doWebSocketTraffic(
 			msgBytes, err := protobuf.Marshal(signal)
 			if err != nil {
 				log.Warnf("protobuf marshal message for forwarding failed %v", err)
-			} else if err := s.forward(signal.Destination, msgBytes); err != nil {
+			} else if err := s.forward(client, signal.Destination, msgBytes); err != nil {
 				log.Warnf("forward failed %v", err)
 			}
 		}
@@ -236,26 +236,69 @@ func (s *DiscoverServer) regist(conn *websocket.Conn, loginData *neutronproto.Lo
 	return client, nil
 }
 
-func (s *DiscoverServer) forward(destination string, data []byte) error {
-	conn, err := s.getClientConnection(destination)
+func (s *DiscoverServer) forward(sourceClient *WebSocketClient, destination string, data []byte) error {
+	// 获取目标客户端
+	destClient, err := s.getClient(destination)
 	if err != nil {
 		return fmt.Errorf("client %s not found", destination)
 	}
 
+	// 如果sourceClient不为空，进行安全检查
+	if sourceClient != nil {
+		if err := s.checkForwardPermission(sourceClient, destClient); err != nil {
+			return err
+		}
+	}
+
 	// 发送二进制消息（protobuf格式）
-	if err := conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+	if err := destClient.wsConn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 		return fmt.Errorf("write error: %v", err)
 	}
 
 	return nil
 }
 
-func (s *DiscoverServer) getClientConnection(id string) (*websocket.Conn, error) {
+func (s *DiscoverServer) checkForwardPermission(sourceClient, destClient *WebSocketClient) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	sourceStorageID := sourceClient.storageServerID
+	destStorageID := destClient.storageServerID
+	sourceClientID := sourceClient.clientID
+	destClientID := destClient.clientID
+
+	// 获取dest的用户名（如果dest是通过userId找到的）
+	destUserName := ""
+	if destClient.user != nil {
+		destUserName = destClient.user.userID
+	}
+
+	// 获取source的用户名
+	sourceUserName := ""
+	if sourceClient.user != nil {
+		sourceUserName = sourceClient.user.userID
+	}
+
+	if sourceStorageID == destUserName {
+		return nil
+	}
+
+	if destStorageID == sourceUserName {
+		return nil
+	}
+
+	return fmt.Errorf("permission denied: source(%s, storage:%s, user:%s) "+
+		"cannot forward to destination(%s, storage:%s, user:%s)",
+		sourceClientID, sourceStorageID, sourceUserName,
+		destClientID, destStorageID, destUserName)
+}
+
+func (s *DiscoverServer) getClient(id string) (*WebSocketClient, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	if client, ok := s.clients[id]; ok && client != nil {
-		return client.wsConn, nil
+		return client, nil
 	}
 
 	user, exists := s.users[id]
@@ -268,8 +311,7 @@ func (s *DiscoverServer) getClientConnection(id string) (*websocket.Conn, error)
 	}
 
 	client := user.clients.Front().Value.(*WebSocketClient)
-	return client.wsConn, nil
-
+	return client, nil
 }
 
 func (s *DiscoverServer) LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +401,8 @@ func (s *DiscoverServer) callClient(userId string, msg *neutronproto.RemoteMessa
 	_ = s.registCallback(msg.Id, &ch)
 	defer s.registCallback(msg.Id, nil)
 
-	if err := s.forward(userId, content); err != nil {
+	// 对于发现服务器向存储服务器发送的请求，sourceClient为nil，不进行安全检查
+	if err := s.forward(nil, userId, content); err != nil {
 		return nil, fmt.Errorf("send authorizen message failed %v", err)
 	}
 

@@ -136,11 +136,12 @@ TODO:
   - 将所有的js替换为ts代码，增强类型安全
   - 将Exif信息相关的解析等全部抽取到exif.js中 [DONE]
   - 独立的MemoryCache类用于缓存Thumbnail和FileInfo [DONE]
+  - 改成在编译的时候产生 public/*.png 而不是提前产生
 
 - 安全问题
-  - storageserver和discover之间使用公私钥
-  - storageserver和client之间的token传递需要使用公私钥加密
+  - storageserver和discover之间使用公私钥进行身份验证
   - storageserver和client之间的webrtc通讯需要使用token进行验证
+  - storageserver和client之间通过discover消息传递需要进行安全验证 [DONE]
   - 解决文件扫描时，sqlite操作的SQL安全问题，改成ORM语句 [DONE]
   - 支持多次登录错误后，增加验证码校验
 

@@ -142,17 +142,25 @@
           v-show="matchesFilter(image)"
         >
           <div class="image-thumbnail">
+            <!-- 优先显示缩略图，如果没有则显示默认占位符 -->
             <img 
-              v-if="image.thumbnailUrl" 
+              v-if="image.thumbnailUrl && !image.showPlaceholder" 
               :src="image.thumbnailUrl" 
               :alt="image.name"
-              loading="eager"
+              loading="lazy"
               decoding="async"
               fetchpriority="low"
-              @load="image.loaded = true"
+              @load="handleThumbnailLoad(image)"
+              @error="handleThumbnailError(image)"
             />
-            <div v-else class="image-placeholder">
+            <!-- 默认缩略图占位符 -->
+            <div 
+              v-if="!image.thumbnailUrl || image.showPlaceholder" 
+              class="image-placeholder"
+              :class="{ 'loading': image.loadingThumbnail }"
+            >
               <span class="image-icon">{{ image.type === '视频' ? '🎬' : '🖼️' }}</span>
+              <div v-if="image.loadingThumbnail" class="loading-indicator"></div>
             </div>
             <!-- 视频文件播放按钮 -->
             <div v-if="image.type === '视频'" class="video-play-button">
@@ -217,6 +225,7 @@ import Preview from './Preview.vue'
 
 const isAndroidApp = ref(false)
 const fileAPI = FileAPI.getInstance()
+const batchFileApi = new BatchFileApi(fileAPI)
 
 const scrollContainer = ref(null)
 const images = ref([])
@@ -225,6 +234,17 @@ const loading = ref(false)
 const hasMore = ref(true)
 const currentOffset = ref(0)
 const pageSize = 30
+
+// 批量加载相关状态
+const batchLoading = ref(false)
+const pendingThumbnailIndices = new Set() // 需要批量获取缩略图的图片索引
+let scrollStopTimer = null // 滚动停止计时器
+const scrollStopDelay = 200 // 滚动停止后延迟300ms开始批量获取
+let isScrolling = false // 是否正在滚动
+
+// 后台初始化状态
+const backgroundInitializing = ref(false) // 是否正在后台初始化整个列表
+const backgroundInitialized = ref(false) // 是否已经完成后台初始化
 
 const intersectionObserver = ref(null)
 const observedElements = new Map()
@@ -248,6 +268,11 @@ const showGroupToolbar = ref(false) // 是否显示分组工具栏
 const scrollThreshold = 100 // 滚动多少像素后显示工具栏
 let scrollTimeout = null // 隐藏工具栏的定时器
 const toolbarHideDelay = 2000 // 工具栏自动隐藏延迟（毫秒）
+
+// 批量加载配置
+const batchSize = 20 // 每次批量处理的图片数量
+const viewportMargin = 600 // 视界扩展范围，扩大以提前加载
+const initialBatchDelay = 100 // 初始加载后延迟处理视界内图片的时间（毫秒）
 
 // 保存全部图像列表的滚动位置
 const allImagesScrollTop = ref(0)
@@ -543,7 +568,7 @@ function initObserver() {
     // 扩大 rootMargin，快速滑动时提前加载，减少白屏
     intersectionObserver.value = new IntersectionObserver(handleIntersection, {
       root: scrollContainer.value,
-      rootMargin: '400px 0px',
+      rootMargin: `${viewportMargin}px 0px`,
       threshold: 0.01
     })
   }
@@ -576,6 +601,9 @@ function handleScroll() {
     showGroupToolbar.value = false
     clearToolbarHideTimer()
   }
+  
+  // 检测滚动开始
+  handleScrollStart()
 }
 
 // 处理鼠标/触摸移动事件
@@ -614,28 +642,245 @@ function handleToolbarMouseLeave() {
   }
 }
 
-function handleIntersection(entries) {
+/**
+ * 处理滚动开始
+ * 重置滚动停止计时器
+ */
+function handleScrollStart() {
+  isScrolling = true
+  
+  // 清除之前的计时器
+  if (scrollStopTimer) {
+    clearTimeout(scrollStopTimer)
+    scrollStopTimer = null
+  }
+  
+  // 设置新的计时器
+  scrollStopTimer = setTimeout(() => {
+    handleScrollStop()
+  }, scrollStopDelay)
+}
+
+/**
+ * 处理滚动停止
+ * 批量获取缺失的缩略图
+ */
+function handleScrollStop() {
+  isScrolling = false
+  
+  // 如果有待获取的缩略图，批量获取
+  if (pendingThumbnailIndices.size > 0) {
+    batchFetchMissingThumbnails()
+  }
+}
+
+/**
+ * 批量获取缺失的缩略图（滚动停止后）
+ * 使用asyncFetchRemote=true进行异步获取，不阻塞UI
+ */
+async function batchFetchMissingThumbnails() {
+  if (batchLoading.value || pendingThumbnailIndices.size === 0) return
+  
+  console.log(`滚动停止，开始批量获取 ${pendingThumbnailIndices.size} 个缺失缩略图`)
+  
+  // 将Set转换为数组，并限制每次处理的数量
+  const indices = Array.from(pendingThumbnailIndices).slice(0, batchSize)
+  
+  if (indices.length === 0) return
+  
+  batchLoading.value = true
+  
+  try {
+    // 准备查询参数
+    const imageInfos = []
+    const indexMap = [] // 记录索引映射
+    
+    for (const idx of indices) {
+      const img = images.value[idx]
+      if (img && !img.isPlaceholder) { // 跳过占位图片
+        imageInfos.push({
+          filePath: img.path,
+          locals: ['200'],
+          remote: '200'
+        })
+        indexMap.push(idx)
+      }
+    }
+    
+    if (imageInfos.length === 0) {
+      // 如果没有有效的图片，清除这些索引
+      indices.forEach(idx => pendingThumbnailIndices.delete(idx))
+      return
+    }
+    
+    // 使用asyncFetchRemote=true进行批量获取（异步模式）
+    const results = await batchFileApi.getFilesUrl(imageInfos, true)
+    
+    // 处理获取结果
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      const idx = indexMap[i]
+      
+      // 从pending集合中移除
+      pendingThumbnailIndices.delete(idx)
+      
+      const img = images.value[idx]
+      if (!img) continue
+      
+      // 如果结果是Promise，等待它完成
+      if (result.fetchPromise) {
+        result.fetchPromise.then(asyncFetchResult => {
+          updateThumbnailByIndex(idx, asyncFetchResult.url)
+        }).catch(error => {
+          console.error(`异步获取缩略图失败 index=${idx}:`, error)
+          updateThumbnailByIndex(idx, null)
+        })
+      } else if (result.url) {
+        // 直接有结果
+        updateThumbnailByIndex(idx, result.url)
+      } else {
+        // 没有结果
+        updateThumbnailByIndex(idx, null)
+      }
+    }
+    
+    console.log(`批量获取完成，处理了 ${results.length} 个缩略图`)
+  } catch (error) {
+    console.error('批量获取缺失缩略图失败:', error)
+  } finally {
+    batchLoading.value = false
+    
+    // 如果还有待获取的缩略图，继续处理
+    if (pendingThumbnailIndices.size > 0) {
+      console.log(`还有 ${pendingThumbnailIndices.size} 个缩略图待获取，继续处理`)
+      setTimeout(() => {
+        batchFetchMissingThumbnails()
+      }, 200) // 稍微延迟，避免连续请求
+    } else {
+      console.log('所有缺失缩略图已处理完成')
+    }
+  }
+}
+
+/**
+ * 更新缩略图URL
+ */
+function updateThumbnailUrl(path, url) {
+  // 在images数组中查找对应的图片
+  const index = images.value.findIndex(img => img && img.path === path)
+  if (index !== -1 && images.value[index]) {
+    updateThumbnailByIndex(index, url)
+  }
+}
+
+/**
+ * 通过索引更新缩略图URL
+ */
+function updateThumbnailByIndex(index, url) {
+  if (index < 0 || index >= images.value.length || !images.value[index]) return
+  
+  const img = images.value[index]
+  
+  // 跳过占位图片
+  if (img.isPlaceholder) {
+    console.log(`跳过占位图片的缩略图更新: index=${index}`)
+    return
+  }
+  
+  if (url) {
+    // 成功获取到缩略图URL
+    img.thumbnailUrl = url
+    img.showPlaceholder = false // 隐藏占位符，显示缩略图
+    img.loadingThumbnail = false
+    console.log(`成功获取缩略图: index=${index}, name=${img.name}`)
+  } else {
+    // 获取失败，保持显示默认缩略图
+    img.thumbnailUrl = null
+    img.showPlaceholder = true
+    img.loadingThumbnail = false
+    console.warn(`获取缩略图失败: index=${index}, name=${img.name}`)
+  }
+}
+
+/**
+ * 处理初始视界内的图片
+ * 在页面首次加载时，立即处理视界内的所有图片
+ * 这是初始化后的第一次加载，需要立即开始加载视界内的缩略图
+ */
+function processInitialVisibleImages() {
+  if (!scrollContainer.value || images.value.length === 0) return
+  
+  console.log('初始化完成，开始处理初始视界内图片')
+  
+  // 获取视界范围
+  const containerRect = scrollContainer.value.getBoundingClientRect()
+  const viewportTop = containerRect.top
+  const viewportBottom = containerRect.bottom
+  
+  // 扩展视界范围，确保边缘图片也被处理
+  const expandedTop = viewportTop - viewportMargin
+  const expandedBottom = viewportBottom + viewportMargin
+  
+  // 收集视界内的图片索引
+  const visibleIndices = []
+  
+  // 获取所有图片元素
+  const imageElements = scrollContainer.value.querySelectorAll('.image-grid-item')
+  imageElements.forEach((el, index) => {
+    if (index >= images.value.length) return
+    
+    const rect = el.getBoundingClientRect()
+    const elementTop = rect.top
+    const elementBottom = rect.bottom
+    
+    // 检查元素是否在扩展后的视界内
+    if (elementBottom > expandedTop && elementTop < expandedBottom) {
+      visibleIndices.push(index)
+    }
+  })
+  
+  // 批量处理视界内的图片
+  if (visibleIndices.length > 0) {
+    console.log(`初始处理 ${visibleIndices.length} 张视界内图片`)
+    
+    // 立即处理，不延迟
+    batchProcessVisibleImages(visibleIndices)
+    
+    // 同时触发滚动停止检测，确保如果有缺失的缩略图会被批量获取
+    handleScrollStart()
+  } else {
+    console.log('初始视界内没有图片')
+  }
+}
+
+async function handleIntersection(entries) {
   // 仅在全部图片模式下处理IntersectionObserver
   if (groupType.value !== 'all') return;
   
+  // 收集所有进入视界的图片
+  const visibleIndices = []
   entries.forEach(entry => {
     const el = entry.target
     const idx = parseInt(el.dataset.index, 10)
     if (!Number.isFinite(idx)) return
 
     if (entry.isIntersecting) {
-      // load thumbnail for visible items
-      const img = images.value[idx]
-      if (img && !img.thumbnailUrl && !img.loadingThumbnail) {
-        loadThumbnail(img, idx)
-      }
-
+      visibleIndices.push(idx)
+      
       // if last item visible, load next page
       if (idx === images.value.length - 1 && !loading.value && hasMore.value) {
         loadImages(currentOffset.value)
       }
     }
   })
+  
+  // 批量处理进入视界的图片（使用微任务避免阻塞滚动）
+  if (visibleIndices.length > 0) {
+    // 使用setTimeout延迟处理，确保滚动流畅
+    setTimeout(() => {
+      batchProcessVisibleImages(visibleIndices)
+    }, 0)
+  }
 }
 
 function observeEl(el, idx) {
@@ -649,6 +894,25 @@ function observeEl(el, idx) {
   }
 }
 
+// 处理缩略图加载成功
+function handleThumbnailLoad(image) {
+  if (image) {
+    image.showPlaceholder = false
+    image.loaded = true
+  }
+}
+
+// 处理缩略图加载失败
+function handleThumbnailError(image) {
+  if (image) {
+    // 加载失败时显示占位符
+    image.showPlaceholder = true
+    image.thumbnailUrl = null
+    image.loadingThumbnail = false
+    console.warn(`缩略图加载失败: ${image.name}`)
+  }
+}
+
 async function loadImages(offset = 0) {
   if (loading.value) return
   loading.value = true
@@ -658,21 +922,54 @@ async function loadImages(offset = 0) {
     if (!res) return
 
     const items = res.items || []
-    const mapped = items.map((it, i) => {
+    
+    // 处理每个图片项，更新占位图片或添加新图片
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      const currentIndex = offset + i
       const path = typeof it === 'string' ? it : (it.file_path || it)
       const name = (path || '').split('/').pop() || '未命名'
-      return {
-        id: offset + i,
+      
+      const realImage = {
+        id: currentIndex,
         path,
         name,
         type: getFileType(name),
         thumbnailUrl: null,
-        loadingThumbnail: false
+        loadingThumbnail: false,
+        showPlaceholder: true, // 默认显示占位符
+        loaded: false, // 图片是否已加载完成
+        lazy: true // 所有图片都是lazy加载
       }
-    })
-
-    if (offset === 0) images.value = mapped
-    else images.value = images.value.concat(mapped)
+      
+      // 检查这个位置是否已经有图片
+      if (currentIndex < images.value.length && images.value[currentIndex]) {
+        // 如果已经有图片，检查是否是占位图片
+        if (images.value[currentIndex].isPlaceholder) {
+          // 是占位图片，更新为真实图片（保留其他属性）
+          images.value[currentIndex] = {
+            ...realImage,
+            // 保留占位图片的一些状态（如果需要）
+            isPlaceholder: false // 标记为真实图片
+          }
+        } else {
+          // 已经是真实图片，更新数据（可能路径或名称有变化）
+          images.value[currentIndex] = realImage
+        }
+      } else {
+        // 这个位置没有图片，需要添加
+        // 确保数组足够长
+        while (images.value.length <= currentIndex) {
+          images.value.push(null)
+        }
+        images.value[currentIndex] = realImage
+      }
+    }
+    
+    // 清理数组末尾的null值
+    while (images.value.length > 0 && images.value[images.value.length - 1] === null) {
+      images.value.pop()
+    }
 
     totalImages.value = res.total || totalImages.value || 0
     currentOffset.value = images.value.length
@@ -689,6 +986,11 @@ async function loadImages(offset = 0) {
       }
     }
 
+    // 如果是第一次加载（offset === 0）并且知道了总图片数，启动后台初始化
+    if (offset === 0 && totalImages.value > 0 && !backgroundInitialized.value && !backgroundInitializing.value) {
+      startBackgroundInitialization()
+    }
+
     // ensure observer is ready after DOM updated
     await nextTick()
     if (!intersectionObserver.value) initObserver()
@@ -698,6 +1000,130 @@ async function loadImages(offset = 0) {
     console.error('loadImages error', e)
   } finally {
     loading.value = false
+    
+    // 图片加载完成后，延迟处理初始视界内的图片
+    if (offset === 0) {
+      setTimeout(() => {
+        processInitialVisibleImages()
+      }, initialBatchDelay)
+    }
+  }
+}
+
+/**
+ * 启动后台初始化整个图片列表
+ * 在获取到总图片数后，后台初始化整个列表，使用默认缩略图
+ */
+async function startBackgroundInitialization() {
+  if (backgroundInitializing.value || backgroundInitialized.value) return
+  
+  console.log(`开始后台初始化整个图片列表，总图片数: ${totalImages.value}`)
+  backgroundInitializing.value = true
+  
+  try {
+    // 计算需要加载的图片数量（减去已经加载的）
+    const alreadyLoaded = images.value.length
+    const remaining = totalImages.value - alreadyLoaded
+    
+    if (remaining <= 0) {
+      console.log('所有图片已经加载，无需后台初始化')
+      backgroundInitialized.value = true
+      return
+    }
+    
+    console.log(`需要后台初始化 ${remaining} 张图片`)
+    
+    // 分批加载剩余的图片
+    const batchSize = 50 // 每批加载50张图片
+    const batches = Math.ceil(remaining / batchSize)
+    
+    for (let batch = 0; batch < batches; batch++) {
+      const batchOffset = alreadyLoaded + (batch * batchSize)
+      const batchCount = Math.min(batchSize, remaining - (batch * batchSize))
+      
+      // 使用微任务延迟加载，避免阻塞UI
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      // 加载这一批图片
+      await loadBackgroundImages(batchOffset, batchCount)
+    }
+    
+    console.log('后台初始化完成')
+    backgroundInitialized.value = true
+  } catch (error) {
+    console.error('后台初始化失败:', error)
+  } finally {
+    backgroundInitializing.value = false
+  }
+}
+
+/**
+ * 后台加载图片（不触发UI更新）
+ * 只创建占位图片对象，不进行任何网络请求
+ * 实际数据等到loadImages调用时才更新
+ */
+async function loadBackgroundImages(offset, count) {
+  try {
+    // 创建占位图片对象
+    const placeholderImages = []
+    
+    for (let i = 0; i < count; i++) {
+      const currentIndex = offset + i
+      
+      // 检查这个位置是否已经有图片
+      if (currentIndex < images.value.length && images.value[currentIndex]) {
+        // 如果已经有图片，跳过（可能是loadImages已经加载了）
+        continue
+      }
+      
+      // 创建占位图片
+      placeholderImages.push({
+        id: currentIndex,
+        path: `placeholder_${currentIndex}`, // 占位路径
+        name: `图片 ${currentIndex + 1}`,
+        type: '图片', // 默认类型，不区分视频还是图片
+        thumbnailUrl: null,
+        loadingThumbnail: false,
+        showPlaceholder: true, // 默认显示占位符
+        loaded: false, // 图片是否已加载完成
+        lazy: true, // 标记为lazy加载
+        isPlaceholder: true // 标记为占位图片
+      })
+    }
+    
+    if (placeholderImages.length === 0) {
+      console.log(`offset ${offset} 到 ${offset + count} 的图片已经存在，无需创建占位`)
+      return
+    }
+    
+    // 将占位图片添加到列表
+    // 我们需要确保图片按正确的顺序插入
+    for (const placeholder of placeholderImages) {
+      const index = placeholder.id
+      
+      // 如果这个位置已经超出当前数组长度，需要扩展数组
+      while (images.value.length <= index) {
+        images.value.push(null) // 先填充null
+      }
+      
+      // 如果这个位置是null，设置为占位图片
+      if (images.value[index] === null) {
+        images.value[index] = placeholder
+      }
+      // 如果这个位置已经有占位图片，跳过
+      else if (images.value[index].isPlaceholder) {
+        // 已经是占位图片，跳过
+      }
+      // 如果这个位置已经有真实图片，跳过（不应该发生）
+    }
+    
+    // 更新当前偏移量（最大索引+1）
+    currentOffset.value = Math.max(currentOffset.value, offset + count)
+    
+    // 更新hasMore状态
+    hasMore.value = currentOffset.value < totalImages.value
+  } catch (error) {
+    console.error('后台创建占位图片失败:', error)
   }
 }
 
@@ -715,37 +1141,86 @@ function attachObservers() {
   })
 }
 
-async function loadThumbnail(item, idx) {
-  if (!item || item.loadingThumbnail || item.thumbnailUrl) return
-  images.value[idx].loadingThumbnail = true
+/**
+ * 批量处理可见图片（滚动过程中）
+ * 1. 快速批量查询本地是否存在缩略图
+ * 2. 本地有的直接显示缩略图
+ * 3. 本地没有的立即显示默认缩略图，并将路径添加到待获取队列
+ * 4. 滚动停止后再批量获取缺失的缩略图
+ */
+async function batchProcessVisibleImages(indices) {
+  if (batchLoading.value || indices.length === 0) return
+  
+  // 收集需要查询的图片信息
+  const imageInfos = []
+  const indexMap = [] // 记录索引映射
+  
+  for (const idx of indices) {
+    const img = images.value[idx]
+    if (img && !img.thumbnailUrl && !img.loadingThumbnail) {
+      // 跳过占位图片（isPlaceholder为true）
+      if (img.isPlaceholder) {
+        // 占位图片只显示默认缩略图，不尝试获取真实缩略图
+        img.showPlaceholder = true
+        img.loadingThumbnail = false
+        continue
+      }
+      
+      // 立即显示默认缩略图（通过showPlaceholder控制）
+      img.showPlaceholder = true
+      img.loadingThumbnail = true
+      
+      imageInfos.push({
+        filePath: img.path,
+        locals: ['200'], // 只查询200px的缩略图
+        remote: '200'
+      })
+      indexMap.push(idx)
+    }
+  }
+  
+  if (imageInfos.length === 0) return
+  
+  batchLoading.value = true
   try {
-    const url = await fileAPI.getFileThumbnailUrl(item.path, 200)
-    if (url) images.value[idx].thumbnailUrl = url
+    // 批量查询本地缩略图（不进行远程获取，asyncFetchRemote=false）
+    const results = await batchFileApi.getFilesUrl(imageInfos, false)
     
-    // 如果是视频文件，获取文件信息以提取时长
-    if (item.type === '视频' && !item.duration && !item.loadingFileInfo) {
-      // 标记正在获取文件信息，避免重复请求
-      images.value[idx].loadingFileInfo = true
-      try {
-        const fileInfo = await fileAPI.getFileInfo(item.path)
+    // 处理查询结果
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      const idx = indexMap[i]
+      const img = images.value[idx]
+      
+      if (!img) continue
+      
+      if (result.url) {
+        // 本地有缩略图，直接使用
+        img.thumbnailUrl = result.url
+        img.showPlaceholder = false // 隐藏占位符，显示缩略图
+        img.loadingThumbnail = false
+      } else {
+        // 本地没有缩略图，保持显示默认缩略图
+        // 将索引添加到待获取队列，等待滚动停止后批量获取
+        pendingThumbnailIndices.add(idx)
         
-        if (fileInfo && fileInfo.exifData) {
-          const duration = ExifFormatter.getDurationFromExif(fileInfo.exifData)
-          if (duration) {
-            images.value[idx].duration = duration
-          }
-        }
-      } catch (e) {
-        // 忽略获取文件信息失败的情况
-        console.warn('Failed to get file info for duration:', e)
-      } finally {
-        images.value[idx].loadingFileInfo = false
+        // 触发滑动停止检测（防抖）
+        handleScrollStart()
       }
     }
-  } catch (e) {
-    // ignore thumbnail load failures
+  } catch (error) {
+    console.error('批量处理可见图片失败:', error)
+    
+    // 出错时，确保图片显示默认缩略图
+    for (const idx of indices) {
+      const img = images.value[idx]
+      if (img) {
+        img.showPlaceholder = true
+        img.loadingThumbnail = false
+      }
+    }
   } finally {
-    images.value[idx].loadingThumbnail = false
+    batchLoading.value = false
   }
 }
 
@@ -772,6 +1247,13 @@ function refreshGallery() {
   hasMore.value = true
   images.value = []
   allHistorySynced.value = false // 重置同步状态
+  
+  // 重置后台初始化状态
+  backgroundInitializing.value = false
+  backgroundInitialized.value = false
+  
+  // 清空待获取缩略图队列
+  pendingThumbnailIndices.clear()
   
   // 重置滚动条到顶部
   if (scrollContainer.value) {
@@ -929,17 +1411,41 @@ onMounted(() => {
 
   // ensure template refs are populated before initializing observer
   nextTick(async () => {
+    // 先加载图片数据
+    await loadImages(0)
+    
+    // 然后初始化Observer和监听器
     initObserver()
     initScrollListener() // 初始化滚动事件监听
-    // if any elements were collected earlier, observe them now
-    observedElements.forEach((el, idx) => {
-      try {
-        if (intersectionObserver.value && el) intersectionObserver.value.observe(el)
-      } catch (e) {
-        // ignore
+    
+    // 立即观察所有已渲染的元素
+    await nextTick()
+    attachObservers()
+    
+    // 触发一次IntersectionObserver检查，确保视界内图片被立即处理
+    setTimeout(() => {
+      if (intersectionObserver.value && images.value.length > 0) {
+        // 手动触发一次IntersectionObserver检查
+        const entries = []
+        const imageElements = scrollContainer.value?.querySelectorAll('.image-grid-item') || []
+        imageElements.forEach((el, idx) => {
+          if (idx < images.value.length) {
+            entries.push({
+              target: el,
+              isIntersecting: true,
+              intersectionRatio: 1,
+              boundingClientRect: el.getBoundingClientRect(),
+              rootBounds: scrollContainer.value?.getBoundingClientRect(),
+              time: Date.now()
+            })
+          }
+        })
+        
+        if (entries.length > 0) {
+          handleIntersection(entries)
+        }
       }
-    })
-    loadImages(0)
+    }, 50)
   })
 
   // cleanup doc click listener on unmount
@@ -1025,6 +1531,22 @@ function applyAndroidNativeFix() {
 onUnmounted(() => {
   if (intersectionObserver.value) intersectionObserver.value.disconnect()
   window.removeEventListener('resize', updateColumns)
+  
+  // 清理滚动停止计时器
+  if (scrollStopTimer) {
+    clearTimeout(scrollStopTimer)
+    scrollStopTimer = null
+  }
+  
+  // 清理工具栏隐藏计时器
+  clearToolbarHideTimer()
+  
+  // 清理滚动事件监听器
+  if (scrollContainer.value) {
+    scrollContainer.value.removeEventListener('scroll', handleScroll)
+    scrollContainer.value.removeEventListener('mousemove', handleMouseMove)
+    scrollContainer.value.removeEventListener('touchmove', handleMouseMove)
+  }
 })
 </script>
 
@@ -1286,6 +1808,31 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+/* 加载中的占位符样式 */
+.image-placeholder.loading {
+  background: linear-gradient(90deg, #f8f8f8 25%, #e8e8e8 50%, #f8f8f8 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* 加载指示器 */
+.image-placeholder .loading-indicator {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 .image-real {

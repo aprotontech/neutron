@@ -174,7 +174,7 @@ export default class BatchFileApi {
                         results[resultIndex].url = remoteResult.url;
                         results[resultIndex].cacheType = remoteResult.cacheType;
                         results[resultIndex].fromCache = false;
-                        console.log(`BatchFileApi: Fetched remotely for ${needRemoteFiles[j].filePath}, type: ${remoteResult.cacheType}`);
+                        //console.log(`BatchFileApi: Fetched remotely for ${needRemoteFiles[j].filePath}, type: ${remoteResult.cacheType}`);
                     } else {
                         results[resultIndex].error = remoteResult.error || 'Failed to fetch file';
                         console.error(`BatchFileApi: Failed to fetch ${needRemoteFiles[j].filePath}: ${results[resultIndex].error}`);
