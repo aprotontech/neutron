@@ -61,6 +61,20 @@ export default class FileAPI {
         this._backgroundSyncRetryCount = 0;
         this._maxBackgroundSyncRetries = 3;
 
+        // Sync timing control
+        this._lastSyncEndTime = null; // 上一次同步结束时间戳
+        this._minSyncIntervalIncomplete = 2 * 60 * 1000; // 未完成同步最小间隔：2分钟
+        this._minSyncIntervalComplete = 5 * 60 * 1000; // 完成同步最小间隔：5分钟
+
+        // Thumbnail sync control
+        this._lastThumbnailSyncTime = null; // 最后一次缩略图同步时间
+        // 加载保存的缩略图同步时间
+        const savedThumbnailSyncTime = localStorage.getItem(this._thumbnailSyncStorageKey);
+        if (savedThumbnailSyncTime) {
+            this._lastThumbnailSyncTime = parseInt(savedThumbnailSyncTime);
+            console.log(`Loaded last thumbnail sync time: ${this._lastThumbnailSyncTime}`);
+        }
+
         // Sync status monitoring
         this._syncStatusCallback = null;
     }
@@ -168,6 +182,77 @@ export default class FileAPI {
     }
 
     /**
+     * 批量预加载图片缩略图
+     * @private
+     * @param {Array} imageItems - ImageRepoHistoryItem数组（默认都是图片或视频）
+     * @returns {Promise<{successful: number, failed: number}>} - 预加载结果统计
+     */
+    async _preloadThumbnailsForItems(imageItems) {
+        if (!imageItems || imageItems.length === 0) {
+            return { successful: 0, failed: 0 };
+        }
+
+        console.log(`Starting thumbnail preloading for ${imageItems.length} items with concurrency limit of 10`);
+
+        const maxConcurrency = 10; // 最大并发数
+        let index = 0;
+        let successful = 0;
+        let failed = 0;
+
+        // 处理单个item的函数
+        const processItem = async (item) => {
+            try {
+                // 调用 getFileThumbnailUrl 预加载缩略图
+                // 该方法内部有去重和并发控制，不会重复请求相同的缩略图
+                await this.getFileThumbnailUrl(item.path, 200);
+                return { success: true, path: item.path };
+            } catch (error) {
+                console.warn(`Failed to preload thumbnail for ${item.path}:`, error);
+                return { success: false, path: item.path, error: error.message };
+            }
+        };
+
+        // 工作函数：从队列中获取item并处理
+        const worker = async () => {
+            while (index < imageItems.length) {
+                const currentIndex = index++;
+                if (currentIndex >= imageItems.length) break;
+
+                const item = imageItems[currentIndex];
+
+                // 处理当前item并等待完成
+                try {
+                    await processItem(item);
+                    successful++;
+                } catch (error) {
+                    // processItem内部已经处理了错误并返回了结果
+                    // 这里只需要统计失败
+                    failed++;
+                }
+            }
+        };
+
+        try {
+            // 启动工作线程（最多maxConcurrency个）
+            const workers = [];
+            for (let i = 0; i < Math.min(maxConcurrency, imageItems.length); i++) {
+                workers.push(worker());
+            }
+
+            // 等待所有工作线程完成
+            await Promise.all(workers);
+
+            console.log(`Thumbnail preloading completed: ${successful} successful, ${failed} failed out of ${imageItems.length} total`);
+
+            return { successful, failed };
+        } catch (error) {
+            console.error('Error in thumbnail preloading:', error);
+            // 返回已处理的统计信息
+            return { successful, failed };
+        }
+    }
+
+    /**
      * Get singleton instance of FileAPI
      * @returns {FileAPI} Singleton instance
      */
@@ -263,9 +348,6 @@ export default class FileAPI {
             cacheType,
             cacheKey,
             async () => {
-                // 缓存未命中，执行请求
-                console.log(`Cache miss for ${cacheType}: ${cacheKey}, fetching...`);
-
                 if (!this.cacheManager) {
                     // 如果没有缓存管理器，直接执行请求
                     const data = await requestFn();
@@ -284,7 +366,7 @@ export default class FileAPI {
                     const cacheLocalUri = await this.cacheManager.getCacheUri(cacheKey);
 
                     if (cacheLocalUri) {
-                        console.log(`Filesystem cache hit for ${cacheType}: ${cacheKey}`);
+                        // console.log(`Filesystem cache hit for ${cacheType}: ${cacheKey}`);
                         return {
                             data: null, // 文件系统缓存，不需要 Blob 数据
                             objectUrl: cacheLocalUri,
@@ -305,7 +387,7 @@ export default class FileAPI {
 
                         // 创建 ObjectURL
                         const objectUrl = URL.createObjectURL(freshData);
-                        console.log(`Saved to cache: ${cacheType}: ${cacheKey}`);
+                        // console.log(`Saved to cache: ${cacheType}: ${cacheKey}`);
 
                         return {
                             data: freshData,
@@ -855,14 +937,15 @@ export default class FileAPI {
         const isImageRepoSyncFinished = this.imageRepo.getLocalTotalCount() > 0 && this.imageRepo.getRemoteTotalCount() &&
             this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
 
+        if (Capacitor.isNativePlatform()) {
+            this._startBackgroundSync();
+        }
+
         if (Capacitor.isNativePlatform() && isImageRepoSyncFinished) {
             const items = await this.imageRepo.getList(order, offset, count);
             const totalCount = this.imageRepo.getRemoteTotalCount();
 
             console.log(`Native mode: retrieved ${items.length} items from local cache (total: ${totalCount})`);
-
-            // 启动后台同步以继续同步剩余数据（非阻塞）
-            // this._startBackgroundSync();
 
             return {
                 success: true,
@@ -872,11 +955,7 @@ export default class FileAPI {
                 count: items.length,
                 order,
             };
-
         } else {
-            if (Capacitor.isNativePlatform()) {
-                this._startBackgroundSync();
-            }
             return await this._getImageRepoFromTransferClient(offset, count, order, 'xxx');
         }
     }
@@ -1055,12 +1134,37 @@ export default class FileAPI {
     async _startBackgroundSync() {
         // 如果已经在同步中，直接返回现有的promise
         if (this._backgroundSyncInProgress) {
-            console.log('Background sync already in progress, waiting for existing sync...');
             return this._backgroundSyncPromise;
         }
 
-        console.log('Starting background sync for image repository...');
         this._backgroundSyncInProgress = true;
+        console.log('Starting background sync for image repository...');
+
+        const isImageRepoSyncFinished = this.imageRepo.getLocalTotalCount() > 0 && this.imageRepo.getRemoteTotalCount() &&
+            this.imageRepo.getLocalTotalCount() >= this.imageRepo.getRemoteTotalCount();
+
+        // 检查时间间隔：如果上次同步时间太近，跳过本次同步
+        const now = Date.now();
+        if (this._lastSyncEndTime) {
+            const timeSinceLastSync = now - this._lastSyncEndTime;
+            let minInterval = this._minSyncIntervalComplete; // 默认使用完成同步的间隔
+
+            // 如果上次同步未成功完成，使用未完成同步的间隔
+            if (!isImageRepoSyncFinished) {
+                minInterval = this._minSyncIntervalIncomplete;
+            }
+
+            if (timeSinceLastSync < minInterval) {
+                const remainingTime = minInterval - timeSinceLastSync;
+                console.log(`Skipping background sync: last sync was ${Math.round(timeSinceLastSync / 1000)} seconds ago, need to wait ${Math.round(remainingTime / 1000)} more seconds (min interval: ${minInterval / 1000}s)`);
+                return Promise.resolve({
+                    success: false,
+                    skipped: true,
+                    reason: `Too soon since last sync (${Math.round(timeSinceLastSync / 1000)}s < ${minInterval / 1000}s)`
+                });
+            }
+        }
+
         this._backgroundSyncRetryCount = 0;
 
         // 创建后台同步的promise
@@ -1078,6 +1182,10 @@ export default class FileAPI {
                     if (syncResult.success) {
                         console.log(`Background sync completed successfully. Total synced: ${syncResult.totalSynced} items`);
                         this._backgroundSyncRetryCount = 0; // 重置重试计数
+
+                        // 同步成功后，启动缩略图预加载（不阻塞返回）
+                        this._startThumbnailPreloadingAfterSync();
+
                         return syncResult;
                     } else {
                         console.error(`Background sync failed: ${syncResult.error}`);
@@ -1101,6 +1209,7 @@ export default class FileAPI {
 
             // 所有重试都失败
             console.error(`Background sync failed after ${this._maxBackgroundSyncRetries + 1} attempts. Last error:`, lastError);
+
             throw lastError || new Error('Background sync failed');
 
         })().finally(() => {
@@ -1108,10 +1217,162 @@ export default class FileAPI {
             this._backgroundSyncInProgress = false;
             this._backgroundSyncPromise = null;
             this._backgroundSyncRetryCount = 0;
+            this._lastSyncEndTime = Date.now();
         });
 
         // 不等待同步完成，立即返回
         return this._backgroundSyncPromise;
+    }
+
+    /**
+     * 批量检查缩略图缓存状态，返回需要预加载的项
+     * @private
+     * @param {Array} imageItems - ImageRepoHistoryItem数组
+     * @param {number} batchSize - 批量大小
+     * @returns {Promise<Array>} - 需要预加载的项数组
+     */
+    async _batchCheckThumbnailCache(imageItems, batchSize = 100) {
+        if (!imageItems || imageItems.length === 0) {
+            return [];
+        }
+
+        console.log(`Checking thumbnail cache for ${imageItems.length} items in batches of ${batchSize}`);
+
+        const itemsToPreload = [];
+
+        // 分批处理
+        for (let i = 0; i < imageItems.length; i += batchSize) {
+            const batch = imageItems.slice(i, i + batchSize);
+
+            try {
+                // 为每个项生成缓存键
+                const cacheKeys = batch.map(item => {
+                    const filePath = item.path || item.file_path;
+                    return Hash.md5sum('thumbnail', `${filePath}_200`); // 使用200px尺寸作为标准缩略图
+                });
+
+                // 批量查询缓存记录
+                let cacheRecords = new Map();
+                if (this.cacheManager && this.cacheManager.batchGetCacheRecords) {
+                    cacheRecords = await this.cacheManager.batchGetCacheRecords(cacheKeys);
+                }
+
+                // 检查哪些项没有缓存
+                batch.forEach((item, index) => {
+                    const cacheKey = cacheKeys[index];
+                    const filePath = item.path || item.file_path;
+
+                    if (!cacheRecords.has(cacheKey)) {
+                        // 没有缓存记录，需要预加载
+                        itemsToPreload.push(item);
+                        console.log(`Thumbnail cache miss for: ${filePath}`);
+                    } else {
+                        // 有缓存记录
+                        const cacheRecord = cacheRecords.get(cacheKey);
+                        // 可以在这里添加额外的检查，比如缓存是否过期等
+                        console.log(`Thumbnail cache hit for: ${filePath}`);
+                    }
+                });
+
+                // 批次之间添加小的延迟，避免资源竞争
+                if (i + batchSize < imageItems.length) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+
+            } catch (error) {
+                console.error(`Error checking thumbnail cache for batch starting at index ${i}:`, error);
+                // 如果检查失败，将所有项都加入预加载列表以确保安全
+                batch.forEach(item => itemsToPreload.push(item));
+            }
+        }
+
+        console.log(`Thumbnail cache check completed: ${itemsToPreload.length} items need preloading out of ${imageItems.length} total`);
+        return itemsToPreload;
+    }
+
+
+    /**
+     * 在历史信息同步完成后启动缩略图预加载
+     * @private
+     */
+    async _startThumbnailPreloadingAfterSync() {
+        try {
+            console.log('Starting thumbnail preloading after sync...');
+
+            // 确保ImageRepo已初始化
+            if (this._imageRepoInitPromise) {
+                await this._imageRepoInitPromise;
+                this._imageRepoInitPromise = null;
+            }
+
+            // 检查ImageRepo是否有新的更新
+            const currentImageRepoUpdateTime = this.imageRepo.lastUpdateTimestamp;
+
+            console.log(`ImageRepo last update: ${currentImageRepoUpdateTime}, Last thumbnail sync: ${lastThumbnailSyncTime}`);
+
+            // 如果ImageRepo没有新的更新，并且上次缩略图同步时间在ImageRepo最后更新时间之后，跳过检查
+            if (currentImageRepoUpdateTime && lastThumbnailSyncTime &&
+                lastThumbnailSyncTime >= currentImageRepoUpdateTime) {
+                console.log('Skipping thumbnail preloading: ImageRepo has no new updates since last thumbnail sync');
+                return;
+            }
+
+            // 获取所有历史项
+            const allItems = Array.from(this.imageRepo.historyMap.values());
+
+            if (allItems.length === 0) {
+                console.log('No items to preload thumbnails for');
+                return;
+            }
+
+            console.log(`Starting thumbnail cache check for ${allItems.length} items after sync`);
+
+            // 批量检查缩略图缓存状态
+            const itemsToPreload = await this._batchCheckThumbnailCache(allItems, 100);
+
+            if (itemsToPreload.length === 0) {
+                console.log('All thumbnails are already cached, no need to preload');
+                this._lastThumbnailSyncTime = Date.now();
+                return;
+            }
+
+            console.log(`Starting thumbnail preloading for ${itemsToPreload.length} items that need caching`);
+
+            // 为了更好的性能和内存管理，分批处理
+            const batchSize = 100; // 每批处理100个
+            let totalSuccessful = 0;
+            let totalFailed = 0;
+
+            for (let i = 0; i < itemsToPreload.length; i += batchSize) {
+                const batch = itemsToPreload.slice(i, i + batchSize);
+                console.log(`Processing thumbnail preloading batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(itemsToPreload.length / batchSize)} (${batch.length} items)`);
+
+                try {
+                    const result = await this._preloadThumbnailsForItems(batch);
+                    totalSuccessful += result.successful;
+                    totalFailed += result.failed;
+
+                    // 批次之间添加小的延迟，避免资源竞争
+                    if (i + batchSize < itemsToPreload.length) {
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                } catch (error) {
+                    console.error(`Error in thumbnail preloading batch ${Math.floor(i / batchSize) + 1}:`, error);
+                    totalFailed += batch.length;
+                }
+            }
+
+            console.log(`Thumbnail preloading after sync completed: ${totalSuccessful} successful, ${totalFailed} failed out of ${itemsToPreload.length} total`);
+
+            // 更新缩略图同步时间
+            if (totalSuccessful > 0) {
+                this._lastThumbnailSyncTime = Date.now();
+            }
+
+        } catch (error) {
+            console.error('Error starting thumbnail preloading after sync:', error);
+            // 不抛出错误，避免影响主流程
+        }
     }
 
     async syncImageRepoHistory(expectedCount = -1) {
@@ -1132,7 +1393,6 @@ export default class FileAPI {
                 //await this.imageRepo.clear();
                 console.log('Cleared existing image repository history');
             }
-
 
             // 循环读取数据直到全部完成
             while (hasMoreData) {

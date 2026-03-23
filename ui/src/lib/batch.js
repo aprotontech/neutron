@@ -32,7 +32,7 @@ export default class BatchFileApi {
             } else {
                 filePath = item.filePath || item.path || item;
                 locals = item.locals || ['raw', '400', '200'];
-                remote = item.remote || '200';
+                remote = item.remote;
             }
 
             // 检查是否有 raw 类型
@@ -108,7 +108,7 @@ export default class BatchFileApi {
             } else {
                 filePath = item.filePath || item.path || item;
                 locals = item.locals || ['raw', '400', '200'];
-                remote = item.remote || '400';
+                remote = item.remote;
             }
 
             // 如果已经找到 raw 文件，跳过
@@ -137,7 +137,7 @@ export default class BatchFileApi {
             }
 
             // 如果没有找到缓存，添加到远程获取列表
-            if (!foundCache) {
+            if (!foundCache && remote) {
                 needRemoteFiles.push({
                     filePath: filePath,
                     remoteType: remote
@@ -257,7 +257,7 @@ export default class BatchFileApi {
                     cacheType: 'raw',
                     error: null
                 };
-            } else {
+            } else if (remoteType) {
                 // 获取缩略图
                 const size = parseInt(remoteType, 10);
                 if (isNaN(size)) {

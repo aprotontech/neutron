@@ -62,6 +62,10 @@ class ImageRepo {
         /** @type {string|null} 当前缓存的排序方式 */
         this._cachedOrder = null;
 
+        // 最后更新时间戳（毫秒级）
+        /** @type {number|null} 最后更新时间戳 */
+        this.lastUpdateTimestamp = 0;
+
         // 初始化排序比较函数
         this.sortFunctions = {
             [SortOrder.ETIME]: (a, b) => b.etime - a.etime, // 按拍摄时间倒序（最新的在前）
@@ -113,7 +117,10 @@ class ImageRepo {
 
         // 同步更新到数据库
         await this._syncToDatabase(items.map(item => this._normalizeHistoryItem(item)));
-        localStorage.setItem(this.localStorageRemoteTotalCountKey, this.remoteTotalCount.toString())
+        localStorage.setItem(this.localStorageRemoteTotalCountKey, this.remoteTotalCount.toString());
+
+        // 更新最后更新时间戳
+        this.lastUpdateTimestamp = Date.now();
     }
 
     /**

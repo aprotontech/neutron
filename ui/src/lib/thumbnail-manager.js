@@ -80,7 +80,7 @@ export default class ThumbnailManager {
                 VALUES(?, ?, ?, ?, ?, ?, ?)
             `, [cacheKey, filePath, cacheType, cacheFile, mimeType, fileSize, now]);
 
-            console.log(`ThumbnailManager: Cache record saved to database: ${cacheKey}`);
+            // console.log(`ThumbnailManager: Cache record saved to database: ${cacheKey}`);
             return true;
         } catch (error) {
             console.error('ThumbnailManager: Error saving cache record:', error);
